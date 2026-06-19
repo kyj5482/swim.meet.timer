@@ -9,7 +9,7 @@
 ```
 Swimmer 1───* TrainingRecord *───1 SessionLog
    │                                  │
-   └────────────── Roster             └── lanes[] (레인별 측정 결과)
+   └────────────── Roster             └── slots[] (익명 슬롯별 측정 결과)
 
 SetPreset (재사용 세트 설정)
 ```
@@ -46,7 +46,7 @@ interface Target {
 
 interface Split {
   segmentIndex: number;    // 0-based
-  cumulativeMs: number;    // 출발(t0)로부터 누적
+  cumulativeMs: number;    // 출발(t0)로부터 누적 (저장 ms, 표시 1/100초)
   splitMs: number;         // 직전 세그먼트 대비
   edited?: boolean;        // 수동 보정 여부
 }
@@ -54,14 +54,14 @@ interface Split {
 // 측정 종료 후 선수별로 저장되는 단위 (기록지의 row)
 interface TrainingRecord {
   id: string;
-  swimmerId: string;
+  swimmerId: string;       // ASSIGN 단계에서 슬롯 → 선수 매핑으로 확정
   sessionId: string;
   date: number;            // 측정 시각(벽시계, 표시는 모노토닉 아님)
   target: Target;
   splits: Split[];
   totalMs: number;         // 완주 시 마지막 cumulative, DNF면 마지막 기록
   status: 'finished' | 'dnf';
-  lane: number;            // 그 세션에서의 레인 번호
+  slot: number;            // 그 세션에서의 슬롯 번호(1-based)
   conditionNote?: string;
 }
 
@@ -72,31 +72,32 @@ interface SessionLog {
   t0Monotonic: number;
   course: Course;          // 세션 공통 기본값
   defaultTarget: Target;
-  lanes: LaneResult[];
+  slots: SlotResult[];
   rawTaps: TapEvent[];     // 원시 탭(감사/디버깅, 재배정 재현)
   savedRecordIds: string[];
 }
 
-interface LaneResult {
-  lane: number;
-  swimmerId: string;
-  target: Target;          // 레인별 오버라이드 가능
+interface SlotResult {
+  slot: number;            // 1..N, 도착 순서로 정의된 익명 자리
+  swimmerId: string | null;// 측정 중 null, ASSIGN 단계에서 채워짐
+  target: Target;          // 슬롯별 오버라이드 가능
   splits: Split[];
   status: 'finished' | 'dnf' | 'in_progress';
+  lowConfidence?: boolean; // 다른 슬롯과 기록이 가까워 배정 확인 필요(§3.5a)
 }
 
 interface TapEvent {
   monotonic: number;       // 캡처 시각
-  assignedLane: number | null;   // 배정 결과(폐기 시 null)
+  assignedSlot: number | null;   // 배정 결과(폐기 시 null)
   reassignedFrom?: number; // 재할당 이력
   discarded?: boolean;     // Undo로 폐기
 }
 
 interface SetPreset {
   id: string;
-  name: string;            // "100 free · 25y · 레인1-3"
+  name: string;            // "100 free · 25y · 3명"
   defaultTarget: Target;
-  lanes: { lane: number; suggestedSwimmerId?: string }[];
+  slotCount: number;
 }
 ```
 

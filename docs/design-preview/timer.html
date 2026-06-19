@@ -6,240 +6,442 @@
 <title>SplitLane — 타이머</title>
 <link rel="stylesheet" href="tokens.css">
 <style>
+  .screen { display:flex; flex-direction:column; min-height:760px; }
+  .setup, .running, .assign { flex:1; display:flex; flex-direction:column; }
+  .hidden { display:none !important; }
   .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
   .top .set { color: var(--text-muted); font-size: 13px; }
   .wake { font-size: 11px; color: var(--text-muted); display:flex; gap:5px; align-items:center; }
   .wake i { width:7px;height:7px;border-radius:50%;background:var(--ok); display:inline-block; }
 
+  /* ---- setup ---- */
+  .setup .seg-toggle { display:flex; gap:6px; margin:10px 0; }
+  .setup .seg-toggle button { flex:1; height:42px; border:1px solid var(--line); background:var(--surface);
+    color:var(--text); border-radius:12px; font-weight:600; cursor:pointer; }
+  .setup .seg-toggle button.on { background:var(--accent); color:#04221d; border-color:var(--accent); }
+  .field { display:flex; align-items:center; gap:10px; margin:10px 0; }
+  .field label { width:64px; color:var(--text-muted); font-size:13px; }
+  .field select { flex:1; height:42px; background:var(--surface); color:var(--text);
+    border:1px solid var(--line); border-radius:12px; padding:0 12px; font-size:15px; }
+  .seginfo { color:var(--text-muted); font-size:12px; margin:2px 0 14px; }
+  .seginfo b { color:var(--accent); }
+
+  .stepper { display:flex; align-items:center; justify-content:space-between;
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card); padding:14px 16px; margin:6px 0 4px; }
+  .stepper .lab { font-size:15px; font-weight:600; flex:1; min-width:0; }
+  .stepper .lab small { display:block; color:var(--text-muted); font-weight:400; font-size:12px; margin-top:2px; }
+  .stepper .ctrl { display:flex; align-items:center; gap:14px; flex-shrink:0; }
+  .stepper button { width:48px; height:48px; border-radius:14px; border:0; font-size:26px; font-weight:700;
+    background:var(--surface-2); color:var(--text); cursor:pointer; }
+  .stepper .num { font-size:30px; min-width:34px; text-align:center; }
+  .steptip { color:var(--text-muted); font-size:12px; margin:8px 2px 0; line-height:1.4; }
+
+  /* ---- running ---- */
   .clock { text-align:center; padding: 10px 0 4px; }
-  .clock .t { font-size: clamp(48px, 17vw, 86px); line-height:1; letter-spacing: -1px; }
+  .clock .t { font-size: clamp(46px, 16vw, 80px); line-height:1; letter-spacing:-1px; }
   .clock .sub { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
 
-  .lanes { display:flex; flex-direction:column; gap:10px; margin: 14px 0; }
-  .lane {
-    position: relative; background: var(--surface); border:1px solid var(--line);
-    border-radius: var(--r-card); padding: 12px 14px 12px 18px; overflow:hidden;
-  }
-  .lane::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background: var(--lc); }
+  .lanes { display:flex; flex-direction:column; gap:9px; margin: 12px 0; }
+  .lane { position:relative; background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--r-card); padding:11px 14px 11px 18px; overflow:hidden; }
+  .lane::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--lc); }
   .lane.pulse { animation: pulse .6s ease-out; }
   @keyframes pulse {
-    0% { box-shadow: 0 0 0 2px var(--lc), 0 0 26px var(--lc); background: color-mix(in srgb, var(--lc) 16%, var(--surface)); }
-    100% { box-shadow: none; background: var(--surface); }
-  }
-  .lane.done { opacity:.85; }
+    0% { box-shadow:0 0 0 2px var(--lc),0 0 26px var(--lc); background:color-mix(in srgb,var(--lc) 16%,var(--surface)); }
+    100% { box-shadow:none; background:var(--surface); } }
+  .lane.done { opacity:.9; }
   .lane .row1 { display:flex; align-items:center; gap:10px; }
-  .lane .ln { font-weight:800; color: var(--lc); font-size: 14px; }
+  .lane .ln { font-weight:800; color:var(--lc); font-size:14px; min-width:30px; }
   .lane .nm { font-weight:600; font-size:15px; }
   .lane .prog { margin-left:auto; display:flex; gap:5px; align-items:center; }
   .dot { width:11px; height:11px; border-radius:50%; border:1.5px solid var(--lc); }
-  .dot.on { background: var(--lc); }
-  .lane .splits { margin-top:7px; font-size:13px; color: var(--text-muted); display:flex; gap:12px; flex-wrap:wrap; }
-  .lane .splits b { color: var(--text); font-weight:600; }
-  .lane .fin { margin-left:auto; color: var(--ok); font-weight:700; font-size:13px; }
-  .lane .recommend { font-size:11px; color: var(--warn); }
+  .dot.on { background:var(--lc); }
+  .lane .splits { margin-top:6px; font-size:13px; color:var(--text-muted); display:flex; gap:12px; flex-wrap:wrap; }
+  .lane .splits b { color:var(--text); font-weight:600; }
+  .lane .fin { margin-left:auto; color:var(--ok); font-weight:700; font-size:14px; }
 
-  .reassign { display:flex; align-items:center; gap:8px; margin: 4px 2px 12px; min-height: 34px; }
-  .reassign .label { font-size:12px; color: var(--text-muted); }
-  .chip { border:0; cursor:pointer; border-radius: var(--r-pill); padding:7px 12px; font-weight:700; font-size:13px;
-          color:#06202b; background: var(--lc); opacity:.55; }
+  .reassign { display:flex; align-items:center; gap:8px; margin:2px 2px 10px; min-height:34px; }
+  .reassign .label { font-size:12px; color:var(--text-muted); }
+  .chip { border:0; cursor:pointer; border-radius:var(--r-pill); padding:7px 12px; font-weight:700; font-size:13px;
+    color:#06202b; background:var(--lc); opacity:.5; }
   .chip.live { opacity:1; }
-  .chip:disabled { opacity:.2; cursor:default; }
+  .chip:disabled { opacity:.18; cursor:default; }
 
-  .controls { position: sticky; bottom: 0; display:flex; flex-direction:column; gap:10px; }
-  .main-btn { width:100%; height:114px; border-radius: 28px; font-size: 30px; letter-spacing:1px;
-              box-shadow: 0 0 0 1px var(--accent), 0 10px 34px rgba(25,227,198,.28); }
-  .main-btn.lap { font-size: 34px; }
+  .controls { margin-top:auto; display:flex; flex-direction:column; gap:10px; }
+  .main-btn { width:100%; height:112px; border-radius:28px; font-size:30px; letter-spacing:1px;
+    box-shadow:0 0 0 1px var(--accent),0 10px 34px rgba(25,227,198,.28); }
+  .main-btn.lap { font-size:34px; }
   .row { display:flex; gap:10px; }
-  .row .btn { flex:1; height:50px; font-size:15px; }
-  .toast { position:absolute; left:16px; right:16px; bottom:18px; background: var(--ok); color:#06270f;
-           padding:14px 16px; border-radius:14px; font-weight:700; text-align:center; display:none; }
+  .row .btn { flex:1; height:48px; font-size:15px; }
+
+  /* ---- assign ---- */
+  .assign h2 { font-size:18px; margin:8px 0 2px; }
+  .assign .lead { color:var(--text-muted); font-size:13px; margin-bottom:14px; }
+  .acard { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
+    padding:14px 14px 12px; margin-bottom:10px; position:relative; overflow:hidden; }
+  .acard::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--lc); }
+  .acard .arow { display:flex; align-items:center; gap:10px; }
+  .acard .ln { font-weight:800; color:var(--lc); }
+  .acard .total { margin-left:auto; font-size:24px; }
+  .acard .who { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .acard select { flex:1; height:42px; background:var(--surface-2); color:var(--text);
+    border:1px solid var(--line); border-radius:12px; padding:0 12px; font-size:15px; font-weight:600; }
+  .acard .who { position:relative; }
+  .acard .rectag { font-size:10px; color:var(--accent); border:1px solid var(--accent);
+    border-radius:var(--r-pill); padding:3px 8px; flex-shrink:0; }
+  .acard .delta { margin-top:10px; font-size:13px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .prevnow b { color:var(--text); font-size:15px; font-family:var(--font-mono); }
+  .pb { background:var(--ok); color:#06270f; font-weight:800; font-size:11px; padding:2px 8px; border-radius:var(--r-pill); }
+  .imp { color:var(--ok); font-weight:700; }
+  .reg { color:var(--stop); font-weight:700; }
+  .pb-muted { opacity:.45; }
+  .acard.lowconf { border-color:var(--warn); }
+  .confbar { margin-top:10px; background:color-mix(in srgb,var(--warn) 16%,var(--surface));
+    color:var(--warn); font-size:12px; font-weight:600; padding:8px 10px; border-radius:10px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .confbar b { font-family:var(--font-mono); }
+  .confbar .swap { flex-shrink:0; border:1px solid var(--warn); background:transparent; color:var(--warn);
+    font-weight:700; font-size:12px; border-radius:var(--r-pill); padding:5px 10px; cursor:pointer; }
+  .summary { display:flex; gap:16px; align-items:center; background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--r-card); padding:12px 16px; margin-bottom:12px; font-size:14px; }
+  .summary b { color:var(--accent); font-size:18px; }
+  .acard .seglist { margin-top:8px; display:flex; gap:6px; }
+  .acard .seglist .s { flex:1; background:var(--surface-2); border-radius:8px; padding:6px 4px; text-align:center; }
+  .acard .seglist .s .si { font-size:9px; color:var(--text-muted); }
+  .acard .seglist .s .sv { font-size:13px; margin-top:2px; }
+
+  .toast { position:absolute; left:16px; right:16px; bottom:18px; background:var(--ok); color:#06270f;
+    padding:14px 16px; border-radius:14px; font-weight:700; text-align:center; display:none; }
+  .hidden { display:none !important; }
 </style>
 </head>
 <body>
 <div class="phone">
   <div class="screen">
     <div class="top">
-      <div class="set">100y 자유형 · 25y · 3레인</div>
+      <div class="set" id="setlabel">100y 자유형 · 25y</div>
       <div class="wake"><i></i> 화면 유지</div>
     </div>
 
-    <div class="clock">
-      <div class="t mono" id="clock">00:00.0</div>
-      <div class="sub" id="hint">START를 눌러 동시 출발하세요</div>
-    </div>
-
-    <div class="lanes" id="lanes"></div>
-
-    <div class="reassign">
-      <span class="label">방금 배정 정정 →</span>
-      <span id="chips" style="display:flex;gap:8px;"></span>
-    </div>
-
-    <div class="controls">
-      <button class="btn main-btn" id="main">START</button>
-      <div class="row">
-        <button class="btn btn-ghost" id="undo" disabled>↶ Undo</button>
-        <button class="btn btn-stop" id="reset">⟲ 리셋</button>
+    <!-- ============ SETUP ============ -->
+    <section class="setup" id="setup">
+      <div class="seg-toggle" id="course">
+        <button data-c="25m">25m</button>
+        <button data-c="25y" class="on">25y</button>
+        <button data-c="50m">50m</button>
       </div>
-    </div>
+      <div class="field">
+        <label>종목</label>
+        <select id="stroke">
+          <option value="free">자유형</option><option value="back">배영</option>
+          <option value="breast">평영</option><option value="fly">접영</option><option value="im">혼영</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>거리</label>
+        <select id="distance">
+          <option>25</option><option>50</option><option selected>100</option><option>200</option>
+        </select>
+      </div>
+      <div class="seginfo" id="seginfo"></div>
+
+      <div class="stepper">
+        <div class="lab">인원</div>
+        <div class="ctrl">
+          <button id="minus">−</button>
+          <span class="num mono" id="count">3</span>
+          <button id="plus">+</button>
+        </div>
+      </div>
+      <div class="steptip">익명 슬롯으로 측정하고, 끝난 뒤 각 슬롯에 선수를 배정합니다.</div>
+
+      <div class="controls">
+        <button class="btn main-btn" id="start">START</button>
+      </div>
+    </section>
+
+    <!-- ============ RUNNING ============ -->
+    <section class="running hidden" id="running">
+      <div class="clock">
+        <div class="t mono" id="clock">00:00.00</div>
+        <div class="sub" id="hint">선수가 벽을 찍는 순서대로 LAP을 누르세요</div>
+      </div>
+      <div class="lanes" id="lanes"></div>
+      <div class="reassign">
+        <span class="label">방금 배정 정정 →</span>
+        <span id="chips" style="display:flex;gap:8px;"></span>
+      </div>
+      <div class="controls">
+        <button class="btn main-btn lap" id="lap">LAP</button>
+        <div class="row">
+          <button class="btn btn-ghost" id="undo" disabled>↶ Undo</button>
+          <button class="btn btn-stop" id="reset">⟲ 리셋</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ASSIGN ============ -->
+    <section class="assign hidden" id="assign">
+      <h2>기록 완료 — 선수 배정</h2>
+      <div class="lead">기록을 보고 선수를 배정하세요. 기존 기록 기준으로 추천했습니다.</div>
+      <div id="summary"></div>
+      <div id="acards"></div>
+      <div class="controls">
+        <button class="btn main-btn" id="save" style="height:64px;font-size:20px">기록 저장</button>
+        <div class="row">
+          <button class="btn btn-ghost" id="again">다시 측정</button>
+        </div>
+      </div>
+    </section>
 
     <div class="toast" id="toast"></div>
   </div>
 </div>
 
 <script>
-// --- 데모용 선수/페이스 모델 (docs/03 §3.3) ---
-// pace = 세그먼트별 예상 소요(ms). 데모는 기존기록 기반 추천을 모사한 고정값.
-const SEGMENTS = 4;
-const lanesData = [
-  { lane:1, name:'민준', color:'var(--lane-1)', pace:[13200,13600,13900,14400] },
-  { lane:2, name:'서연', color:'var(--lane-2)', pace:[12800,13200,13500,13900] },
-  { lane:3, name:'하준', color:'var(--lane-3)', pace:[13800,14100,14400,15000] },
+// ===== 모의 선수 로스터(추천·향상 체크용) =====
+const roster = [
+  { id:'seoyeon', name:'서연', best:51.80, last:52.10, typical:52.2 },
+  { id:'minjun',  name:'민준', best:52.60, last:53.40, typical:53.0 },
+  { id:'jiwoo',   name:'지우', best:54.00, last:54.30, typical:54.1 },
+  { id:'hajun',   name:'하준', best:55.10, last:55.80, typical:55.5 },
+  { id:'doyun',   name:'도윤', best:56.20, last:56.00, typical:56.1 },
 ];
 
-let state, t0, raf, lastAssigned = null, taps = [];
+let cfg = { course:'25y', stroke:'free', distance:100 };
+let slotCount = 3, segCount = 4;
+let state, t0, raf, lastAssigned = null, taps = [], view = 'setup';
 
-function freshState() {
-  return lanesData.map(d => ({
-    ...d, splits: [], lastCum: 0, nextSeg: 0, finished:false
+const unit = c => c==='50m' ? 50 : 25;
+function recomputeSeg(){
+  segCount = Math.floor(cfg.distance / unit(cfg.course));
+  const ok = cfg.distance % unit(cfg.course) === 0 && segCount >= 1;
+  document.getElementById('seginfo').innerHTML = ok
+    ? `구간 <b>${segCount}개</b> · ${cfg.distance}${cfg.course.endsWith('y')?'y':'m'} ÷ ${unit(cfg.course)}`
+    : `<span style="color:var(--warn)">거리가 구간으로 나눠떨어지지 않습니다</span>`;
+  document.getElementById('start').disabled = !ok;
+  const strokeKo = {free:'자유형',back:'배영',breast:'평영',fly:'접영',im:'혼영'}[cfg.stroke];
+  document.getElementById('setlabel').textContent =
+    `${cfg.distance}${cfg.course.endsWith('y')?'y':'m'} ${strokeKo} · ${cfg.course}`;
+  return ok;
+}
+
+function show(v){
+  view = v;
+  for (const id of ['setup','running','assign'])
+    document.getElementById(id).classList.toggle('hidden', id !== v);
+}
+
+// ----- time format: 2 decimals -----
+function fmt(ms){ const s=Math.max(0,ms)/1000,m=Math.floor(s/60),r=s%60;
+  return `${String(m).padStart(2,'0')}:${r.toFixed(2).padStart(5,'0')}`; }
+function fmtSplit(ms){ return ':'+(ms/1000).toFixed(2).padStart(5,'0'); }
+function fmtTotal(ms){ const s=ms/1000; return s>=60?fmt(ms):s.toFixed(2); }
+
+const laneColor = i => `var(--lane-${(i%8)+1})`;
+
+function freshSlots(){
+  state = Array.from({length:slotCount},(_,i)=>({
+    idx:i, color:laneColor(i), splits:[], lastCum:0, nextSeg:0, finished:false, swimmerId:null
   }));
 }
-function init() {
-  state = freshState(); t0 = null; lastAssigned = null; taps = [];
-  cancelAnimationFrame(raf);
-  document.getElementById('clock').textContent = '00:00.0';
-  document.getElementById('hint').textContent = 'START를 눌러 동시 출발하세요';
-  const m = document.getElementById('main'); m.textContent = 'START'; m.classList.remove('lap');
-  document.getElementById('undo').disabled = true;
-  document.getElementById('toast').style.display = 'none';
-  render();
-}
 
-function fmt(ms) {
-  if (ms == null) return '';
-  const s = Math.max(0, ms)/1000;
-  const m = Math.floor(s/60), r = (s%60);
-  return `${String(m).padStart(2,'0')}:${r.toFixed(1).padStart(4,'0')}`;
+// ===== START =====
+function start(){
+  if (!recomputeSeg()) return;
+  freshSlots(); taps=[]; lastAssigned=null; t0=performance.now();
+  show('running'); tick(); renderRunning();
 }
-function fmtSplit(ms){ return ':' + (ms/1000).toFixed(2).padStart(5,'0'); }
+function tick(){ if(t0!=null && view==='running'){
+  document.getElementById('clock').textContent = fmt(performance.now()-t0);
+  raf = requestAnimationFrame(tick); } }
 
-function tick(){
-  if (t0 != null) {
-    document.getElementById('clock').textContent = fmt(performance.now() - t0);
-    raf = requestAnimationFrame(tick);
-  }
-}
-
-// --- 핵심: 단일 LAP → 자동 배정 (docs/03 §3.3) ---
+// ===== LAP → 익명 슬롯 자동 배정 =====
 function onLap(){
-  const now = performance.now();
-  if (t0 == null) { // START
-    t0 = now;
-    const m = document.getElementById('main'); m.textContent = 'LAP'; m.classList.add('lap');
-    document.getElementById('hint').textContent = '선수가 벽을 찍는 순서대로 LAP을 누르세요';
-    tick();
-    return;
+  const elapsed = performance.now()-t0;
+  const active = state.filter(s=>!s.finished);
+  if(!active.length) return;
+  // 1라운드: 아직 첫 구간 기록 없는 슬롯을 도착 순서대로 정의
+  const virgin = active.filter(s=>s.splits.length===0);
+  let target;
+  if (virgin.length){ target = virgin[0]; }
+  else {
+    let best=null,bs=Infinity;
+    for(const s of active){ const exp=s.lastCum + avgPace(s); const sc=Math.abs(elapsed-exp);
+      if(sc<bs){bs=sc;best=s;} }
+    target=best;
   }
-  const elapsed = now - t0;
-  const cands = state.filter(l => !l.finished);
-  if (!cands.length) return;
-
-  // 예상 도착 시각이 가장 가까운 레인 선택
-  let best = null, bestScore = Infinity;
-  for (const l of cands) {
-    const exp = l.lastCum + l.pace[l.nextSeg];
-    const score = Math.abs(elapsed - exp);
-    if (score < bestScore) { bestScore = score; best = l; }
-  }
-  assign(best, elapsed);
-  taps.push({ elapsed, lane: best.lane });
-  document.getElementById('undo').disabled = false;
-  checkDone();
+  assign(target, elapsed);
+  taps.push({elapsed, idx:target.idx});
+  document.getElementById('undo').disabled=false;
+  if(state.every(s=>s.finished)) finish();
 }
-
-function assign(lane, elapsed){
-  const split = elapsed - lane.lastCum;
-  lane.splits.push({ seg: lane.nextSeg, cum: elapsed, split });
-  lane.lastCum = elapsed;
-  lane.nextSeg++;
-  if (lane.nextSeg === SEGMENTS) lane.finished = true;
-  lastAssigned = lane.lane;
-  render(lane.lane);
+function avgPace(s){ return s.splits.reduce((a,b)=>a+b.split,0)/s.splits.length; }
+function assign(slot, elapsed){
+  slot.splits.push({seg:slot.nextSeg, cum:elapsed, split:elapsed-slot.lastCum});
+  slot.lastCum=elapsed; slot.nextSeg++;
+  if(slot.nextSeg===segCount) slot.finished=true;
+  lastAssigned=slot.idx; renderRunning(slot.idx);
 }
-
-// --- 재할당 (docs/03 §3.4): 마지막 split을 다른 레인으로 이동 ---
-function reassign(toLaneNum){
-  if (lastAssigned == null || toLaneNum === lastAssigned) return;
-  const from = state.find(l => l.lane === lastAssigned);
-  const to = state.find(l => l.lane === toLaneNum);
-  if (!from || !to || to.nextSeg >= SEGMENTS) return;
-  const sp = from.splits.pop();
-  from.nextSeg--; from.finished = false;
-  from.lastCum = from.splits.length ? from.splits[from.splits.length-1].cum : 0;
-  // to 레인에 같은 elapsed로 배정
-  const elapsed = sp.cum;
-  to.splits.push({ seg: to.nextSeg, cum: elapsed, split: elapsed - to.lastCum });
-  to.lastCum = elapsed; to.nextSeg++;
-  if (to.nextSeg === SEGMENTS) to.finished = true;
-  lastAssigned = toLaneNum;
-  if (taps.length) taps[taps.length-1].lane = toLaneNum;
-  render(toLaneNum);
-  checkDone();
+function reassign(toIdx){
+  if(lastAssigned==null||toIdx===lastAssigned) return;
+  const from=state[lastAssigned], to=state[toIdx];
+  if(!to||to.nextSeg>=segCount) return;
+  const sp=from.splits.pop(); from.nextSeg--; from.finished=false;
+  from.lastCum=from.splits.length?from.splits.at(-1).cum:0;
+  const e=sp.cum; to.splits.push({seg:to.nextSeg,cum:e,split:e-to.lastCum});
+  to.lastCum=e; to.nextSeg++; if(to.nextSeg===segCount) to.finished=true;
+  lastAssigned=toIdx; if(taps.length) taps.at(-1).idx=toIdx;
+  renderRunning(toIdx); if(state.every(s=>s.finished)) finish();
 }
-
 function undo(){
-  const t = taps.pop(); if (!t) return;
-  const l = state.find(x => x.lane === t.lane);
-  l.splits.pop(); l.nextSeg--; l.finished = false;
-  l.lastCum = l.splits.length ? l.splits[l.splits.length-1].cum : 0;
-  lastAssigned = null;
-  document.getElementById('undo').disabled = taps.length === 0;
-  render();
+  const t=taps.pop(); if(!t) return;
+  const s=state[t.idx]; s.splits.pop(); s.nextSeg--; s.finished=false;
+  s.lastCum=s.splits.length?s.splits.at(-1).cum:0; lastAssigned=null;
+  document.getElementById('undo').disabled=taps.length===0; renderRunning();
 }
 
-function checkDone(){
-  if (state.every(l => l.finished)) {
-    cancelAnimationFrame(raf);
-    const total = Math.max(...state.map(l => l.lastCum));
-    document.getElementById('clock').textContent = fmt(total);
-    document.getElementById('hint').textContent = '모든 선수 완주 — 자동 저장 단계(REVIEW)';
-    const to = document.getElementById('toast');
-    to.textContent = '✓ 3명 기록 저장됨 (자동)';
-    to.style.display = 'block';
-    const m = document.getElementById('main'); m.textContent = '다시 측정'; m.classList.remove('lap');
-  }
-}
-
-function render(pulseLane){
-  // lanes
-  document.getElementById('lanes').innerHTML = state.map(l => {
-    const dots = Array.from({length:SEGMENTS}, (_,i) =>
-      `<span class="dot ${i < l.nextSeg ? 'on':''}"></span>`).join('');
-    const last = l.splits.slice(-2).map(s => `<span><b>${fmtSplit(s.split)}</b></span>`).join('');
-    const right = l.finished
-      ? `<span class="fin">완주 ${fmt(l.lastCum)}</span>`
-      : `<span class="prog">${dots}</span>`;
-    const recom = l.splits.length===0 ? `<span class="recommend">추천 배정</span>` : '';
-    return `<div class="lane ${l.finished?'done':''} ${pulseLane===l.lane?'pulse':''}" style="--lc:${l.color}">
-      <div class="row1"><span class="ln">L${l.lane}</span><span class="nm">${l.name}</span>${right}</div>
-      <div class="splits">${last || recom || '<span>—</span>'}</div>
-    </div>`;
+function renderRunning(pulse){
+  const done=state.reduce((a,s)=>a+s.splits.length,0), total=state.length*segCount;
+  document.getElementById('hint').textContent = done
+    ? `랩 ${done} / ${total} · 남은 선수 ${state.filter(s=>!s.finished).length}명`
+    : '선수가 벽을 찍는 순서대로 LAP을 누르세요';
+  document.getElementById('lanes').innerHTML = state.map(s=>{
+    const dots=Array.from({length:segCount},(_,i)=>`<span class="dot ${i<s.nextSeg?'on':''}"></span>`).join('');
+    const last=s.splits.slice(-2).map(x=>`<span><b>${fmtSplit(x.split)}</b></span>`).join('');
+    const right=s.finished?`<span class="fin">완주 ${fmtTotal(s.lastCum)}</span>`:`<span class="prog">${dots}</span>`;
+    return `<div class="lane ${s.finished?'done':''} ${pulse===s.idx?'pulse':''}" style="--lc:${s.color}">
+      <div class="row1"><span class="ln">${s.idx+1}번</span>${right}</div>
+      <div class="splits">${last||'<span>출발 대기</span>'}</div></div>`;
   }).join('');
-  // reassign chips
-  document.getElementById('chips').innerHTML = state.map(l =>
-    `<button class="chip ${lastAssigned!=null && !l.finished ? 'live':''}" style="--lc:${l.color}"
-       ${(lastAssigned==null || l.finished)?'disabled':''} onclick="reassign(${l.lane})">L${l.lane}</button>`
-  ).join('');
+  document.getElementById('chips').innerHTML = state.map(s=>
+    `<button class="chip ${lastAssigned!=null&&!s.finished?'live':''}" style="--lc:${s.color}"
+      ${(lastAssigned==null||s.finished)?'disabled':''} onclick="reassign(${s.idx})">${s.idx+1}</button>`).join('');
 }
 
-document.getElementById('main').addEventListener('click', () => {
-  if (state.every(l => l.finished) && t0 != null) { init(); return; }
-  onLap();
+// ===== 측정 종료 → 배정 화면 =====
+function finish(){
+  cancelAnimationFrame(raf);
+  document.getElementById('clock').textContent=fmt(Math.max(...state.map(s=>s.lastCum)));
+  recommend(); renderAssign(); show('assign');
+}
+// 기록된 총 타임을 선수 typical과 대조해 추천 — 전역 최소비용 매칭(중복 없이)
+function recommend(){
+  // 모든 (슬롯,선수) 쌍의 비용을 작은 순으로 그리디 배정
+  const pairs=[];
+  state.forEach(s=>roster.forEach(r=>pairs.push({s, r, d:Math.abs(s.lastCum/1000-r.typical)})));
+  pairs.sort((a,b)=>a.d-b.d);
+  const usedSlot=new Set(), usedR=new Set();
+  for(const p of pairs){
+    if(usedSlot.has(p.s.idx)||usedR.has(p.r.id)) continue;
+    p.s.swimmerId=p.r.id; usedSlot.add(p.s.idx); usedR.add(p.r.id);
+  }
+  // 신뢰도: 다른 슬롯과 기록이 너무 가까우면(시간만으론 구분 불가) '확인 필요'
+  const CLOSE=0.40; // 초
+  state.forEach(s=>{
+    s.lowConf = state.some(o=> o!==s && Math.abs(o.lastCum-s.lastCum)/1000 < CLOSE);
+  });
+}
+// 코치의 실력 향상 체크: 이전 → 오늘 (before→after)
+function deltaHtml(slot){
+  const r=roster.find(x=>x.id===slot.swimmerId); if(!r) return '';
+  const tot=slot.lastCum/1000;
+  const dLast=tot-r.last;
+  const cls=dLast<0?'imp':'reg', ar=dLast<0?'▼':'▲';
+  let html=`<span class="prevnow"><span class="muted">이전 ${r.last.toFixed(2)}</span> → <b>${tot.toFixed(2)}</b></span>`
+         + `<span class="${cls}">${ar}${Math.abs(dLast).toFixed(2)}</span>`;
+  if(tot<r.best-0.001) html+=`<span class="pb${slot.lowConf?' pb-muted':''}">🏅 PB</span>`;
+  return html;
+}
+function nearestSibling(slot){
+  let best=null,bd=Infinity;
+  for(const o of state){ if(o===slot) continue;
+    const d=Math.abs(o.lastCum-slot.lastCum)/1000; if(d<bd){bd=d;best=o;} }
+  return {sib:best, gap:bd};
+}
+function confBanner(slot){
+  if(!slot.lowConf) return '';
+  const {sib,gap}=nearestSibling(slot);
+  return `<div class="confbar"><span>⚠ ${sib.idx+1}번과 <b>${gap.toFixed(2)}초</b> 차 — 선수 확인</span>
+    <button class="swap" onclick="swapSwimmers(${slot.idx},${sib.idx})">↔ 맞바꾸기</button></div>`;
+}
+function swapSwimmers(a,b){
+  const t=state[a].swimmerId; state[a].swimmerId=state[b].swimmerId; state[b].swimmerId=t;
+  renderAssign();
+}
+function summaryHtml(){
+  let imp=0,pb=0;
+  state.forEach(s=>{ const r=roster.find(x=>x.id===s.swimmerId); if(!r) return;
+    const tot=s.lastCum/1000; if(tot<r.last) imp++; if(tot<r.best-0.001) pb++; });
+  return `<div class="summary">
+    <span>🎉 향상 <b>${imp}</b>명</span>
+    <span>🏅 PB <b>${pb}</b>명</span>
+    <span class="muted">총 ${state.length}명</span></div>`;
+}
+function renderAssign(){
+  const segUnit=unit(cfg.course), suf=cfg.course.endsWith('y')?'y':'m';
+  document.getElementById('summary').innerHTML = summaryHtml();
+  document.getElementById('acards').innerHTML = state.map(s=>{
+    const opts=roster.map(r=>`<option value="${r.id}" ${r.id===s.swimmerId?'selected':''}>${r.name}</option>`).join('');
+    const segs=s.splits.map(x=>`<div class="s"><div class="si">${(x.seg+1)*segUnit}${suf}</div><div class="sv mono">${(x.split/1000).toFixed(2)}</div></div>`).join('');
+    return `<div class="acard ${s.lowConf?'lowconf':''}" style="--lc:${s.color}">
+      <div class="arow"><span class="ln">${s.idx+1}번</span><span class="total mono">${fmtTotal(s.lastCum)}</span></div>
+      <div class="who"><select onchange="setSwimmer(${s.idx}, this.value)">${opts}</select>
+        <span class="rectag">추천</span></div>
+      ${confBanner(s)}
+      <div class="delta">${deltaHtml(s)}</div>
+      <div class="seglist">${segs}</div></div>`;
+  }).join('');
+}
+function setSwimmer(idx,id){ state[idx].swimmerId=id; renderAssign(); }
+
+// ===== events =====
+document.getElementById('course').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  cfg.course=b.dataset.c;
+  [...document.querySelectorAll('#course button')].forEach(x=>x.classList.toggle('on',x===b));
+  recomputeSeg();
 });
-document.getElementById('undo').addEventListener('click', undo);
-document.getElementById('reset').addEventListener('click', init);
-window.reassign = reassign;
-init();
+document.getElementById('stroke').addEventListener('change',e=>{cfg.stroke=e.target.value;recomputeSeg();});
+document.getElementById('distance').addEventListener('change',e=>{cfg.distance=+e.target.value;recomputeSeg();});
+document.getElementById('minus').addEventListener('click',()=>{ slotCount=Math.max(1,slotCount-1);
+  document.getElementById('count').textContent=slotCount; });
+document.getElementById('plus').addEventListener('click',()=>{ slotCount=Math.min(8,slotCount+1);
+  document.getElementById('count').textContent=slotCount; });
+document.getElementById('start').addEventListener('click',start);
+document.getElementById('lap').addEventListener('click',onLap);
+document.getElementById('undo').addEventListener('click',undo);
+document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);t0=null;show('setup');});
+document.getElementById('save').addEventListener('click',()=>{
+  const t=document.getElementById('toast'); t.textContent=`✓ ${slotCount}명 기록 저장됨`; t.style.display='block';
+  setTimeout(()=>t.style.display='none',2200);
+});
+document.getElementById('again').addEventListener('click',()=>{t0=null;show('setup');});
+window.reassign=reassign; window.setSwimmer=setSwimmer; window.swapSwimmers=swapSwimmers;
+recomputeSeg();
+
+// ===== 스냅샷/데모용 훅 (실사용 UX엔 영향 없음) =====
+window.__demo = function(which){
+  const sample = [
+    [12.95,13.05,13.15,13.25], // 52.40
+    [12.80,13.10,13.20,13.20], // 52.30 → 민준 PB
+    [13.60,13.90,14.10,14.30], // 55.90
+  ];
+  slotCount=3; segCount=4; cfg={course:'25y',stroke:'free',distance:100}; recomputeSeg();
+  freshSlots();
+  if(which==='running'){
+    // 2번째 구간 진행 중 상태
+    state.forEach((s,i)=>{ let cum=0; for(let k=0;k<2;k++){ cum+=sample[i][k]*1000;
+      s.splits.push({seg:k,cum,split:sample[i][k]*1000}); } s.lastCum=cum; s.nextSeg=2; });
+    lastAssigned=1; show('running');
+    document.getElementById('clock').textContent=fmt(26800);
+    renderRunning(1);
+  } else if(which==='assign'){
+    state.forEach((s,i)=>{ let cum=0; sample[i].forEach((v,k)=>{ cum+=v*1000;
+      s.splits.push({seg:k,cum,split:v*1000}); }); s.lastCum=cum; s.nextSeg=4; s.finished=true; });
+    recommend(); renderAssign(); show('assign');
+  }
+};
 </script>
 </body>
 </html>
