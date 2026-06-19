@@ -1,0 +1,73 @@
+/* SplitLane — Design Tokens (see docs/06-design-guide.md) */
+:root {
+  /* base (dark default) */
+  --bg: #081623;
+  --surface: #0F2333;
+  --surface-2: #16344A;
+  --line: #23465F;
+  --text: #EAF4FB;
+  --text-muted: #8EA9BE;
+
+  /* accents */
+  --accent: #19E3C6;
+  --accent-press: #0FBFA6;
+  --stop: #FF5A4D;
+  --warn: #FFC24B;
+  --ok: #5BE584;
+
+  /* lanes */
+  --lane-1: #FF4D6D;
+  --lane-2: #FFB020;
+  --lane-3: #19E3C6;
+  --lane-4: #5B8DEF;
+  --lane-5: #B36BFF;
+  --lane-6: #41D7A7;
+  --lane-7: #FF7A45;
+  --lane-8: #E8E04F;
+
+  /* shape */
+  --r-card: 16px;
+  --r-btn: 20px;
+  --r-pill: 999px;
+
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Pretendard", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-muted); }
+
+/* phone frame for preview */
+.phone {
+  width: 390px;
+  max-width: 100%;
+  min-height: 760px;
+  margin: 24px auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 36px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 30px 80px rgba(0,0,0,.55);
+}
+.screen { padding: 20px 18px 26px; }
+
+.btn {
+  border: 0; cursor: pointer; font-family: var(--font-sans); font-weight: 700;
+  color: #04221d; background: var(--accent); border-radius: var(--r-btn);
+}
+.btn:active { transform: scale(.98); }
+.btn-ghost { background: var(--surface-2); color: var(--text); }
+.btn-stop { background: var(--stop); color: #2a0a07; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SplitLane — 타이머</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .top .set { color: var(--text-muted); font-size: 13px; }
+  .wake { font-size: 11px; color: var(--text-muted); display:flex; gap:5px; align-items:center; }
+  .wake i { width:7px;height:7px;border-radius:50%;background:var(--ok); display:inline-block; }
+
+  .clock { text-align:center; padding: 10px 0 4px; }
+  .clock .t { font-size: clamp(48px, 17vw, 86px); line-height:1; letter-spacing: -1px; }
+  .clock .sub { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+
+  .lanes { display:flex; flex-direction:column; gap:10px; margin: 14px 0; }
+  .lane {
+    position: relative; background: var(--surface); border:1px solid var(--line);
+    border-radius: var(--r-card); padding: 12px 14px 12px 18px; overflow:hidden;
+  }
+  .lane::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background: var(--lc); }
+  .lane.pulse { animation: pulse .6s ease-out; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 2px var(--lc), 0 0 26px var(--lc); background: color-mix(in srgb, var(--lc) 16%, var(--surface)); }
+    100% { box-shadow: none; background: var(--surface); }
+  }
+  .lane.done { opacity:.85; }
+  .lane .row1 { display:flex; align-items:center; gap:10px; }
+  .lane .ln { font-weight:800; color: var(--lc); font-size: 14px; }
+  .lane .nm { font-weight:600; font-size:15px; }
+  .lane .prog { margin-left:auto; display:flex; gap:5px; align-items:center; }
+  .dot { width:11px; height:11px; border-radius:50%; border:1.5px solid var(--lc); }
+  .dot.on { background: var(--lc); }
+  .lane .splits { margin-top:7px; font-size:13px; color: var(--text-muted); display:flex; gap:12px; flex-wrap:wrap; }
+  .lane .splits b { color: var(--text); font-weight:600; }
+  .lane .fin { margin-left:auto; color: var(--ok); font-weight:700; font-size:13px; }
+  .lane .recommend { font-size:11px; color: var(--warn); }
+
+  .reassign { display:flex; align-items:center; gap:8px; margin: 4px 2px 12px; min-height: 34px; }
+  .reassign .label { font-size:12px; color: var(--text-muted); }
+  .chip { border:0; cursor:pointer; border-radius: var(--r-pill); padding:7px 12px; font-weight:700; font-size:13px;
+          color:#06202b; background: var(--lc); opacity:.55; }
+  .chip.live { opacity:1; }
+  .chip:disabled { opacity:.2; cursor:default; }
+
+  .controls { position: sticky; bottom: 0; display:flex; flex-direction:column; gap:10px; }
+  .main-btn { width:100%; height:114px; border-radius: 28px; font-size: 30px; letter-spacing:1px;
+              box-shadow: 0 0 0 1px var(--accent), 0 10px 34px rgba(25,227,198,.28); }
+  .main-btn.lap { font-size: 34px; }
+  .row { display:flex; gap:10px; }
+  .row .btn { flex:1; height:50px; font-size:15px; }
+  .toast { position:absolute; left:16px; right:16px; bottom:18px; background: var(--ok); color:#06270f;
+           padding:14px 16px; border-radius:14px; font-weight:700; text-align:center; display:none; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="screen">
+    <div class="top">
+      <div class="set">100y 자유형 · 25y · 3레인</div>
+      <div class="wake"><i></i> 화면 유지</div>
+    </div>
+
+    <div class="clock">
+      <div class="t mono" id="clock">00:00.0</div>
+      <div class="sub" id="hint">START를 눌러 동시 출발하세요</div>
+    </div>
+
+    <div class="lanes" id="lanes"></div>
+
+    <div class="reassign">
+      <span class="label">방금 배정 정정 →</span>
+      <span id="chips" style="display:flex;gap:8px;"></span>
+    </div>
+
+    <div class="controls">
+      <button class="btn main-btn" id="main">START</button>
+      <div class="row">
+        <button class="btn btn-ghost" id="undo" disabled>↶ Undo</button>
+        <button class="btn btn-stop" id="reset">⟲ 리셋</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<script>
+// --- 데모용 선수/페이스 모델 (docs/03 §3.3) ---
+// pace = 세그먼트별 예상 소요(ms). 데모는 기존기록 기반 추천을 모사한 고정값.
+const SEGMENTS = 4;
+const lanesData = [
+  { lane:1, name:'민준', color:'var(--lane-1)', pace:[13200,13600,13900,14400] },
+  { lane:2, name:'서연', color:'var(--lane-2)', pace:[12800,13200,13500,13900] },
+  { lane:3, name:'하준', color:'var(--lane-3)', pace:[13800,14100,14400,15000] },
+];
+
+let state, t0, raf, lastAssigned = null, taps = [];
+
+function freshState() {
+  return lanesData.map(d => ({
+    ...d, splits: [], lastCum: 0, nextSeg: 0, finished:false
+  }));
+}
+function init() {
+  state = freshState(); t0 = null; lastAssigned = null; taps = [];
+  cancelAnimationFrame(raf);
+  document.getElementById('clock').textContent = '00:00.0';
+  document.getElementById('hint').textContent = 'START를 눌러 동시 출발하세요';
+  const m = document.getElementById('main'); m.textContent = 'START'; m.classList.remove('lap');
+  document.getElementById('undo').disabled = true;
+  document.getElementById('toast').style.display = 'none';
+  render();
+}
+
+function fmt(ms) {
+  if (ms == null) return '';
+  const s = Math.max(0, ms)/1000;
+  const m = Math.floor(s/60), r = (s%60);
+  return `${String(m).padStart(2,'0')}:${r.toFixed(1).padStart(4,'0')}`;
+}
+function fmtSplit(ms){ return ':' + (ms/1000).toFixed(2).padStart(5,'0'); }
+
+function tick(){
+  if (t0 != null) {
+    document.getElementById('clock').textContent = fmt(performance.now() - t0);
+    raf = requestAnimationFrame(tick);
+  }
+}
+
+// --- 핵심: 단일 LAP → 자동 배정 (docs/03 §3.3) ---
+function onLap(){
+  const now = performance.now();
+  if (t0 == null) { // START
+    t0 = now;
+    const m = document.getElementById('main'); m.textContent = 'LAP'; m.classList.add('lap');
+    document.getElementById('hint').textContent = '선수가 벽을 찍는 순서대로 LAP을 누르세요';
+    tick();
+    return;
+  }
+  const elapsed = now - t0;
+  const cands = state.filter(l => !l.finished);
+  if (!cands.length) return;
+
+  // 예상 도착 시각이 가장 가까운 레인 선택
+  let best = null, bestScore = Infinity;
+  for (const l of cands) {
+    const exp = l.lastCum + l.pace[l.nextSeg];
+    const score = Math.abs(elapsed - exp);
+    if (score < bestScore) { bestScore = score; best = l; }
+  }
+  assign(best, elapsed);
+  taps.push({ elapsed, lane: best.lane });
+  document.getElementById('undo').disabled = false;
+  checkDone();
+}
+
+function assign(lane, elapsed){
+  const split = elapsed - lane.lastCum;
+  lane.splits.push({ seg: lane.nextSeg, cum: elapsed, split });
+  lane.lastCum = elapsed;
+  lane.nextSeg++;
+  if (lane.nextSeg === SEGMENTS) lane.finished = true;
+  lastAssigned = lane.lane;
+  render(lane.lane);
+}
+
+// --- 재할당 (docs/03 §3.4): 마지막 split을 다른 레인으로 이동 ---
+function reassign(toLaneNum){
+  if (lastAssigned == null || toLaneNum === lastAssigned) return;
+  const from = state.find(l => l.lane === lastAssigned);
+  const to = state.find(l => l.lane === toLaneNum);
+  if (!from || !to || to.nextSeg >= SEGMENTS) return;
+  const sp = from.splits.pop();
+  from.nextSeg--; from.finished = false;
+  from.lastCum = from.splits.length ? from.splits[from.splits.length-1].cum : 0;
+  // to 레인에 같은 elapsed로 배정
+  const elapsed = sp.cum;
+  to.splits.push({ seg: to.nextSeg, cum: elapsed, split: elapsed - to.lastCum });
+  to.lastCum = elapsed; to.nextSeg++;
+  if (to.nextSeg === SEGMENTS) to.finished = true;
+  lastAssigned = toLaneNum;
+  if (taps.length) taps[taps.length-1].lane = toLaneNum;
+  render(toLaneNum);
+  checkDone();
+}
+
+function undo(){
+  const t = taps.pop(); if (!t) return;
+  const l = state.find(x => x.lane === t.lane);
+  l.splits.pop(); l.nextSeg--; l.finished = false;
+  l.lastCum = l.splits.length ? l.splits[l.splits.length-1].cum : 0;
+  lastAssigned = null;
+  document.getElementById('undo').disabled = taps.length === 0;
+  render();
+}
+
+function checkDone(){
+  if (state.every(l => l.finished)) {
+    cancelAnimationFrame(raf);
+    const total = Math.max(...state.map(l => l.lastCum));
+    document.getElementById('clock').textContent = fmt(total);
+    document.getElementById('hint').textContent = '모든 선수 완주 — 자동 저장 단계(REVIEW)';
+    const to = document.getElementById('toast');
+    to.textContent = '✓ 3명 기록 저장됨 (자동)';
+    to.style.display = 'block';
+    const m = document.getElementById('main'); m.textContent = '다시 측정'; m.classList.remove('lap');
+  }
+}
+
+function render(pulseLane){
+  // lanes
+  document.getElementById('lanes').innerHTML = state.map(l => {
+    const dots = Array.from({length:SEGMENTS}, (_,i) =>
+      `<span class="dot ${i < l.nextSeg ? 'on':''}"></span>`).join('');
+    const last = l.splits.slice(-2).map(s => `<span><b>${fmtSplit(s.split)}</b></span>`).join('');
+    const right = l.finished
+      ? `<span class="fin">완주 ${fmt(l.lastCum)}</span>`
+      : `<span class="prog">${dots}</span>`;
+    const recom = l.splits.length===0 ? `<span class="recommend">추천 배정</span>` : '';
+    return `<div class="lane ${l.finished?'done':''} ${pulseLane===l.lane?'pulse':''}" style="--lc:${l.color}">
+      <div class="row1"><span class="ln">L${l.lane}</span><span class="nm">${l.name}</span>${right}</div>
+      <div class="splits">${last || recom || '<span>—</span>'}</div>
+    </div>`;
+  }).join('');
+  // reassign chips
+  document.getElementById('chips').innerHTML = state.map(l =>
+    `<button class="chip ${lastAssigned!=null && !l.finished ? 'live':''}" style="--lc:${l.color}"
+       ${(lastAssigned==null || l.finished)?'disabled':''} onclick="reassign(${l.lane})">L${l.lane}</button>`
+  ).join('');
+}
+
+document.getElementById('main').addEventListener('click', () => {
+  if (state.every(l => l.finished) && t0 != null) { init(); return; }
+  onLap();
+});
+document.getElementById('undo').addEventListener('click', undo);
+document.getElementById('reset').addEventListener('click', init);
+window.reassign = reassign;
+init();
+</script>
+</body>
+</html>

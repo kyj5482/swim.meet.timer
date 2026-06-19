@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SplitLane — 기록지</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .top { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .avatar { width:44px;height:44px;border-radius:50%; background:var(--lane-1); display:grid;place-items:center;
+            color:#2a0612; font-weight:800; font-size:18px; }
+  .top .name { font-size:20px; font-weight:700; }
+  .top .meta { color:var(--text-muted); font-size:12px; }
+
+  .bests { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .best { flex:1; min-width:110px; background:var(--surface); border:1px solid var(--line);
+          border-radius:var(--r-card); padding:12px; }
+  .best .k { color:var(--text-muted); font-size:11px; }
+  .best .v { font-size:22px; margin-top:4px; }
+  .best .tag { font-size:10px; color:var(--ok); }
+
+  .chart { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
+           padding:14px; margin-bottom:18px; }
+  .chart h3 { margin:0 0 4px; font-size:13px; color:var(--text-muted); font-weight:600; }
+  svg { width:100%; height:120px; display:block; }
+
+  h2 { font-size:14px; color:var(--text-muted); margin:6px 0 10px; }
+  .session { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
+             padding:14px; margin-bottom:10px; }
+  .session .head { display:flex; align-items:baseline; gap:10px; }
+  .session .date { color:var(--text-muted); font-size:12px; }
+  .session .total { margin-left:auto; font-size:20px; }
+  .session .set { font-size:14px; font-weight:600; }
+  .splits { display:flex; gap:6px; margin-top:10px; }
+  .seg { flex:1; background:var(--surface-2); border-radius:8px; padding:8px 6px; text-align:center; }
+  .seg .si { font-size:10px; color:var(--text-muted); }
+  .seg .sv { font-size:14px; margin-top:2px; }
+  .badge { font-size:10px; padding:2px 7px; border-radius:var(--r-pill); background:var(--surface-2); color:var(--warn); }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="screen">
+    <div class="top">
+      <div class="avatar">민</div>
+      <div>
+        <div class="name">민준</div>
+        <div class="meta">엘리트반 · 최근 측정 2일 전</div>
+      </div>
+    </div>
+
+    <div class="bests">
+      <div class="best"><div class="k">100y free</div><div class="v mono">52.6</div><div class="tag">▼ 베스트</div></div>
+      <div class="best"><div class="k">50y free</div><div class="v mono">25.1</div><div class="tag">▼ 베스트</div></div>
+      <div class="best"><div class="k">100y back</div><div class="v mono">1:01.3</div><div class="tag">&nbsp;</div></div>
+    </div>
+
+    <div class="chart">
+      <h3>100y 자유형 추세 (최근 6회)</h3>
+      <svg viewBox="0 0 300 120" preserveAspectRatio="none">
+        <polyline fill="none" stroke="var(--lane-1)" stroke-width="2.5"
+          points="10,40 60,52 110,38 160,60 210,30 260,18" />
+        <g fill="var(--lane-1)">
+          <circle cx="10" cy="40" r="3"/><circle cx="60" cy="52" r="3"/><circle cx="110" cy="38" r="3"/>
+          <circle cx="160" cy="60" r="3"/><circle cx="210" cy="30" r="3"/><circle cx="260" cy="18" r="3"/>
+        </g>
+        <text x="260" y="12" fill="var(--ok)" font-size="10" text-anchor="end">PB 52.6</text>
+      </svg>
+    </div>
+
+    <h2>세션 기록</h2>
+
+    <div class="session">
+      <div class="head">
+        <span class="set">100y 자유형 · 25y</span>
+        <span class="total mono">52.6</span>
+      </div>
+      <div class="date">2026-06-17 · 레인1 <span class="badge">PB</span></div>
+      <div class="splits">
+        <div class="seg"><div class="si">25y</div><div class="sv mono">13.0</div></div>
+        <div class="seg"><div class="si">50y</div><div class="sv mono">13.2</div></div>
+        <div class="seg"><div class="si">75y</div><div class="sv mono">13.1</div></div>
+        <div class="seg"><div class="si">100y</div><div class="sv mono">13.3</div></div>
+      </div>
+    </div>
+
+    <div class="session">
+      <div class="head">
+        <span class="set">100y 자유형 · 25y</span>
+        <span class="total mono">53.4</span>
+      </div>
+      <div class="date">2026-06-12 · 레인2</div>
+      <div class="splits">
+        <div class="seg"><div class="si">25y</div><div class="sv mono">13.1</div></div>
+        <div class="seg"><div class="si">50y</div><div class="sv mono">13.4</div></div>
+        <div class="seg"><div class="si">75y</div><div class="sv mono">13.4</div></div>
+        <div class="seg"><div class="si">100y</div><div class="sv mono">13.5</div></div>
+      </div>
+    </div>
+
+    <div class="session">
+      <div class="head">
+        <span class="set">50y 자유형 · 25y</span>
+        <span class="total mono">25.1</span>
+      </div>
+      <div class="date">2026-06-10 · 레인1 <span class="badge">PB</span></div>
+      <div class="splits">
+        <div class="seg"><div class="si">25y</div><div class="sv mono">12.4</div></div>
+        <div class="seg"><div class="si">50y</div><div class="sv mono">12.7</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

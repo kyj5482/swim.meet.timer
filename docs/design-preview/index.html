@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SplitLane — 디자인 프리뷰</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 36px 0 12px; color: var(--text); }
+  a.card-link { color: var(--accent); text-decoration: none; }
+  .links { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .sw { width: 86px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 11px; }
+  .sw .chip { height: 46px; }
+  .sw .lbl { padding: 6px 8px; color: var(--text-muted); }
+  .lanes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .lane-dot { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);
+              background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 6px 10px; }
+  .lane-dot i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .type-row { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--line); padding: 10px 0; }
+  .type-row .name { color: var(--text-muted); font-size: 12px; width: 120px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SplitLane <span class="muted" style="font-size:16px">디자인 프리뷰</span></h1>
+  <p class="muted">여러 명을 하나의 스톱워치처럼 · Poolside Stopwatch 컨셉</p>
+
+  <h2>화면</h2>
+  <div class="links">
+    <a class="card-link" href="timer.html"><div class="card">
+      <h3>⏱️ 타이머 (동작 데모)</h3>
+      <p>단일 버튼으로 3명의 100y/25y 기록을 실제로 측정해보세요. START → LAP 연타 → 자동 종료 → 저장.</p>
+    </div></a>
+    <a class="card-link" href="records.html"><div class="card">
+      <h3>📋 기록지</h3>
+      <p>선수별 세션·스플릿·베스트·추세 목업.</p>
+    </div></a>
+  </div>
+
+  <h2>컬러 — 베이스 & 액센트</h2>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#081623"></div><div class="lbl">--bg</div></div>
+    <div class="sw"><div class="chip" style="background:#0F2333"></div><div class="lbl">surface</div></div>
+    <div class="sw"><div class="chip" style="background:#16344A"></div><div class="lbl">surface-2</div></div>
+    <div class="sw"><div class="chip" style="background:#19E3C6"></div><div class="lbl">accent</div></div>
+    <div class="sw"><div class="chip" style="background:#FF5A4D"></div><div class="lbl">stop</div></div>
+    <div class="sw"><div class="chip" style="background:#FFC24B"></div><div class="lbl">warn</div></div>
+    <div class="sw"><div class="chip" style="background:#5BE584"></div><div class="lbl">ok</div></div>
+  </div>
+
+  <h2>레인(선수) 팔레트</h2>
+  <div class="lanes" id="lanes"></div>
+
+  <h2>타이포그래피</h2>
+  <div class="type-row"><span class="name">러닝 클락</span><span class="mono" style="font-size:40px">01:23.4</span></div>
+  <div class="type-row"><span class="name">스플릿</span><span class="mono" style="font-size:20px">:13.08</span></div>
+  <div class="type-row"><span class="name">제목/라벨</span><span style="font-size:18px;font-weight:600">100y 자유형 · 25y</span></div>
+  <div class="type-row"><span class="name">본문</span><span style="font-size:14px">민준 · 최근 측정 2일 전</span></div>
+</div>
+<script>
+  const lanes = [['L1','#FF4D6D'],['L2','#FFB020'],['L3','#19E3C6'],['L4','#5B8DEF'],
+                 ['L5','#B36BFF'],['L6','#41D7A7'],['L7','#FF7A45'],['L8','#E8E04F']];
+  document.getElementById('lanes').innerHTML = lanes.map(([n,c]) =>
+    `<span class="lane-dot"><i style="background:${c}"></i>${n} <span style="color:${c}">${c}</span></span>`).join('');
+</script>
+</body>
+</html>
