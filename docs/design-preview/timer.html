@@ -6,9 +6,16 @@
 <title>SplitLane — 타이머</title>
 <link rel="stylesheet" href="tokens.css">
 <style>
-  .screen { display:flex; flex-direction:column; min-height:760px; }
-  .setup, .running, .assign { flex:1; display:flex; flex-direction:column; }
+  /* 앱 셸: 헤더 고정(공유) + 섹션이 남은 높이를 채우고 가운데만 스크롤 */
+  .screen { height:100%; overflow:hidden; padding:0; display:flex; flex-direction:column; }
+  .top { flex-shrink:0; padding:16px 18px 4px; }
+  .setup, .running, .assign { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:6px 18px 20px; }
   .hidden { display:none !important; }
+  /* 스크롤 존(가운데), 상단/하단은 고정 */
+  .lanes { flex:1 1 auto; min-height:0; overflow-y:auto; }
+  #acards { flex:1 1 auto; min-height:0; overflow-y:auto; margin:0 -2px; padding:0 2px; }
+  .clock, .reassign, .running .controls,
+  .assign h2, .assign .lead, #summary, .assign .controls { flex-shrink:0; }
   .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
   .top .set { color: var(--text-muted); font-size: 13px; }
   .wake { font-size: 11px; color: var(--text-muted); display:flex; gap:5px; align-items:center; }
@@ -43,7 +50,7 @@
 
   .lanes { display:flex; flex-direction:column; gap:9px; margin: 12px 0; }
   .lane { position:relative; background:var(--surface); border:1px solid var(--line);
-    border-radius:var(--r-card); padding:11px 14px 11px 18px; overflow:hidden; }
+    border-radius:var(--r-card); padding:11px 14px 11px 18px; overflow:hidden; flex-shrink:0; }
   .lane::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--lc); }
   .lane.pulse { animation: pulse .6s ease-out; }
   @keyframes pulse {
@@ -60,8 +67,9 @@
   .lane .splits b { color:var(--text); font-weight:600; }
   .lane .fin { margin-left:auto; color:var(--ok); font-weight:700; font-size:14px; }
 
-  .reassign { display:flex; align-items:center; gap:8px; margin:2px 2px 10px; min-height:34px; }
-  .reassign .label { font-size:12px; color:var(--text-muted); }
+  .reassign { display:flex; align-items:center; gap:8px; margin:2px 2px 10px; min-height:34px; flex-wrap:wrap; }
+  .reassign .label { font-size:12px; color:var(--text-muted); flex-shrink:0; white-space:nowrap; }
+  #chips { display:flex; gap:8px; flex-wrap:wrap; }
   .chip { border:0; cursor:pointer; border-radius:var(--r-pill); padding:7px 12px; font-weight:700; font-size:13px;
     color:#06202b; background:var(--lc); opacity:.5; }
   .chip.live { opacity:1; }
@@ -105,8 +113,8 @@
   .summary { display:flex; gap:16px; align-items:center; background:var(--surface); border:1px solid var(--line);
     border-radius:var(--r-card); padding:12px 16px; margin-bottom:12px; font-size:14px; }
   .summary b { color:var(--accent); font-size:18px; }
-  .acard .seglist { margin-top:8px; display:flex; gap:6px; }
-  .acard .seglist .s { flex:1; background:var(--surface-2); border-radius:8px; padding:6px 4px; text-align:center; }
+  .acard .seglist { margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; }
+  .acard .seglist .s { flex:1 1 calc(25% - 6px); min-width:56px; background:var(--surface-2); border-radius:8px; padding:6px 4px; text-align:center; }
   .acard .seglist .s .si { font-size:9px; color:var(--text-muted); }
   .acard .seglist .s .sv { font-size:13px; margin-top:2px; }
 
@@ -169,7 +177,7 @@
       <div class="lanes" id="lanes"></div>
       <div class="reassign">
         <span class="label">방금 배정 정정 →</span>
-        <span id="chips" style="display:flex;gap:8px;"></span>
+        <span id="chips"></span>
       </div>
       <div class="controls">
         <button class="btn main-btn lap" id="lap">LAP</button>
