@@ -48,58 +48,65 @@
 
 ---
 
-## 3.3 다음 슬롯 예측 — 라운드로빈 + 사용자 지정
+## 3.3 자동 배정 알고리즘 (Tap → Slot, 익명) — 라운드 단조매칭
 
-> 목표: 예측은 **단순·결정적(deterministic)** 이어서 코치가 "다음에 뭐가 기록될지" 항상 예상할 수 있어야 한다. 그래서 **불투명한 페이스 추정 대신 라운드로빈(번호순)** 을 쓰고, 순서가 다르면 코치가 **번호 하나를 탭해 '다음'을 지정**한다. 기록은 항상 LAP.
+> 목표: 코치가 "벽 찍는 순서대로" 단일 버튼만 누르면, 앱이 각 탭을 올바른 **익명 슬롯**에 배정한다. 선수 이름은 측정 후 붙인다.
+>
+> 수영은 **레인**이 있어 length마다 도착 순서가 바뀐다(갈때 `2-3-4-5`, 올때 `2-4-3-5`). 또 **출발 다이브**로 첫 구간이 유난히 빠르다. 이 둘을 견디도록 알고리즘을 **벤치마크로 선정**했다. → [bench/RESULTS.md](../bench/RESULTS.md)
 
-### 설계 결정: 왜 페이스 예측이 아니라 라운드로빈인가
-벤치마크([bench/RESULTS.md])에서 타이밍 기반 예측(그리디 25%, 단조매칭 72%)은 *복귀 역전*을 끝내 못 풀었고, 무엇보다 **코치가 다음을 예측할 수 없어 신뢰가 안 갔다**. 라운드로빈은 누구나 아는 `1→2→3→1→2→3…` 순서라 **예측 가능**하고, 어긋날 때만 **한 번 탭으로 끼어들기** 하면 된다(코치는 누가 들어오는지 보고 있음). 결과적으로 코치 주도로 **100%** 정확.
+### 왜 "탭마다 최근접(그리디)"이 아닌가
+초기안은 탭마다 `|elapsed - 예상도착|`이 최소인 슬롯을 골랐다. 벤치마크 결과 **정확도 ~25%(무작위 수준)**. 한 슬롯이 다음 구간으로 넘어가면 예상 도착시각이 크게 이동해, **인접 슬롯의 탭을 가로채는 오류가 연쇄**되기 때문이다. (선두 한 명조차 안정적으로 추적 못 함.)
 
-### 규칙
-1. **라운드 경계**: `r = min(nextSegmentIndex of activeSlots)`. 같은 라운드의 대상(`due`) = `nextSegmentIndex === r` 인 슬롯들. (한 슬롯은 다른 슬롯들이 이번 구간을 끝낼 때까지 다음 구간으로 못 넘어감 → 라운드 규율이 자연히 성립, 별도 집합 불필요.)
-2. **예측 다음(peekNext)**: `nextOverride`(사용자 지정)가 있으면 그 슬롯, 없으면 `due`를 **번호순 정렬한 첫 슬롯**.
-3. **LAP**: `peekNext()`에 기록하고 `nextOverride`를 비운다(지정은 1회용).
-4. **번호 탭(selectNext)**: 기록이 아니라 `nextOverride = idx` 로 **다음 우선순위만 지정**(재렌더로 강조). 다음 LAP이 그 슬롯에 기록.
-5. 기록 시 슬롯: 스플릿 push, `nextSegmentIndex++`, `== segmentCount`면 **완주(Stop)**.
+### 채택: 라운드 단조매칭 (Round Monotonic Matching) — 정확도 ~72%
+핵심 통찰: 한 **length(라운드)** 안에서 N명의 탭은 N개 슬롯에 **일대일**로 들어간다. 직선 위 점-점 최소비용 매칭의 최적해는 **정렬 후 순서 매칭**이다.
 
-> **예시**: 기본 순서 `1·2·3`. `1`을 LAP한 뒤 예측은 `2`. 그런데 3번 레인이 먼저 들어오면 **`3`을 탭** → 예측이 `3`(지정)으로 바뀌고, LAP하면 3번에 기록. 남은 건 `2` → 다음 예측은 `2`. 즉 이번 라운드 순서가 **`1·3·2`** 가 된다.
+1. **라운드 경계**: `round = min(nextSegmentIndex of activeSlots)`. 같은 라운드에서 한 슬롯은 한 번만 받는다(`tapped` 집합).
+2. **1라운드(round 0)**: 벽 찍는 **도착 순서**가 슬롯 1·2·3…을 정의한다.
+3. **2라운드 이후**: 이번 라운드에 아직 안 받은 슬롯들을 **예상 도착 `lastCumMs + pace(s)` 오름차순**으로 정렬하고, 들어오는 탭(시간 오름차순)을 그 순서대로 배정한다. (= 단조매칭을 실시간으로 수행)
+4. **pace(s)**: 같은 세션에서 그 슬롯이 쌓은 스플릿의 **EWMA(최근 가중, α≈0.6)**. 다이브로 첫 구간이 빨라도 *순서*는 보존되므로 영향 없음.
+5. 배정 후 `s`: 스플릿 push, `nextSegmentIndex++`, `lastCumMs=elapsed`. `== segmentCount`면 **완주(Stop)**.
 
 ### 의사코드
 ```ts
-let nextOverride: number | null = null;
+let curRound = -1; const tapped = new Set<number>();
 
-function dueSlots(state) {
-  const active = state.slots.filter(s => !s.finished);
-  if (!active.length) return { r: null, due: [] };
-  const r = Math.min(...active.map(s => s.nextSegmentIndex));
-  return { r, due: active.filter(s => s.nextSegmentIndex === r) };
-}
-function peekNext(state) {                 // 이번에 LAP하면 기록될 슬롯(순수)
-  const active = state.slots.filter(s => !s.finished);
-  if (!active.length) return null;
-  if (nextOverride != null) { const o = active.find(s => s.idx === nextOverride); if (o) return o; }
-  return dueSlots(state).due.slice().sort((a, b) => a.idx - b.idx)[0] ?? null;  // 라운드로빈
-}
-function onLap(elapsed, state) {           // 단일 LAP = 예측/지정 슬롯에 기록
-  const s = peekNext(state); if (!s) return;
-  nextOverride = null;
-  s.splits.push({ segmentIndex: s.nextSegmentIndex, cumulativeMs: elapsed, splitMs: elapsed - s.lastCumMs });
-  s.lastCumMs = elapsed; s.nextSegmentIndex++;
-  if (s.nextSegmentIndex === s.segmentCount) s.finished = true;
-}
-function selectNext(idx, state) {          // 번호 탭 = '다음' 지정(기록 아님)
-  const s = state.slots[idx]; if (s && !s.finished) nextOverride = idx;
+function onLap(elapsed: number, session: Session): Assignment {
+  const active = session.slots.filter(s => !s.finished);
+  if (active.length === 0) return noop();
+
+  const round = Math.min(...active.map(s => s.nextSegmentIndex));
+  if (round !== curRound) { curRound = round; tapped.clear(); }
+  let due = active.filter(s => s.nextSegmentIndex === round && !tapped.has(s.idx));
+  if (due.length === 0) { tapped.clear(); due = active.filter(s => s.nextSegmentIndex === round); }
+
+  let target: Slot;
+  if (round === 0) {
+    target = due.sort((a, b) => a.idx - b.idx)[0];          // 도착 순서로 슬롯 정의
+  } else {
+    target = due
+      .map(s => ({ s, exp: s.lastCumMs + ewma(s.splits) })) // 예상 도착이 가장 이른 슬롯
+      .sort((a, b) => a.exp - b.exp)[0].s;
+  }
+  tapped.add(target.idx);
+
+  const split = elapsed - target.lastCumMs;
+  target.splits.push({ segmentIndex: target.nextSegmentIndex, cumulativeMs: elapsed, splitMs: split });
+  target.lastCumMs = elapsed; target.nextSegmentIndex++;
+  if (target.nextSegmentIndex === target.segmentCount) target.finished = true;
+  return { slot: target, split, finishedAll: active.every(s => s.finished) };
 }
 ```
 
-### 특성과 한계
-- **결정적·예측 가능**: 코치가 다음을 항상 알 수 있어 리듬이 유지된다.
-- **순서 역전**(갈때 2-3-4-5 / 올때 2-4-3-5): 코치가 바뀐 번호만 **한 번 탭**하면 그대로 반영 → 100% 정확. 타이밍 추정 불필요.
-- **초접전**: 코치가 본 순서를 그대로 지정하므로 동일하게 처리.
-- **랩(추월)**: `nextOverride`는 `due` 밖의 슬롯도 지정 가능하므로, 한 슬롯이 앞서가도 그 번호를 눌러 기록할 수 있다.
-- 그래도 틀리면 **실행취소** 또는 측정 후 배정 화면 보정(§3.4, §3.6).
+### 레인 순서 역전의 한계와 처방
+- **예측 가능한 순서 변화**(페이스가 갈리는 경우)는 단조매칭이 정확히 처리 → 순서일관·큰격차 시나리오 **100%**.
+- **복귀 역전**(턴/후반에 더 빨라져 추월; 사용자 예시 `2-4-3-5`)은 *그 선수의 미래 정보*라, 슬롯이 자기 과거 스플릿만으론 50%가 한계. 단, **배정 화면의 총기록 추천**(§3.6)이 총합은 올바른 선수에 매칭하므로 "실력 향상(총기록)" 체크는 정상이고 구간 내부만 약간 혼입된다.
+- **정밀이 필요하면 레인 이력 모드(§3.3a)** 를 쓴다 → 복귀 역전 **97%**.
+- **초접전(<0.3초)·난전**은 타이밍만으론 누구도 못 가린다 → **수동 보정**(§3.4)이 정답.
 
-> 참고: 타이밍 기반 예측(단조매칭·레인 이력) 분석은 [bench/RESULTS.md]에 남겨 두었으나, **제품은 코치 신뢰·예측가능성을 위해 라운드로빈 + 사용자 지정을 채택**했다.
+### 3.3a 레인 이력 모드 (선택, 정밀)
+코치가 **레인↔선수를 사전 지정**하면(예: 레인2=민준), 익명 슬롯 대신 선수 식별자가 있으므로 각 선수의 **과거 구간 프로파일**(턴·후반 페이스 포함)로 예상 도착을 계산할 수 있다. 단조매칭의 `pace(s)`를 *그 선수의 이력 해당 구간 시간*으로 대체하면 복귀 역전까지 예측한다.
+- 트레이드오프: 사전 배정 1단계 추가. 초접전·난전에서는 이력 불확실성이 실제 격차보다 커서 이득이 사라짐(이 구간은 수동 보정).
+- 기본은 빠른 **익명 모드**, 정확도가 중요할 때 코치가 **레인 모드**를 켠다.
 
 ### 경계 상황
 | 상황 | 처리 |
@@ -114,17 +121,17 @@ function selectNext(idx, state) {          // 번호 탭 = '다음' 지정(기�
 
 ---
 
-## 3.4 입력 방식 — LAP(기록) + 번호 탭(다음 지정)
+## 3.4 입력 방식 — LAP(예측) + 레인 직접 탭(WYSIWYG)
 
-알고리즘만으로 레인 순서 역전을 100% 풀 수 없으므로([03 §3.3], [07 현장 리서치]), **UI로 보완**한다. 기록 동작은 **LAP 하나로 단일화**하고, 순서만 코치가 지정한다.
+알고리즘만으로 레인 순서 역전을 100% 풀 수 없으므로([03 §3.3] 벤치마크, [07 현장 리서치]), **UI로 보완**한다. 측정 화면은 두 입력을 동시에 제공한다.
 
-- **단일 LAP 버튼 = 기록.** 항상 `peekNext()`(라운드로빈 또는 지정) 슬롯에 기록한다. 버튼에 `다음 ▸ N번` / 지정 시 `지정 ▸ N번` 표시. 코치는 화면을 안 보고도 번호 순서대로 리듬만 탄다.
-- **레인 번호 탭 = '다음' 지정(기록 아님).** 순서가 다를 때 코치가 그 번호를 탭하면 `nextOverride`가 설정되고 다음 LAP이 그 슬롯에 기록된다. 풀폭 대형 타깃이라 오탭이 적다.
-- 이렇게 **기록은 LAP 한 곳**이라 단일 버튼 리듬이 유지되고, 탭은 순서 힌트일 뿐이라 실수가 적다.
+- **단일 LAP 버튼 = 예측된 다음 레인에 기록.** `peekNext()`가 이번 라운드에서 예상 도착이 가장 이른 슬롯을 가리키고, 버튼에 `다음 예측 ▸ N번`으로 표시한다. 잘 맞는 일반 상황에서 코치는 화면을 안 보고 리듬만 탄다. **볼륨 버튼·하드웨어 키로도 LAP**이 가능해 시선을 물에 둘 수 있다(FR-T3c, eyes-free).
+- **레인 행 직접 탭 = 방금 벽 찍은 레인을 직접 지정.** 코치가 *본 대로* 그 레인을 탭하면 그 슬롯에 기록된다. 예측을 무시하므로 **순서 역전·초접전에서도 100% 정확**(코치가 도착을 보고 있음). 레인 행은 풀폭 대형 타깃이라 오탭이 적다.
+- 두 입력 모두 `commit(slot)`으로 수렴: 라운드 동기화(`tapped`) → 스플릿 push → `nextSegmentIndex++` → 완주 처리.
 - **되돌리기**: `실행취소`로 직전 탭 제거. 종료 후에는 배정 화면 스플릿 표/맞바꾸기로 최종 보정(§3.6).
 - **불변식 검증**(§3.5)을 매 입력마다 통과해야 함.
 
-> 데모 검증: 기본 `1·2·3`에서 `1` LAP → `3` 탭 → LAP → `2` LAP 하면 이번 라운드가 `1·3·2`로 기록된다. 순서 역전을 코치 지정으로 100% 반영.
+> 직접 탭이 복귀 역전(갈때 2-3-4-5 / 올때 2-4-3-5)을 실측 100%로 해결함을 데모로 검증. (LAP 예측만 쓰면 50%, 직접 탭 100%.)
 
 ---
 
