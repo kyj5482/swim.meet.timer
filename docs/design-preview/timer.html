@@ -44,43 +44,46 @@
   .steptip { color:var(--text-muted); font-size:12px; margin:8px 2px 0; line-height:1.4; }
 
   /* ---- running ---- */
-  .clock { text-align:center; padding: 10px 0 4px; }
-  .clock .t { font-size: clamp(46px, 16vw, 80px); line-height:1; letter-spacing:-1px; }
-  .clock .sub { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+  .clock { text-align:center; padding:4px 0 2px; flex-shrink:0; }
+  /* 큰 MM:SS + 작은 1/100초 → 화면 안에 확실히 들어옴 */
+  .clock .t { line-height:1; letter-spacing:-2px; white-space:nowrap; display:inline-flex; align-items:baseline; justify-content:center; }
+  .clock .t #clockMain { font-size: clamp(40px, 15vw, 72px); }
+  .clock .t .frac { font-size: clamp(20px, 7vw, 34px); color:var(--accent); letter-spacing:0; margin-left:2px; }
+  .clock .sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
 
-  .lanes { display:flex; flex-direction:column; gap:9px; margin: 12px 0; }
+  /* 레인 행 = 큰 탭 타깃(벽 찍은 레인을 직접 탭). 컴팩트 1줄, 무스크롤 위해 flex로 균등 분배 */
+  .lanes { display:flex; flex-direction:column; gap:8px; margin:10px 0; flex:1 1 auto; min-height:0; }
   .lane { position:relative; background:var(--surface); border:1px solid var(--line);
-    border-radius:var(--r-card); padding:11px 14px 11px 18px; overflow:hidden; flex-shrink:0; }
+    border-radius:14px; padding:0 14px 0 18px; overflow:hidden; cursor:pointer;
+    flex:1 1 0; min-height:52px; max-height:84px; display:flex; flex-direction:column; justify-content:center; gap:3px;
+    -webkit-tap-highlight-color:transparent; }
   .lane::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--lc); }
+  .lane:active { background:color-mix(in srgb, var(--lc) 12%, var(--surface)); }
   .lane.pulse { animation: pulse .6s ease-out; }
   @keyframes pulse {
-    0% { box-shadow:0 0 0 2px var(--lc),0 0 26px var(--lc); background:color-mix(in srgb,var(--lc) 16%,var(--surface)); }
+    0% { box-shadow:0 0 0 2px var(--lc),0 0 26px var(--lc); background:color-mix(in srgb,var(--lc) 18%,var(--surface)); }
     100% { box-shadow:none; background:var(--surface); } }
-  .lane.done { opacity:.9; }
+  /* 예측된 '다음 도착' 레인 강조 */
+  .lane.next { border-color:var(--lc); box-shadow:0 0 0 1.5px var(--lc) inset; }
+  .lane.done { opacity:.75; }
   .lane .row1 { display:flex; align-items:center; gap:10px; }
-  .lane .ln { font-weight:800; color:var(--lc); font-size:14px; min-width:30px; }
-  .lane .nm { font-weight:600; font-size:15px; }
+  .lane .ln { font-weight:800; color:var(--lc); font-size:15px; min-width:34px; }
+  .lane .nexttag { font-size:10px; color:var(--lc); border:1px solid var(--lc); border-radius:var(--r-pill); padding:1px 7px; font-weight:700; }
   .lane .prog { margin-left:auto; display:flex; gap:5px; align-items:center; }
-  .dot { width:11px; height:11px; border-radius:50%; border:1.5px solid var(--lc); }
+  .dot { width:10px; height:10px; border-radius:50%; border:1.5px solid var(--lc); }
   .dot.on { background:var(--lc); }
-  .lane .splits { margin-top:6px; font-size:13px; color:var(--text-muted); display:flex; gap:12px; flex-wrap:wrap; }
-  .lane .splits b { color:var(--text); font-weight:600; }
+  .lane .splits { font-size:12.5px; color:var(--text-muted); display:flex; gap:12px; }
+  .lane .splits b { color:var(--text); font-weight:600; font-family:var(--font-mono); }
   .lane .fin { margin-left:auto; color:var(--ok); font-weight:700; font-size:14px; }
 
-  .reassign { display:flex; align-items:center; gap:8px; margin:2px 2px 10px; min-height:34px; flex-wrap:wrap; }
-  .reassign .label { font-size:12px; color:var(--text-muted); flex-shrink:0; white-space:nowrap; }
-  #chips { display:flex; gap:8px; flex-wrap:wrap; }
-  .chip { border:0; cursor:pointer; border-radius:var(--r-pill); padding:7px 12px; font-weight:700; font-size:13px;
-    color:#06202b; background:var(--lc); opacity:.5; }
-  .chip.live { opacity:1; }
-  .chip:disabled { opacity:.18; cursor:default; }
-
-  .controls { margin-top:auto; display:flex; flex-direction:column; gap:10px; }
-  .main-btn { width:100%; height:112px; border-radius:28px; font-size:30px; letter-spacing:1px;
-    box-shadow:0 0 0 1px var(--accent),0 10px 34px rgba(25,227,198,.28); }
-  .main-btn.lap { font-size:34px; }
+  .controls { margin-top:8px; display:flex; flex-direction:column; gap:9px; flex-shrink:0; }
+  .main-btn { width:100%; height:104px; border-radius:26px; letter-spacing:1px;
+    box-shadow:0 0 0 1px var(--accent),0 10px 34px rgba(25,227,198,.28);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+  .main-btn .lap-word { font-size:32px; font-weight:800; }
+  .main-btn .lap-next { font-size:14px; font-weight:700; opacity:.85; }
   .row { display:flex; gap:10px; }
-  .row .btn { flex:1; height:48px; font-size:15px; }
+  .row .btn { flex:1; height:46px; font-size:15px; }
 
   /* ---- assign ---- */
   .assign h2 { font-size:18px; margin:8px 0 2px; }
@@ -171,18 +174,14 @@
     <!-- ============ RUNNING ============ -->
     <section class="running hidden" id="running">
       <div class="clock">
-        <div class="t mono" id="clock">00:00.00</div>
-        <div class="sub" id="hint">선수가 벽을 찍는 순서대로 LAP을 누르세요</div>
+        <div class="t mono"><span id="clockMain">00:00</span><span class="frac" id="clockFrac">.00</span></div>
+        <div class="sub" id="hint">벽을 찍은 레인을 탭하거나, 예측이 맞으면 LAP을 누르세요</div>
       </div>
       <div class="lanes" id="lanes"></div>
-      <div class="reassign">
-        <span class="label">방금 배정 정정 →</span>
-        <span id="chips"></span>
-      </div>
       <div class="controls">
-        <button class="btn main-btn lap" id="lap">LAP</button>
+        <button class="btn main-btn lap" id="lap"><span class="lap-word">LAP</span><span class="lap-next" id="lapNext"></span></button>
         <div class="row">
-          <button class="btn btn-ghost" id="undo" disabled>↶ Undo</button>
+          <button class="btn btn-ghost" id="undo" disabled>↶ 실행취소</button>
           <button class="btn btn-stop" id="reset">⟲ 리셋</button>
         </div>
       </div>
@@ -262,56 +261,59 @@ function start(){
   show('running'); tick(); renderRunning();
 }
 function tick(){ if(t0!=null && view==='running'){
-  document.getElementById('clock').textContent = fmt(performance.now()-t0);
+  setClock(performance.now()-t0);
   raf = requestAnimationFrame(tick); } }
+// 큰 MM:SS + 작은 1/100초로 분리 표시(화면 밖으로 안 나가게)
+function setClock(ms){
+  const cs = Math.round(Math.max(0,ms)/10);           // centiseconds
+  const mm = Math.floor(cs/6000), ss = Math.floor(cs/100)%60, hh = cs%100;
+  document.getElementById('clockMain').textContent = `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+  document.getElementById('clockFrac').textContent = `.${String(hh).padStart(2,'0')}`;
+}
 
-// ===== LAP → 라운드 단조매칭(레인 순서 역전 대응) =====
-// length(라운드) 단위로, N개의 탭을 '예측 도착 순서'대로 정렬해 배정한다.
-// 탭마다 즉시 처리하되, 같은 라운드에서 한 슬롯이 두 번 받지 않도록 tapped로 제어.
-function ewmaPace(s, a=0.6){ // 최근 구간을 더 가중(직전 페이스 반영)
+// ===== 배정: 라운드 단조매칭(예측) + 레인 직접 탭(직접 지정) =====
+function ewmaPace(s, a=0.6){ // 최근 구간 가중(직전 페이스 반영)
   let p = s.splits[0].split;
   for(let i=1;i<s.splits.length;i++) p = a*s.splits[i].split + (1-a)*p;
   return p;
 }
-function onLap(){
-  const elapsed = performance.now()-t0;
+// 이번 라운드에서 '다음에 도착할' 예측 슬롯(순수 함수, 상태 불변)
+function peekNext(){
   const active = state.filter(s=>!s.finished);
-  if(!active.length) return;
-  const round = Math.min(...active.map(s=>s.nextSeg)); // 지금 진행 중인 length
-  if(round!==curRound){ curRound=round; tapped.clear(); }
-  let due = active.filter(s=>s.nextSeg===round && !tapped.has(s.idx));
-  if(!due.length){ tapped.clear(); due = active.filter(s=>s.nextSeg===round); }
-  let target;
-  if(round===0){
-    // 첫 length: 벽 찍는 도착 순서가 슬롯(1·2·3번)을 정의
-    target = due.sort((a,b)=>a.idx-b.idx)[0];
-  } else {
-    // 직전까지의 페이스로 예측 도착이 가장 이른 슬롯 = 이번 탭의 주인
-    target = due.map(s=>({s, exp:s.lastCum+ewmaPace(s)})).sort((a,b)=>a.exp-b.exp)[0].s;
-  }
-  tapped.add(target.idx);
-  assign(target, elapsed);
-  taps.push({elapsed, idx:target.idx});
+  if(!active.length) return null;
+  const r = Math.min(...active.map(s=>s.nextSeg));
+  let due = active.filter(s=>s.nextSeg===r && !tapped.has(s.idx));
+  if(!due.length) due = active.filter(s=>s.nextSeg===r);
+  if(r===0) return due.slice().sort((a,b)=>a.idx-b.idx)[0];
+  return due.map(s=>({s, exp:s.lastCum+ewmaPace(s)})).sort((a,b)=>a.exp-b.exp)[0].s;
+}
+function commit(slot){
+  if(!slot || t0==null) return;
+  const elapsed = performance.now()-t0;
+  if(slot.nextSeg!==curRound){ curRound=slot.nextSeg; tapped.clear(); }
+  tapped.add(slot.idx);
+  assign(slot, elapsed);
+  taps.push({elapsed, idx:slot.idx});
   document.getElementById('undo').disabled=false;
   if(state.every(s=>s.finished)) finish();
+}
+// 단일 LAP 버튼: 예측된 다음 레인에 기록(리듬용)
+function onLap(){ commit(peekNext()); }
+// 레인 행 직접 탭: 방금 벽 찍은 레인을 직접 지정(순서 역전·접전 시 확실)
+function tapLane(idx){
+  if(t0==null) return;
+  const active = state.filter(s=>!s.finished);
+  if(!active.length) return;
+  const r = Math.min(...active.map(s=>s.nextSeg));
+  const s = state[idx];
+  if(!s || s.finished || s.nextSeg!==r) return; // 이번 라운드 대상만
+  commit(s);
 }
 function assign(slot, elapsed){
   slot.splits.push({seg:slot.nextSeg, cum:elapsed, split:elapsed-slot.lastCum});
   slot.lastCum=elapsed; slot.nextSeg++;
   if(slot.nextSeg===segCount) slot.finished=true;
   lastAssigned=slot.idx; renderRunning(slot.idx);
-}
-function reassign(toIdx){
-  if(lastAssigned==null||toIdx===lastAssigned) return;
-  const from=state[lastAssigned], to=state[toIdx];
-  if(!to||to.nextSeg>=segCount) return;
-  const sp=from.splits.pop(); from.nextSeg--; from.finished=false;
-  from.lastCum=from.splits.length?from.splits.at(-1).cum:0;
-  const e=sp.cum; to.splits.push({seg:to.nextSeg,cum:e,split:e-to.lastCum});
-  to.lastCum=e; to.nextSeg++; if(to.nextSeg===segCount) to.finished=true;
-  lastAssigned=toIdx; if(taps.length) taps.at(-1).idx=toIdx;
-  tapped.delete(from.idx); tapped.add(to.idx); // 이번 라운드 주인 교체
-  renderRunning(toIdx); if(state.every(s=>s.finished)) finish();
 }
 function undo(){
   const t=taps.pop(); if(!t) return;
@@ -324,25 +326,26 @@ function undo(){
 function renderRunning(pulse){
   const done=state.reduce((a,s)=>a+s.splits.length,0), total=state.length*segCount;
   document.getElementById('hint').textContent = done
-    ? `랩 ${done} / ${total} · 남은 선수 ${state.filter(s=>!s.finished).length}명`
-    : '선수가 벽을 찍는 순서대로 LAP을 누르세요';
+    ? `랩 ${done} / ${total} · 남은 ${state.filter(s=>!s.finished).length}명 · 레인을 탭하거나 LAP`
+    : '벽을 찍은 레인을 탭하거나, 예측이 맞으면 LAP을 누르세요';
+  const next = peekNext();
+  document.getElementById('lapNext').textContent = next ? `다음 예측 ▸ ${next.idx+1}번` : '완료';
   document.getElementById('lanes').innerHTML = state.map(s=>{
     const dots=Array.from({length:segCount},(_,i)=>`<span class="dot ${i<s.nextSeg?'on':''}"></span>`).join('');
-    const last=s.splits.slice(-2).map(x=>`<span><b>${fmtSplit(x.split)}</b></span>`).join('');
+    const last=s.splits.slice(-2).map(x=>`<b>${fmtSplit(x.split)}</b>`).join(' ');
     const right=s.finished?`<span class="fin">완주 ${fmtTotal(s.lastCum)}</span>`:`<span class="prog">${dots}</span>`;
-    return `<div class="lane ${s.finished?'done':''} ${pulse===s.idx?'pulse':''}" style="--lc:${s.color}">
-      <div class="row1"><span class="ln">${s.idx+1}번</span>${right}</div>
+    const isNext = next && next.idx===s.idx && !s.finished;
+    return `<div class="lane ${s.finished?'done':''} ${isNext?'next':''} ${pulse===s.idx?'pulse':''}"
+      style="--lc:${s.color}" ${s.finished?'':`onclick="tapLane(${s.idx})"`}>
+      <div class="row1"><span class="ln">${s.idx+1}번</span>${isNext?'<span class="nexttag">다음</span>':''}${right}</div>
       <div class="splits">${last||'<span>출발 대기</span>'}</div></div>`;
   }).join('');
-  document.getElementById('chips').innerHTML = state.map(s=>
-    `<button class="chip ${lastAssigned!=null&&!s.finished?'live':''}" style="--lc:${s.color}"
-      ${(lastAssigned==null||s.finished)?'disabled':''} onclick="reassign(${s.idx})">${s.idx+1}</button>`).join('');
 }
 
 // ===== 측정 종료 → 배정 화면 =====
 function finish(){
   cancelAnimationFrame(raf);
-  document.getElementById('clock').textContent=fmt(Math.max(...state.map(s=>s.lastCum)));
+  setClock(Math.max(...state.map(s=>s.lastCum)));
   recommend(); renderAssign(); show('assign');
 }
 // 기록된 총 타임을 선수 typical과 대조해 추천 — 전역 최소비용 매칭(중복 없이)
@@ -437,7 +440,7 @@ document.getElementById('save').addEventListener('click',()=>{
   setTimeout(()=>t.style.display='none',2200);
 });
 document.getElementById('again').addEventListener('click',()=>{t0=null;show('setup');});
-window.reassign=reassign; window.setSwimmer=setSwimmer; window.swapSwimmers=swapSwimmers;
+window.tapLane=tapLane; window.setSwimmer=setSwimmer; window.swapSwimmers=swapSwimmers;
 recomputeSeg();
 
 // ===== 스냅샷/데모용 훅 (실사용 UX엔 영향 없음) =====
@@ -453,8 +456,8 @@ window.__demo = function(which){
     // 2번째 구간 진행 중 상태
     state.forEach((s,i)=>{ let cum=0; for(let k=0;k<2;k++){ cum+=sample[i][k]*1000;
       s.splits.push({seg:k,cum,split:sample[i][k]*1000}); } s.lastCum=cum; s.nextSeg=2; });
-    lastAssigned=1; show('running');
-    document.getElementById('clock').textContent=fmt(26800);
+    lastAssigned=1; curRound=2; tapped.clear(); show('running');
+    setClock(26800);
     renderRunning(1);
   } else if(which==='assign'){
     state.forEach((s,i)=>{ let cum=0; sample[i].forEach((v,k)=>{ cum+=v*1000;

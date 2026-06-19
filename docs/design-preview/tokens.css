@@ -48,9 +48,9 @@ html, body {
 /* phone frame for preview — 고정 기기 크기 + 내부 스크롤(모든 프리뷰 일관) */
 .phone {
   width: 390px;
-  height: 844px;
+  height: min(844px, calc(100dvh - 32px));
   max-width: 100%;
-  margin: 24px auto;
+  margin: 16px auto;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 36px;
@@ -60,6 +60,11 @@ html, body {
 }
 .screen { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 18px 26px; }
 .screen::-webkit-scrollbar { width: 0; background: transparent; }
+
+/* 실제 모바일: 프레임 없이 화면 가득 채워 페이지 스크롤 제거 */
+@media (max-width: 480px) {
+  .phone { width: 100%; height: 100dvh; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+}
 
 .btn {
   border: 0; cursor: pointer; font-family: var(--font-sans); font-weight: 700;

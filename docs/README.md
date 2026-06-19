@@ -18,6 +18,7 @@
 | [04-data-model.md](./04-data-model.md) | 엔티티/스키마, 저장·동기화 모델 |
 | [05-ux-flows.md](./05-ux-flows.md) | 화면 구성, 주요 플로우, 상태 다이어그램 |
 | [06-design-guide.md](./06-design-guide.md) | 디자인 시스템, 컬러/타이포/컴포넌트 가이드 |
+| [07-field-research.md](./07-field-research.md) | 코치·부모의 스톱워치 고충 리서치 → 설계 반영 |
 
 ## 디자인 프리뷰 (HTML)
 
