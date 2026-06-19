@@ -29,6 +29,16 @@
 | [design-preview/timer.html](./design-preview/timer.html) | **동작하는 타이머 데모** — 단일 버튼으로 3명 기록을 실제로 측정해볼 수 있음 |
 | [design-preview/records.html](./design-preview/records.html) | 선수 기록지 화면 목업 |
 
+## 배정 알고리즘 벤치마크
+
+레인 순서 변화(갈때 2-3-4-5 / 올때 2-4-3-5)·출발 다이브를 반영해 배정 전략 정확도를 측정합니다.
+
+```bash
+node bench/lap-assignment-bench.mjs   # 결과: bench/RESULTS.md
+```
+
+요약: 그리디(구) **25%** → **라운드 단조매칭 ~72%** 채택, 레인 이력 모드(선택) **~76%**(복귀 역전 97%).
+
 ```bash
 # 예: macOS
 open docs/design-preview/timer.html

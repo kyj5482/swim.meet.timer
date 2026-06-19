@@ -48,65 +48,72 @@
 
 ---
 
-## 3.3 자동 배정 알고리즘 (Tap → Slot, 익명)
+## 3.3 자동 배정 알고리즘 (Tap → Slot, 익명) — 라운드 단조매칭
 
 > 목표: 코치가 "벽 찍는 순서대로" 단일 버튼만 누르면, 앱이 각 탭을 올바른 **익명 슬롯**에 배정한다. 선수 이름은 측정 후 붙인다.
-
-### 입력
-- `activeSlots`: 아직 완주하지 않은 슬롯 집합.
-- 각 슬롯 `s`의 상태: `splits[]`, `nextSegmentIndex[s]`, `lastCumMs[s]`(없으면 0).
-- 새 탭의 `elapsed`.
-
-### 배정 규칙 (2단계)
-**1라운드(슬롯 정의 단계)** — 아직 첫 스플릿이 없는 슬롯이 있으면:
-1. 첫 스플릿이 없는 슬롯 중 **가장 낮은 번호**에 배정.
-2. → 결과적으로 첫 length를 끝낸 순서가 슬롯 1,2,3…을 정의한다. (물리적 레인 위치는 무의미; 선수는 나중에 매핑.)
-
-**2라운드 이후(페이스 추적 단계)** — 모든 슬롯이 최소 1스플릿을 가지면:
-1. 각 슬롯의 **자기 관측 페이스** `slotPace[s] = mean(s.splits.splitMs)` (또는 최근값 EWMA).
-2. 예상 도착 `expectedArrival[s] = lastCumMs[s] + slotPace[s]`.
-3. `score[s] = |elapsed - expectedArrival[s]|`가 **최소**인 슬롯 `s*`에 배정.
-4. 동점/근접(`τ` 이내) tie-break: (a) 이번 세그먼트 탭 못 받은 슬롯 → (b) `nextSegmentIndex` 작은 슬롯 → (c) 슬롯 번호.
-5. 배정 후 `s*`: 스플릿 push, `nextSegmentIndex++`, `lastCumMs=elapsed`.
-6. `nextSegmentIndex == segmentCount` → `s*` **완주(Stop)**, `activeSlots`에서 제외.
-
-> **선수 이력을 안 쓰는 이유**: 측정 중엔 누가 어느 슬롯인지 모른다. 그래서 각 슬롯이 *스스로 쌓은* 스플릿으로 다음을 예측한다. 이력 기반 추천은 측정 *후* 배정에서만 쓴다(§3.6).
 >
-> 핵심: 알고리즘이 완벽할 필요는 없다. **틀려도 1탭 수정**(§3.4)으로 100%가 된다. 자기-페이스 추적은 "탭 순서가 애매할 때의 추측"을 좋게 만들 뿐이다.
+> 수영은 **레인**이 있어 length마다 도착 순서가 바뀐다(갈때 `2-3-4-5`, 올때 `2-4-3-5`). 또 **출발 다이브**로 첫 구간이 유난히 빠르다. 이 둘을 견디도록 알고리즘을 **벤치마크로 선정**했다. → [bench/RESULTS.md](../bench/RESULTS.md)
+
+### 왜 "탭마다 최근접(그리디)"이 아닌가
+초기안은 탭마다 `|elapsed - 예상도착|`이 최소인 슬롯을 골랐다. 벤치마크 결과 **정확도 ~25%(무작위 수준)**. 한 슬롯이 다음 구간으로 넘어가면 예상 도착시각이 크게 이동해, **인접 슬롯의 탭을 가로채는 오류가 연쇄**되기 때문이다. (선두 한 명조차 안정적으로 추적 못 함.)
+
+### 채택: 라운드 단조매칭 (Round Monotonic Matching) — 정확도 ~72%
+핵심 통찰: 한 **length(라운드)** 안에서 N명의 탭은 N개 슬롯에 **일대일**로 들어간다. 직선 위 점-점 최소비용 매칭의 최적해는 **정렬 후 순서 매칭**이다.
+
+1. **라운드 경계**: `round = min(nextSegmentIndex of activeSlots)`. 같은 라운드에서 한 슬롯은 한 번만 받는다(`tapped` 집합).
+2. **1라운드(round 0)**: 벽 찍는 **도착 순서**가 슬롯 1·2·3…을 정의한다.
+3. **2라운드 이후**: 이번 라운드에 아직 안 받은 슬롯들을 **예상 도착 `lastCumMs + pace(s)` 오름차순**으로 정렬하고, 들어오는 탭(시간 오름차순)을 그 순서대로 배정한다. (= 단조매칭을 실시간으로 수행)
+4. **pace(s)**: 같은 세션에서 그 슬롯이 쌓은 스플릿의 **EWMA(최근 가중, α≈0.6)**. 다이브로 첫 구간이 빨라도 *순서*는 보존되므로 영향 없음.
+5. 배정 후 `s`: 스플릿 push, `nextSegmentIndex++`, `lastCumMs=elapsed`. `== segmentCount`면 **완주(Stop)**.
 
 ### 의사코드
 ```ts
-function onLap(elapsed: number, session: Session): Assignment {
-  const cands = session.slots.filter(s => !s.finished);
-  if (cands.length === 0) return noop();
+let curRound = -1; const tapped = new Set<number>();
 
-  // 1라운드: 첫 스플릿 없는 슬롯을 도착 순서대로 정의
-  const virgin = cands.filter(s => s.splits.length === 0);
+function onLap(elapsed: number, session: Session): Assignment {
+  const active = session.slots.filter(s => !s.finished);
+  if (active.length === 0) return noop();
+
+  const round = Math.min(...active.map(s => s.nextSegmentIndex));
+  if (round !== curRound) { curRound = round; tapped.clear(); }
+  let due = active.filter(s => s.nextSegmentIndex === round && !tapped.has(s.idx));
+  if (due.length === 0) { tapped.clear(); due = active.filter(s => s.nextSegmentIndex === round); }
+
   let target: Slot;
-  if (virgin.length) {
-    target = virgin[0]; // 가장 낮은 번호
+  if (round === 0) {
+    target = due.sort((a, b) => a.idx - b.idx)[0];          // 도착 순서로 슬롯 정의
   } else {
-    let best = cands[0], bestScore = Infinity;
-    for (const s of cands) {
-      const pace = mean(s.splits.map(x => x.splitMs));
-      const score = Math.abs(elapsed - (s.lastCumMs + pace));
-      if (score < bestScore) { bestScore = score; best = s; }
-    }
-    target = best;
+    target = due
+      .map(s => ({ s, exp: s.lastCumMs + ewma(s.splits) })) // 예상 도착이 가장 이른 슬롯
+      .sort((a, b) => a.exp - b.exp)[0].s;
   }
+  tapped.add(target.idx);
+
   const split = elapsed - target.lastCumMs;
   target.splits.push({ segmentIndex: target.nextSegmentIndex, cumulativeMs: elapsed, splitMs: split });
-  target.lastCumMs = elapsed;
-  target.nextSegmentIndex++;
+  target.lastCumMs = elapsed; target.nextSegmentIndex++;
   if (target.nextSegmentIndex === target.segmentCount) target.finished = true;
-  return { slot: target, split, finishedAll: cands.every(s => s.finished) };
+  return { slot: target, split, finishedAll: active.every(s => s.finished) };
 }
 ```
+
+### 레인 순서 역전의 한계와 처방
+- **예측 가능한 순서 변화**(페이스가 갈리는 경우)는 단조매칭이 정확히 처리 → 순서일관·큰격차 시나리오 **100%**.
+- **복귀 역전**(턴/후반에 더 빨라져 추월; 사용자 예시 `2-4-3-5`)은 *그 선수의 미래 정보*라, 슬롯이 자기 과거 스플릿만으론 50%가 한계. 단, **배정 화면의 총기록 추천**(§3.6)이 총합은 올바른 선수에 매칭하므로 "실력 향상(총기록)" 체크는 정상이고 구간 내부만 약간 혼입된다.
+- **정밀이 필요하면 레인 이력 모드(§3.3a)** 를 쓴다 → 복귀 역전 **97%**.
+- **초접전(<0.3초)·난전**은 타이밍만으론 누구도 못 가린다 → **수동 보정**(§3.4)이 정답.
+
+### 3.3a 레인 이력 모드 (선택, 정밀)
+코치가 **레인↔선수를 사전 지정**하면(예: 레인2=민준), 익명 슬롯 대신 선수 식별자가 있으므로 각 선수의 **과거 구간 프로파일**(턴·후반 페이스 포함)로 예상 도착을 계산할 수 있다. 단조매칭의 `pace(s)`를 *그 선수의 이력 해당 구간 시간*으로 대체하면 복귀 역전까지 예측한다.
+- 트레이드오프: 사전 배정 1단계 추가. 초접전·난전에서는 이력 불확실성이 실제 격차보다 커서 이득이 사라짐(이 구간은 수동 보정).
+- 기본은 빠른 **익명 모드**, 정확도가 중요할 때 코치가 **레인 모드**를 켠다.
 
 ### 경계 상황
 | 상황 | 처리 |
 | --- | --- |
-| 두 선수 거의 동시 터치 | 코치가 빠르게 2탭. 서로 다른 두 슬롯에 배정. 순서 틀리면 §3.4 재할당, 또는 측정 후 §3.6 맞바꾸기. |
+| 레인 순서 역전(갈때 2-3-4-5 / 올때 2-4-3-5) | 라운드 단조매칭이 페이스로 예측. 복귀 역전은 §3.3a 레인 모드 또는 §3.4 보정. |
+| 두 선수 거의 동시 터치 | 코치가 빠르게 2탭. 같은 라운드 내 단조매칭으로 두 슬롯에 배정. 순서 틀리면 §3.4 재할당, 또는 측정 후 §3.6 맞바꾸기. |
+| 랩(추월로 한 슬롯이 두 번 먼저 도착) | 라운드 모델 전제 위배 → 드묾. 발생 시 §3.4 수동 보정. |
 | 실수로 한 번 더 누름(중복) | **Undo**(FR-T10)로 직전 탭 제거. |
 | 한 구간 깜빡하고 못 누름 | 다음 탭이 엉뚱하게 배정 → 누락 보정(FR-T11): 빠진 세그먼트 수동 삽입 후 재정렬. |
 | 한 슬롯 도중 포기 | DNF(FR-T12): 후보 제외, 부분 기록 보존. |
@@ -192,3 +199,6 @@ function onLap(elapsed: number, session: Session): Assignment {
 | TE-8 | 배정: 두 슬롯 0.10초 차 | 두 카드 저신뢰 경고 + 맞바꾸기, PB muted |
 | TE-9 | 배정: 선수 변경/맞바꾸기 | 향상치·PB·요약 즉시 재계산 |
 | TE-10 | 시간 표시 | 전 구간 `mm:ss.SS`(1/100초) |
+| TE-11 | 레인 순서일관/큰격차 시나리오 | 단조매칭 정확도 100% (벤치마크) |
+| TE-12 | 복귀 역전(2-4-3-5) | 익명 모드 선두·최후미 정확 추적, 총기록은 올바른 선수에 매칭 |
+| TE-13 | 배정 전략 회귀 | `bench/lap-assignment-bench.mjs`로 그리디 25% < 단조매칭 ~72% < 레인이력 ~76% 확인 |

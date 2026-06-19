@@ -219,6 +219,7 @@ const roster = [
 let cfg = { course:'25y', stroke:'free', distance:100 };
 let slotCount = 3, segCount = 4;
 let state, t0, raf, lastAssigned = null, taps = [], view = 'setup';
+let curRound = -1, tapped = new Set();   // 라운드 단조매칭용
 
 const unit = c => c==='50m' ? 50 : 25;
 function recomputeSeg(){
@@ -257,34 +258,43 @@ function freshSlots(){
 // ===== START =====
 function start(){
   if (!recomputeSeg()) return;
-  freshSlots(); taps=[]; lastAssigned=null; t0=performance.now();
+  freshSlots(); taps=[]; lastAssigned=null; curRound=-1; tapped.clear(); t0=performance.now();
   show('running'); tick(); renderRunning();
 }
 function tick(){ if(t0!=null && view==='running'){
   document.getElementById('clock').textContent = fmt(performance.now()-t0);
   raf = requestAnimationFrame(tick); } }
 
-// ===== LAP → 익명 슬롯 자동 배정 =====
+// ===== LAP → 라운드 단조매칭(레인 순서 역전 대응) =====
+// length(라운드) 단위로, N개의 탭을 '예측 도착 순서'대로 정렬해 배정한다.
+// 탭마다 즉시 처리하되, 같은 라운드에서 한 슬롯이 두 번 받지 않도록 tapped로 제어.
+function ewmaPace(s, a=0.6){ // 최근 구간을 더 가중(직전 페이스 반영)
+  let p = s.splits[0].split;
+  for(let i=1;i<s.splits.length;i++) p = a*s.splits[i].split + (1-a)*p;
+  return p;
+}
 function onLap(){
   const elapsed = performance.now()-t0;
   const active = state.filter(s=>!s.finished);
   if(!active.length) return;
-  // 1라운드: 아직 첫 구간 기록 없는 슬롯을 도착 순서대로 정의
-  const virgin = active.filter(s=>s.splits.length===0);
+  const round = Math.min(...active.map(s=>s.nextSeg)); // 지금 진행 중인 length
+  if(round!==curRound){ curRound=round; tapped.clear(); }
+  let due = active.filter(s=>s.nextSeg===round && !tapped.has(s.idx));
+  if(!due.length){ tapped.clear(); due = active.filter(s=>s.nextSeg===round); }
   let target;
-  if (virgin.length){ target = virgin[0]; }
-  else {
-    let best=null,bs=Infinity;
-    for(const s of active){ const exp=s.lastCum + avgPace(s); const sc=Math.abs(elapsed-exp);
-      if(sc<bs){bs=sc;best=s;} }
-    target=best;
+  if(round===0){
+    // 첫 length: 벽 찍는 도착 순서가 슬롯(1·2·3번)을 정의
+    target = due.sort((a,b)=>a.idx-b.idx)[0];
+  } else {
+    // 직전까지의 페이스로 예측 도착이 가장 이른 슬롯 = 이번 탭의 주인
+    target = due.map(s=>({s, exp:s.lastCum+ewmaPace(s)})).sort((a,b)=>a.exp-b.exp)[0].s;
   }
+  tapped.add(target.idx);
   assign(target, elapsed);
   taps.push({elapsed, idx:target.idx});
   document.getElementById('undo').disabled=false;
   if(state.every(s=>s.finished)) finish();
 }
-function avgPace(s){ return s.splits.reduce((a,b)=>a+b.split,0)/s.splits.length; }
 function assign(slot, elapsed){
   slot.splits.push({seg:slot.nextSeg, cum:elapsed, split:elapsed-slot.lastCum});
   slot.lastCum=elapsed; slot.nextSeg++;
@@ -300,12 +310,14 @@ function reassign(toIdx){
   const e=sp.cum; to.splits.push({seg:to.nextSeg,cum:e,split:e-to.lastCum});
   to.lastCum=e; to.nextSeg++; if(to.nextSeg===segCount) to.finished=true;
   lastAssigned=toIdx; if(taps.length) taps.at(-1).idx=toIdx;
+  tapped.delete(from.idx); tapped.add(to.idx); // 이번 라운드 주인 교체
   renderRunning(toIdx); if(state.every(s=>s.finished)) finish();
 }
 function undo(){
   const t=taps.pop(); if(!t) return;
   const s=state[t.idx]; s.splits.pop(); s.nextSeg--; s.finished=false;
   s.lastCum=s.splits.length?s.splits.at(-1).cum:0; lastAssigned=null;
+  tapped.delete(s.idx); curRound=-1; // 라운드 상태 재계산
   document.getElementById('undo').disabled=taps.length===0; renderRunning();
 }
 
@@ -419,7 +431,7 @@ document.getElementById('plus').addEventListener('click',()=>{ slotCount=Math.mi
 document.getElementById('start').addEventListener('click',start);
 document.getElementById('lap').addEventListener('click',onLap);
 document.getElementById('undo').addEventListener('click',undo);
-document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);t0=null;show('setup');});
+document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);t0=null;curRound=-1;tapped.clear();show('setup');});
 document.getElementById('save').addEventListener('click',()=>{
   const t=document.getElementById('toast'); t.textContent=`✓ ${slotCount}명 기록 저장됨`; t.style.display='block';
   setTimeout(()=>t.style.display='none',2200);
