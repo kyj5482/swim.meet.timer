@@ -21,11 +21,31 @@
   .wake { font-size: 11px; color: var(--text-muted); display:flex; gap:5px; align-items:center; }
   .wake i { width:7px;height:7px;border-radius:50%;background:var(--ok); display:inline-block; }
 
+  /* ---- top / settings ---- */
+  .gear { background:none; border:0; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; padding:2px 4px; }
+  .gear:active { color:var(--accent); }
+  .link { background:none; border:0; color:var(--accent); font-size:13px; font-weight:600; cursor:pointer; padding:0; }
+
   /* ---- setup ---- */
-  .setup .seg-toggle { display:flex; gap:6px; margin:10px 0; }
-  .setup .seg-toggle button { flex:1; height:42px; border:1px solid var(--line); background:var(--surface);
-    color:var(--text); border-radius:12px; font-weight:600; cursor:pointer; }
-  .setup .seg-toggle button.on { background:var(--accent); color:#04221d; border-color:var(--accent); }
+  /* 코스 표시 행(읽기 전용) */
+  .setrow { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; padding:12px 14px; margin:4px 0 10px; }
+  .setrow .k { color:var(--text-muted); font-size:13px; width:64px; }
+  .setrow .v { font-weight:700; font-size:16px; color:var(--text); }
+  .setrow .link { margin-left:auto; }
+
+  /* 설정 시트(코스 단위 토글은 여기서) */
+  .seg-toggle { display:flex; gap:6px; margin:8px 0; }
+  .seg-toggle button { flex:1; height:46px; border:1px solid var(--line); background:var(--surface-2);
+    color:var(--text); border-radius:12px; font-weight:700; cursor:pointer; }
+  .seg-toggle button.on { background:var(--accent); color:#04221d; border-color:var(--accent); }
+  .sheet { position:absolute; inset:0; background:rgba(2,10,18,.6); display:flex; align-items:flex-end; z-index:5; }
+  .sheet-card { width:100%; background:var(--surface); border-top:1px solid var(--line);
+    border-radius:22px 22px 0 0; padding:18px 18px 24px; }
+  .sheet-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .sheet-head h3 { margin:0; font-size:18px; }
+  .setlabel2 { color:var(--text-muted); font-size:13px; margin-top:10px; }
+  .sheet-tip { color:var(--text-muted); font-size:12px; line-height:1.5; margin:8px 2px 0; }
   .field { display:flex; align-items:center; gap:10px; margin:10px 0; }
   .field label { width:64px; color:var(--text-muted); font-size:13px; }
   .field select { flex:1; height:42px; background:var(--surface); color:var(--text);
@@ -131,15 +151,16 @@
   <div class="screen">
     <div class="top">
       <div class="set" id="setlabel">100y 자유형 · 25y</div>
-      <div class="wake"><i></i> 화면 유지</div>
+      <button class="gear" id="openSettings" title="설정">⚙</button>
     </div>
 
     <!-- ============ SETUP ============ -->
     <section class="setup" id="setup">
-      <div class="seg-toggle" id="course">
-        <button data-c="25m">25m</button>
-        <button data-c="25y" class="on">25y</button>
-        <button data-c="50m">50m</button>
+      <!-- 코스 단위는 설정에서 한 번만 정하고, 여기선 표시만 -->
+      <div class="setrow">
+        <span class="k">코스</span>
+        <span class="v" id="courseDisp">25y</span>
+        <button class="link" id="openSettings2">설정에서 변경</button>
       </div>
       <div class="field">
         <label>종목</label>
@@ -202,6 +223,20 @@
     </section>
 
     <div class="toast" id="toast"></div>
+
+    <!-- ============ 설정 시트(코스 단위는 여기서 한 번만) ============ -->
+    <div class="sheet hidden" id="settings">
+      <div class="sheet-card">
+        <div class="sheet-head"><h3>설정</h3><button class="link" id="closeSettings">완료</button></div>
+        <div class="setlabel2">코스 단위</div>
+        <div class="seg-toggle" id="course">
+          <button data-c="25m">25m</button>
+          <button data-c="25y" class="on">25y</button>
+          <button data-c="50m">50m</button>
+        </div>
+        <p class="sheet-tip">한 번 설정하면 모든 측정에 적용됩니다. 다니는 풀(야드/미터)에 맞춰 가끔만 바꾸면 됩니다.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -215,7 +250,9 @@ const roster = [
   { id:'doyun',   name:'도윤', best:56.20, last:56.00, typical:56.1 },
 ];
 
-let cfg = { course:'25y', stroke:'free', distance:100 };
+// 코스 단위는 앱 설정값(한 번 설정 → 모든 측정에 적용). 데모는 localStorage에 보존.
+const savedCourse = (()=>{ try { return localStorage.getItem('splitlane.course'); } catch(e){ return null; } })();
+let cfg = { course: savedCourse || '25y', stroke:'free', distance:100 };
 let slotCount = 3, segCount = 4;
 let state, t0, raf, lastAssigned = null, taps = [], view = 'setup';
 let curRound = -1, tapped = new Set();   // 라운드 단조매칭용
@@ -231,6 +268,7 @@ function recomputeSeg(){
   const strokeKo = {free:'자유형',back:'배영',breast:'평영',fly:'접영',im:'혼영'}[cfg.stroke];
   document.getElementById('setlabel').textContent =
     `${cfg.distance}${cfg.course.endsWith('y')?'y':'m'} ${strokeKo} · ${cfg.course}`;
+  document.getElementById('courseDisp').textContent = cfg.course; // 타이머엔 표시만
   return ok;
 }
 
@@ -419,10 +457,21 @@ function renderAssign(){
 function setSwimmer(idx,id){ state[idx].swimmerId=id; renderAssign(); }
 
 // ===== events =====
+// 설정 시트(코스 단위) — 한 번 정하면 보존, 타이머엔 표시만
+function syncCourseToggle(){
+  [...document.querySelectorAll('#course button')].forEach(x=>x.classList.toggle('on', x.dataset.c===cfg.course));
+}
+function openSettings(){ syncCourseToggle(); document.getElementById('settings').classList.remove('hidden'); }
+function closeSettings(){ document.getElementById('settings').classList.add('hidden'); }
+document.getElementById('openSettings').addEventListener('click', openSettings);
+document.getElementById('openSettings2').addEventListener('click', openSettings);
+document.getElementById('closeSettings').addEventListener('click', closeSettings);
+document.getElementById('settings').addEventListener('click', e=>{ if(e.target.id==='settings') closeSettings(); });
 document.getElementById('course').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
   cfg.course=b.dataset.c;
-  [...document.querySelectorAll('#course button')].forEach(x=>x.classList.toggle('on',x===b));
+  try { localStorage.setItem('splitlane.course', cfg.course); } catch(err){}
+  syncCourseToggle();
   recomputeSeg();
 });
 document.getElementById('stroke').addEventListener('change',e=>{cfg.stroke=e.target.value;recomputeSeg();});
@@ -441,6 +490,7 @@ document.getElementById('save').addEventListener('click',()=>{
 });
 document.getElementById('again').addEventListener('click',()=>{t0=null;show('setup');});
 window.tapLane=tapLane; window.setSwimmer=setSwimmer; window.swapSwimmers=swapSwimmers;
+syncCourseToggle();
 recomputeSeg();
 
 // ===== 스냅샷/데모용 훅 (실사용 UX엔 영향 없음) =====

@@ -99,6 +99,14 @@ interface SetPreset {
   defaultTarget: Target;
   slotCount: number;
 }
+
+// 앱 전역 설정(한 번 정해 보존). 코스 단위는 여기 살고, 측정 화면엔 표시만 됨(FR-S1).
+interface AppPrefs {
+  course: Course;          // 기본 코스 단위(다니는 풀에 맞춰 가끔만 변경)
+  sound?: boolean;
+  haptics?: boolean;
+  theme?: 'dark' | 'light';
+}
 ```
 
 ---
