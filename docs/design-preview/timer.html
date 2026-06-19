@@ -196,7 +196,7 @@
     <section class="running hidden" id="running">
       <div class="clock">
         <div class="t mono"><span id="clockMain">00:00</span><span class="frac" id="clockFrac">.00</span></div>
-        <div class="sub" id="hint">벽을 찍은 레인을 탭하거나, 예측이 맞으면 LAP을 누르세요</div>
+        <div class="sub" id="hint">번호 순서대로 LAP. 순서가 다르면 그 번호를 먼저 탭하세요</div>
       </div>
       <div class="lanes" id="lanes"></div>
       <div class="controls">
@@ -255,7 +255,8 @@ const savedCourse = (()=>{ try { return localStorage.getItem('splitlane.course')
 let cfg = { course: savedCourse || '25y', stroke:'free', distance:100 };
 let slotCount = 3, segCount = 4;
 let state, t0, raf, lastAssigned = null, taps = [], view = 'setup';
-let curRound = -1, tapped = new Set();   // 라운드 단조매칭용
+let curRound = -1, tapped = new Set();   // 라운드 추적
+let nextOverride = null;                  // 사용자가 '다음'으로 지정한 슬롯(번호 우선)
 
 const unit = c => c==='50m' ? 50 : 25;
 function recomputeSeg(){
@@ -295,7 +296,7 @@ function freshSlots(){
 // ===== START =====
 function start(){
   if (!recomputeSeg()) return;
-  freshSlots(); taps=[]; lastAssigned=null; curRound=-1; tapped.clear(); t0=performance.now();
+  freshSlots(); taps=[]; lastAssigned=null; curRound=-1; tapped.clear(); nextOverride=null; t0=performance.now();
   show('running'); tick(); renderRunning();
 }
 function tick(){ if(t0!=null && view==='running'){
@@ -309,43 +310,43 @@ function setClock(ms){
   document.getElementById('clockFrac').textContent = `.${String(hh).padStart(2,'0')}`;
 }
 
-// ===== 배정: 라운드 단조매칭(예측) + 레인 직접 탭(직접 지정) =====
-function ewmaPace(s, a=0.6){ // 최근 구간 가중(직전 페이스 반영)
-  let p = s.splits[0].split;
-  for(let i=1;i<s.splits.length;i++) p = a*s.splits[i].split + (1-a)*p;
-  return p;
+// ===== 배정: 라운드로빈 예측 + 사용자가 '다음 번호' 지정 =====
+// 같은 라운드의 미기록 슬롯들을 번호 순(1→2→3)으로 예측한다(라운드로빈).
+// 순서가 다르면 코치가 해당 번호를 탭 → 그 번호가 '다음'으로 우선된다. 기록은 항상 LAP.
+// 이번 라운드(현재 length)에서 아직 기록 안 한 슬롯들 = nextSeg가 최소인 슬롯들.
+// (한 슬롯은 다른 슬롯들이 이번 구간을 끝낼 때까지 다음 구간으로 못 넘어감 → 라운드 규율)
+function dueSlots(){
+  const active = state.filter(s=>!s.finished);
+  if(!active.length) return { r:null, due:[] };
+  const r = Math.min(...active.map(s=>s.nextSeg));
+  return { r, due: active.filter(s=>s.nextSeg===r) };
 }
-// 이번 라운드에서 '다음에 도착할' 예측 슬롯(순수 함수, 상태 불변)
+// 이번에 LAP을 누르면 기록될 슬롯(순수 함수): 지정값 우선, 없으면 번호순(라운드로빈)
 function peekNext(){
   const active = state.filter(s=>!s.finished);
   if(!active.length) return null;
-  const r = Math.min(...active.map(s=>s.nextSeg));
-  let due = active.filter(s=>s.nextSeg===r && !tapped.has(s.idx));
-  if(!due.length) due = active.filter(s=>s.nextSeg===r);
-  if(r===0) return due.slice().sort((a,b)=>a.idx-b.idx)[0];
-  return due.map(s=>({s, exp:s.lastCum+ewmaPace(s)})).sort((a,b)=>a.exp-b.exp)[0].s;
+  if(nextOverride!=null){ const o=active.find(s=>s.idx===nextOverride); if(o) return o; }
+  const { due } = dueSlots();
+  return due.slice().sort((a,b)=>a.idx-b.idx)[0] || null;
 }
 function commit(slot){
   if(!slot || t0==null) return;
   const elapsed = performance.now()-t0;
-  if(slot.nextSeg!==curRound){ curRound=slot.nextSeg; tapped.clear(); }
-  tapped.add(slot.idx);
+  nextOverride = null;            // 지정은 1회용(소비)
   assign(slot, elapsed);
   taps.push({elapsed, idx:slot.idx});
   document.getElementById('undo').disabled=false;
   if(state.every(s=>s.finished)) finish();
 }
-// 단일 LAP 버튼: 예측된 다음 레인에 기록(리듬용)
+// 단일 LAP 버튼: '다음'으로 예측/지정된 슬롯에 기록(리듬용)
 function onLap(){ commit(peekNext()); }
-// 레인 행 직접 탭: 방금 벽 찍은 레인을 직접 지정(순서 역전·접전 시 확실)
-function tapLane(idx){
+// 레인 번호 탭: 기록이 아니라 '다음 우선순위' 지정. 기록은 LAP.
+function selectNext(idx){
   if(t0==null) return;
-  const active = state.filter(s=>!s.finished);
-  if(!active.length) return;
-  const r = Math.min(...active.map(s=>s.nextSeg));
   const s = state[idx];
-  if(!s || s.finished || s.nextSeg!==r) return; // 이번 라운드 대상만
-  commit(s);
+  if(!s || s.finished) return;
+  nextOverride = idx;
+  renderRunning();
 }
 function assign(slot, elapsed){
   slot.splits.push({seg:slot.nextSeg, cum:elapsed, split:elapsed-slot.lastCum});
@@ -357,25 +358,26 @@ function undo(){
   const t=taps.pop(); if(!t) return;
   const s=state[t.idx]; s.splits.pop(); s.nextSeg--; s.finished=false;
   s.lastCum=s.splits.length?s.splits.at(-1).cum:0; lastAssigned=null;
-  tapped.delete(s.idx); curRound=-1; // 라운드 상태 재계산
+  tapped.delete(s.idx); curRound=-1; nextOverride=null; // 라운드 상태 재계산
   document.getElementById('undo').disabled=taps.length===0; renderRunning();
 }
 
 function renderRunning(pulse){
   const done=state.reduce((a,s)=>a+s.splits.length,0), total=state.length*segCount;
   document.getElementById('hint').textContent = done
-    ? `랩 ${done} / ${total} · 남은 ${state.filter(s=>!s.finished).length}명 · 레인을 탭하거나 LAP`
-    : '벽을 찍은 레인을 탭하거나, 예측이 맞으면 LAP을 누르세요';
+    ? `랩 ${done} / ${total} · 남은 ${state.filter(s=>!s.finished).length}명 · 순서 다르면 번호 탭 → LAP`
+    : '번호 순서(1·2·3…)대로 LAP. 순서가 다르면 그 번호를 먼저 탭하세요';
   const next = peekNext();
-  document.getElementById('lapNext').textContent = next ? `다음 예측 ▸ ${next.idx+1}번` : '완료';
+  const overridden = next && nextOverride===next.idx;
+  document.getElementById('lapNext').textContent = next ? `${overridden?'지정':'다음'} ▸ ${next.idx+1}번` : '완료';
   document.getElementById('lanes').innerHTML = state.map(s=>{
     const dots=Array.from({length:segCount},(_,i)=>`<span class="dot ${i<s.nextSeg?'on':''}"></span>`).join('');
     const last=s.splits.slice(-2).map(x=>`<b>${fmtSplit(x.split)}</b>`).join(' ');
     const right=s.finished?`<span class="fin">완주 ${fmtTotal(s.lastCum)}</span>`:`<span class="prog">${dots}</span>`;
     const isNext = next && next.idx===s.idx && !s.finished;
     return `<div class="lane ${s.finished?'done':''} ${isNext?'next':''} ${pulse===s.idx?'pulse':''}"
-      style="--lc:${s.color}" ${s.finished?'':`onclick="tapLane(${s.idx})"`}>
-      <div class="row1"><span class="ln">${s.idx+1}번</span>${isNext?'<span class="nexttag">다음</span>':''}${right}</div>
+      style="--lc:${s.color}" ${s.finished?'':`onclick="selectNext(${s.idx})"`}>
+      <div class="row1"><span class="ln">${s.idx+1}번</span>${isNext?`<span class="nexttag">${overridden?'지정':'다음'}</span>`:''}${right}</div>
       <div class="splits">${last||'<span>출발 대기</span>'}</div></div>`;
   }).join('');
 }
@@ -483,13 +485,13 @@ document.getElementById('plus').addEventListener('click',()=>{ slotCount=Math.mi
 document.getElementById('start').addEventListener('click',start);
 document.getElementById('lap').addEventListener('click',onLap);
 document.getElementById('undo').addEventListener('click',undo);
-document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);t0=null;curRound=-1;tapped.clear();show('setup');});
+document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);t0=null;curRound=-1;tapped.clear();nextOverride=null;show('setup');});
 document.getElementById('save').addEventListener('click',()=>{
   const t=document.getElementById('toast'); t.textContent=`✓ ${slotCount}명 기록 저장됨`; t.style.display='block';
   setTimeout(()=>t.style.display='none',2200);
 });
 document.getElementById('again').addEventListener('click',()=>{t0=null;show('setup');});
-window.tapLane=tapLane; window.setSwimmer=setSwimmer; window.swapSwimmers=swapSwimmers;
+window.selectNext=selectNext; window.setSwimmer=setSwimmer; window.swapSwimmers=swapSwimmers;
 syncCourseToggle();
 recomputeSeg();
 
