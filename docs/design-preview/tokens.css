@@ -63,10 +63,14 @@ html, body {
 
 /* 실제 모바일: 프레임 없이 화면 가득 채워 페이지 스크롤 제거 */
 @media (max-width: 480px) {
-  /* height comes from the JS-measured viewport (--app-h); 100dvh is the
-     fallback before the script runs. This avoids iOS reporting a stale
-     viewport height on launch (which previously needed a manual scroll). */
-  .phone { width: 100%; height: 100dvh; height: var(--app-h, 100dvh);
+  /* Lock the page so it cannot scroll at all (no "wrong vs right" scroll
+     position) and pin .phone to the top of the viewport. Its height is the
+     JS-measured visible viewport (--app-h), with 100dvh as the pre-script
+     fallback. Because .phone is fixed and out of flow, the document has no
+     scrollable height — the layout is always at the correct position. */
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  .phone { position: fixed; top: 0; left: 0; width: 100%;
+    height: 100dvh; height: var(--app-h, 100dvh);
     margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 }
 
