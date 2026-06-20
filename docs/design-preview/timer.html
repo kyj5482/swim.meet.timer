@@ -48,16 +48,27 @@
   .sheet-tip { color:var(--text-muted); font-size:12px; line-height:1.5; margin:8px 2px 0; }
   .field { display:flex; align-items:center; gap:10px; margin:10px 0; }
   .field label { width:64px; color:var(--text-muted); font-size:13px; }
-  /* 드롭다운(select) — 앱 디자인과 통일: 네이티브 화살표 제거 + 커스텀 셰브론 */
+  /* 드롭다운(select) — 앱 디자인과 통일: 폰트=본문 산세리프, 화살표 제거 + 커스텀 셰브론 */
   select.sel { -webkit-appearance:none; -moz-appearance:none; appearance:none;
     height:44px; border:1px solid var(--line); border-radius:12px; color:var(--text);
-    background-color:var(--surface); font-family:var(--font-sans); font-size:15px; font-weight:600;
-    padding:0 38px 0 12px; cursor:pointer;
+    background-color:var(--surface); font-family:var(--font-sans); font-size:15px; font-weight:500;
+    letter-spacing:0; padding:0 38px 0 12px; cursor:pointer;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238EA9BE' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat:no-repeat; background-position:right 13px center; background-size:16px; }
+  select.sel option { font-family:var(--font-sans); font-weight:500; color:var(--text); background:var(--surface); }
   select.sel:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(25,227,198,.28); }
   select.sel:hover { border-color:var(--surface-2); }
   .field select.sel { flex:1; }
+  /* 텍스트 입력(선수 추가) */
+  .inp { width:100%; height:44px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2);
+    color:var(--text); font-family:var(--font-sans); font-size:15px; font-weight:500; padding:0 14px; }
+  .inp:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(25,227,198,.28); }
+  .inp::placeholder { color:var(--text-muted); }
+  .afield { margin-top:12px; }
+  .afield label { display:block; color:var(--text-muted); font-size:13px; margin-bottom:6px; }
+  .addbtn { width:100%; height:46px; border:1px dashed var(--line); border-radius:12px; background:transparent;
+    color:var(--accent); font-weight:700; font-size:14px; cursor:pointer; margin:2px 0 4px; }
+  .addbtn:active { background:var(--surface); }
   .seginfo { color:var(--text-muted); font-size:12px; margin:2px 0 14px; }
   .seginfo b { color:var(--accent); }
 
@@ -184,6 +195,10 @@
           <option>25</option><option>50</option><option selected>100</option><option>200</option>
         </select>
       </div>
+      <div class="field">
+        <label>스플릿</label>
+        <select id="split" class="sel"></select>
+      </div>
       <div class="seginfo" id="seginfo"></div>
 
       <div class="stepper">
@@ -223,6 +238,7 @@
       <div class="lead">기록을 보고 선수를 배정하세요. 기존 기록 기준으로 추천했습니다.</div>
       <div id="summary"></div>
       <div id="acards"></div>
+      <button class="addbtn" id="openAdd">＋ 새 선수 추가</button>
       <div class="controls">
         <button class="btn main-btn" id="save" style="height:64px;font-size:20px">기록 저장</button>
         <div class="row">
@@ -239,11 +255,21 @@
         <div class="sheet-head"><h3>설정</h3><button class="link" id="closeSettings">완료</button></div>
         <div class="setlabel2">코스 단위</div>
         <div class="seg-toggle" id="course">
-          <button data-c="25m">25m</button>
-          <button data-c="25y" class="on">25y</button>
-          <button data-c="50m">50m</button>
+          <button data-c="25m">25 Meter</button>
+          <button data-c="25y" class="on">25 Yard</button>
+          <button data-c="50m">50 Meter</button>
         </div>
         <p class="sheet-tip">한 번 설정하면 모든 측정에 적용됩니다. 다니는 풀(야드/미터)에 맞춰 가끔만 바꾸면 됩니다.</p>
+      </div>
+    </div>
+
+    <!-- ============ 선수 추가 시트 ============ -->
+    <div class="sheet hidden" id="addSwimmer">
+      <div class="sheet-card">
+        <div class="sheet-head"><h3>선수 추가</h3><button class="link" id="addCancel">취소</button></div>
+        <div class="afield"><label>이름</label><input id="swName" class="inp" placeholder="예: 민준" maxlength="20"></div>
+        <div class="afield"><label>그룹</label><input id="swGroup" class="inp" placeholder="예: 엘리트반 (선택)" maxlength="20"></div>
+        <button class="btn main-btn" id="addSave" style="height:54px;font-size:18px;margin-top:14px">추가</button>
       </div>
     </div>
   </div>
@@ -261,23 +287,45 @@ const roster = [
 
 // 코스 단위는 앱 설정값(한 번 설정 → 모든 측정에 적용). 데모는 localStorage에 보존.
 const savedCourse = (()=>{ try { return localStorage.getItem('splitlane.course'); } catch(e){ return null; } })();
-let cfg = { course: savedCourse || '25y', stroke:'free', distance:100 };
+let cfg = { course: savedCourse || '25y', stroke:'free', distance:100, split:25 };
 let slotCount = 3, segCount = 4;
 let state, t0, raf, lastAssigned = null, taps = [], view = 'setup';
 let curRound = -1, tapped = new Set();   // 라운드 추적
 
-const unit = c => c==='50m' ? 50 : 25;
+const COURSE_NAME = { '25m':'25 Meter', '25y':'25 Yard', '50m':'50 Meter' };
+const poolLen  = c => c==='50m' ? 50 : 25;       // 한 length(벽 사이) 거리
+const unitWord = c => c.endsWith('y') ? 'Yard' : 'Meter';
+const distSuffix = c => c.endsWith('y') ? 'y' : 'm';
+
+// 유효 스플릿 간격: 풀 길이의 배수이면서 거리를 나눠떨어뜨리는 값(전체=한 번 기록)
+function validSplits(){
+  const u=poolLen(cfg.course), d=cfg.distance, opts=[];
+  for(let iv=u; iv<=d; iv+=u){ if(d%iv===0) opts.push(iv); }
+  return opts;
+}
+function rebuildSplitOptions(){
+  const opts=validSplits(); const w=unitWord(cfg.course), sel=document.getElementById('split');
+  if(!opts.length){ sel.innerHTML=''; return; }
+  if(!opts.includes(cfg.split)) cfg.split = opts[0];   // 기본: 매 length
+  sel.innerHTML = opts.map(iv=>
+    `<option value="${iv}" ${iv===cfg.split?'selected':''}>${iv} ${w}${iv===cfg.distance?' (전체·1회)':'마다'}</option>`).join('');
+}
 function recomputeSeg(){
-  segCount = Math.floor(cfg.distance / unit(cfg.course));
-  const ok = cfg.distance % unit(cfg.course) === 0 && segCount >= 1;
+  const baseOk = cfg.distance % poolLen(cfg.course) === 0;
+  rebuildSplitOptions();
+  segCount = baseOk ? cfg.distance / cfg.split : 0;
+  const ok = baseOk && Number.isInteger(segCount) && segCount >= 1;
+  const w = unitWord(cfg.course);
   document.getElementById('seginfo').innerHTML = ok
-    ? `구간 <b>${segCount}개</b> · ${cfg.distance}${cfg.course.endsWith('y')?'y':'m'} ÷ ${unit(cfg.course)}`
-    : `<span style="color:var(--warn)">거리가 구간으로 나눠떨어지지 않습니다</span>`;
+    ? (segCount===1
+        ? `결과 1회 · ${cfg.distance} ${w} 한 번에 기록`
+        : `구간 <b>${segCount}개</b> · ${cfg.split} ${w}마다 LAP`)
+    : `<span style="color:var(--warn)">${cfg.distance}는 ${poolLen(cfg.course)} ${w} 풀에서 잴 수 없습니다</span>`;
   document.getElementById('start').disabled = !ok;
   const strokeKo = {free:'자유형',back:'배영',breast:'평영',fly:'접영',im:'혼영'}[cfg.stroke];
   document.getElementById('setlabel').textContent =
-    `${cfg.distance}${cfg.course.endsWith('y')?'y':'m'} ${strokeKo} · ${cfg.course}`;
-  document.getElementById('courseDisp').textContent = cfg.course; // 타이머엔 표시만
+    `${cfg.distance}${distSuffix(cfg.course)} ${strokeKo} · ${COURSE_NAME[cfg.course]}`;
+  document.getElementById('courseDisp').textContent = COURSE_NAME[cfg.course]; // 타이머엔 표시만
   return ok;
 }
 
@@ -419,6 +467,8 @@ function recommend(){
 function deltaHtml(slot){
   const r=roster.find(x=>x.id===slot.swimmerId); if(!r) return '';
   const tot=slot.lastCum/1000;
+  if(r.last==null || r.best==null)   // 신규 선수(이력 없음)
+    return `<span class="prevnow"><b>${tot.toFixed(2)}</b></span><span class="pb">첫 기록</span>`;
   const dLast=tot-r.last;
   const cls=dLast<0?'imp':'reg', ar=dLast<0?'▼':'▲';
   let html=`<span class="prevnow"><span class="muted">이전 ${r.last.toFixed(2)}</span> → <b>${tot.toFixed(2)}</b></span>`
@@ -452,7 +502,7 @@ function summaryHtml(){
     <span class="muted">총 ${state.length}명</span></div>`;
 }
 function renderAssign(){
-  const segUnit=unit(cfg.course), suf=cfg.course.endsWith('y')?'y':'m';
+  const segUnit=cfg.split, suf=distSuffix(cfg.course);
   document.getElementById('summary').innerHTML = summaryHtml();
   document.getElementById('acards').innerHTML = state.map(s=>{
     const opts=roster.map(r=>`<option value="${r.id}" ${r.id===s.swimmerId?'selected':''}>${r.name}</option>`).join('');
@@ -488,6 +538,24 @@ document.getElementById('course').addEventListener('click',e=>{
 });
 document.getElementById('stroke').addEventListener('change',e=>{cfg.stroke=e.target.value;recomputeSeg();});
 document.getElementById('distance').addEventListener('change',e=>{cfg.distance=+e.target.value;recomputeSeg();});
+document.getElementById('split').addEventListener('change',e=>{cfg.split=+e.target.value;recomputeSeg();});
+
+// 선수 추가 시트
+let addForSlot=null;
+function openAdd(slotIdx=null){ addForSlot=(typeof slotIdx==='number')?slotIdx:null;
+  document.getElementById('swName').value=''; document.getElementById('swGroup').value='';
+  document.getElementById('addSwimmer').classList.remove('hidden'); document.getElementById('swName').focus(); }
+function closeAdd(){ document.getElementById('addSwimmer').classList.add('hidden'); }
+document.getElementById('openAdd').addEventListener('click', ()=>openAdd());
+document.getElementById('addCancel').addEventListener('click', closeAdd);
+document.getElementById('addSwimmer').addEventListener('click', e=>{ if(e.target.id==='addSwimmer') closeAdd(); });
+document.getElementById('addSave').addEventListener('click', ()=>{
+  const name=document.getElementById('swName').value.trim(); if(!name) return;
+  const id='c'+Date.now();
+  roster.push({ id, name, group:document.getElementById('swGroup').value.trim(), best:null, last:null, typical:9999 });
+  if(addForSlot!=null) state[addForSlot].swimmerId=id;
+  closeAdd(); if(view==='assign') renderAssign();
+});
 document.getElementById('minus').addEventListener('click',()=>{ slotCount=Math.max(1,slotCount-1);
   document.getElementById('count').textContent=slotCount; });
 document.getElementById('plus').addEventListener('click',()=>{ slotCount=Math.min(8,slotCount+1);
@@ -519,7 +587,7 @@ window.__demo = function(which){
     [12.80,13.10,13.20,13.20], // 52.30 → 민준 PB
     [13.60,13.90,14.10,14.30], // 55.90
   ];
-  slotCount=3; segCount=4; cfg={course:'25y',stroke:'free',distance:100}; recomputeSeg();
+  slotCount=3; segCount=4; cfg={course:'25y',stroke:'free',distance:100,split:25}; recomputeSeg();
   freshSlots();
   if(which==='running'){
     // 2번째 구간 진행 중 상태

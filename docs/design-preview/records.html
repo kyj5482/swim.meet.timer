@@ -6,36 +6,63 @@
 <title>SplitLane — 기록지</title>
 <link rel="stylesheet" href="tokens.css">
 <style>
-  .top { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .top { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
   .avatar { width:44px;height:44px;border-radius:50%; background:var(--lane-1); display:grid;place-items:center;
             color:#2a0612; font-weight:800; font-size:18px; }
   .top .name { font-size:20px; font-weight:700; }
   .top .meta { color:var(--text-muted); font-size:12px; }
 
-  .bests { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
-  .best { flex:1; min-width:110px; background:var(--surface); border:1px solid var(--line);
-          border-radius:var(--r-card); padding:12px; }
-  .best .k { color:var(--text-muted); font-size:11px; }
-  .best .v { font-size:22px; margin-top:4px; }
-  .best .tag { font-size:10px; color:var(--ok); }
+  /* 종목 선택(가로 스크롤 버튼형 — 베스트 카드 유지) */
+  .sectit { color:var(--text-muted); font-size:12px; margin:2px 0 8px; }
+  .events { display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; margin:0 -18px; padding-left:18px; padding-right:18px;
+    scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
+  .events::-webkit-scrollbar { height:0; }
+  .ev { flex:0 0 auto; scroll-snap-align:start; min-width:118px; text-align:left; cursor:pointer;
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card); padding:12px 14px; }
+  .ev.on { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .ev .k { color:var(--text-muted); font-size:11px; }
+  .ev .v { font-size:22px; margin-top:4px; font-family:var(--font-mono); }
+  .ev .tag { font-size:10px; margin-top:3px; }
+  .ev .pb { color:var(--ok); } .ev .up { color:var(--stop); }
 
-  .chart { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
-           padding:14px; margin-bottom:18px; }
-  .chart h3 { margin:0 0 4px; font-size:13px; color:var(--text-muted); font-weight:600; }
-  svg { width:100%; height:120px; display:block; }
+  .panel { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card); padding:14px; margin:14px 0 12px; }
+  .panel h3 { margin:0 0 2px; font-size:14px; } .panel .ph { display:flex; justify-content:space-between; align-items:baseline; }
+  .panel .sub { color:var(--text-muted); font-size:11px; }
+  svg { width:100%; display:block; }
 
-  h2 { font-size:14px; color:var(--text-muted); margin:6px 0 10px; }
-  .session { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
-             padding:14px; margin-bottom:10px; }
-  .session .head { display:flex; align-items:baseline; gap:10px; }
-  .session .date { color:var(--text-muted); font-size:12px; }
-  .session .total { margin-left:auto; font-size:20px; }
-  .session .set { font-size:14px; font-weight:600; }
-  .splits { display:flex; gap:6px; margin-top:10px; }
-  .seg { flex:1; background:var(--surface-2); border-radius:8px; padding:8px 6px; text-align:center; }
-  .seg .si { font-size:10px; color:var(--text-muted); }
-  .seg .sv { font-size:14px; margin-top:2px; }
-  .badge { font-size:10px; padding:2px 7px; border-radius:var(--r-pill); background:var(--surface-2); color:var(--warn); }
+  .histhead { display:flex; justify-content:space-between; align-items:center; margin:2px 2px 8px; }
+  .histhead h3 { margin:0; font-size:14px; }
+  .histhead .hint { color:var(--text-muted); font-size:11px; }
+  .hrow { display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; padding:12px 14px; margin-bottom:8px; cursor:pointer; }
+  .hrow.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .hrow .ck { width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line); flex-shrink:0; display:grid;place-items:center;
+    color:#04221d; font-size:13px; font-weight:900; }
+  .hrow.sel .ck { background:var(--accent); border-color:var(--accent); }
+  .hrow .date { font-size:14px; font-weight:600; } .hrow .grp { color:var(--text-muted); font-size:11px; }
+  .hrow .tot { margin-left:auto; font-family:var(--font-mono); font-size:18px; }
+  .hrow .pb { background:var(--ok); color:#06270f; font-size:10px; font-weight:800; padding:2px 7px; border-radius:var(--r-pill); }
+
+  /* 비교 플로팅 버튼 */
+  .cmpbar { position:sticky; bottom:0; padding-top:8px; }
+  .cmpbtn { width:100%; height:54px; border:0; border-radius:16px; background:var(--accent); color:#04221d;
+    font-weight:800; font-size:17px; cursor:pointer; box-shadow:0 8px 24px rgba(25,227,198,.3); }
+  .cmpbtn:disabled { background:var(--surface-2); color:var(--text-muted); box-shadow:none; cursor:default; }
+
+  /* 비교 팝업 */
+  .modal { position:absolute; inset:0; background:rgba(2,10,18,.72); display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
+  .modal.show { display:flex; }
+  .modal-card { width:100%; max-height:92%; overflow-y:auto; background:var(--surface); border:1px solid var(--line);
+    border-radius:18px; padding:16px; }
+  .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .modal-head h3 { margin:0; font-size:17px; }
+  .legend { display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 4px; }
+  .legend span { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted); }
+  .legend i { width:12px;height:3px;border-radius:2px; display:inline-block; }
+  .cmptbl { width:100%; border-collapse:collapse; margin-top:12px; font-size:12px; }
+  .cmptbl th,.cmptbl td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--line); font-family:var(--font-mono); }
+  .cmptbl th:first-child,.cmptbl td:first-child { text-align:left; font-family:var(--font-sans); color:var(--text-muted); }
+  .cmptbl .best { color:var(--ok); font-weight:700; }
 </style>
 </head>
 <body>
@@ -43,73 +70,152 @@
   <div class="screen">
     <div class="top">
       <div class="avatar">민</div>
-      <div>
-        <div class="name">민준</div>
-        <div class="meta">엘리트반 · 최근 측정 2일 전</div>
-      </div>
+      <div><div class="name">민준</div><div class="meta">엘리트반 · 최근 측정 3일 전</div></div>
     </div>
 
-    <div class="bests">
-      <div class="best"><div class="k">100y free</div><div class="v mono">52.60</div><div class="tag">▼ 베스트</div></div>
-      <div class="best"><div class="k">50y free</div><div class="v mono">25.10</div><div class="tag">▼ 베스트</div></div>
-      <div class="best"><div class="k">100y back</div><div class="v mono">1:01.30</div><div class="tag">&nbsp;</div></div>
+    <div class="sectit">종목 선택 (좌우로 스와이프)</div>
+    <div class="events" id="events"></div>
+
+    <div class="panel" id="trend">
+      <div class="ph"><h3 id="trendTitle">추세</h3><span class="sub" id="trendSub"></span></div>
+      <svg id="trendSvg" viewBox="0 0 320 130" preserveAspectRatio="none" style="height:130px"></svg>
     </div>
 
-    <div class="chart">
-      <h3>100y 자유형 추세 (최근 6회)</h3>
-      <svg viewBox="0 0 300 120" preserveAspectRatio="none">
-        <polyline fill="none" stroke="var(--lane-1)" stroke-width="2.5"
-          points="10,40 60,52 110,38 160,60 210,30 260,18" />
-        <g fill="var(--lane-1)">
-          <circle cx="10" cy="40" r="3"/><circle cx="60" cy="52" r="3"/><circle cx="110" cy="38" r="3"/>
-          <circle cx="160" cy="60" r="3"/><circle cx="210" cy="30" r="3"/><circle cx="260" cy="18" r="3"/>
-        </g>
-        <text x="260" y="12" fill="var(--ok)" font-size="10" text-anchor="end">PB 52.60</text>
-      </svg>
+    <div class="histhead">
+      <h3>세션 기록</h3><span class="hint">2개 이상 선택 → 구간 비교</span>
     </div>
+    <div id="hist"></div>
 
-    <h2>세션 기록</h2>
-
-    <div class="session">
-      <div class="head">
-        <span class="set">100y 자유형 · 25y</span>
-        <span class="total mono">52.60</span>
-      </div>
-      <div class="date">2026-06-17 · 1번 <span class="badge">PB</span></div>
-      <div class="splits">
-        <div class="seg"><div class="si">25y</div><div class="sv mono">13.00</div></div>
-        <div class="seg"><div class="si">50y</div><div class="sv mono">13.20</div></div>
-        <div class="seg"><div class="si">75y</div><div class="sv mono">13.10</div></div>
-        <div class="seg"><div class="si">100y</div><div class="sv mono">13.30</div></div>
-      </div>
+    <div class="cmpbar">
+      <button class="cmpbtn" id="cmpBtn" disabled>구간 비교</button>
     </div>
+  </div>
 
-    <div class="session">
-      <div class="head">
-        <span class="set">100y 자유형 · 25y</span>
-        <span class="total mono">53.40</span>
-      </div>
-      <div class="date">2026-06-12 · 2번</div>
-      <div class="splits">
-        <div class="seg"><div class="si">25y</div><div class="sv mono">13.10</div></div>
-        <div class="seg"><div class="si">50y</div><div class="sv mono">13.40</div></div>
-        <div class="seg"><div class="si">75y</div><div class="sv mono">13.40</div></div>
-        <div class="seg"><div class="si">100y</div><div class="sv mono">13.50</div></div>
-      </div>
-    </div>
-
-    <div class="session">
-      <div class="head">
-        <span class="set">50y 자유형 · 25y</span>
-        <span class="total mono">25.10</span>
-      </div>
-      <div class="date">2026-06-10 · 1번 <span class="badge">PB</span></div>
-      <div class="splits">
-        <div class="seg"><div class="si">25y</div><div class="sv mono">12.40</div></div>
-        <div class="seg"><div class="si">50y</div><div class="sv mono">12.70</div></div>
-      </div>
+  <!-- 구간 비교 팝업 -->
+  <div class="modal" id="modal">
+    <div class="modal-card">
+      <div class="modal-head"><h3 id="cmpTitle">구간별 스플릿 비교</h3><button class="link" id="cmpClose">닫기</button></div>
+      <div class="legend" id="legend"></div>
+      <svg id="cmpSvg" viewBox="0 0 340 200" style="height:200px"></svg>
+      <div id="cmpTable"></div>
     </div>
   </div>
 </div>
+
+<script>
+const LANE=['#FF4D6D','#FFB020','#19E3C6','#5B8DEF','#B36BFF','#41D7A7'];
+// ----- 모의 데이터: 종목별 베스트 + 히스토리(구간 스플릿) -----
+const dates=['05-10','05-20','05-28','06-05','06-12','06-17'];
+function distribute(total,n){ // 첫 구간 빠르고 점점 느려지는 현실적 분배
+  const w=Array.from({length:n},(_,i)=> 1 + i*0.012 - (i===0?0.03:0));
+  const sw=w.reduce((a,b)=>a+b,0); let arr=w.map(x=>+(total*x/sw).toFixed(2));
+  arr[n-1]=+(total-arr.slice(0,n-1).reduce((a,b)=>a+b,0)).toFixed(2); return arr;
+}
+function genHist(best,n,step){ // 과거일수록 느림, 최신=best(PB)
+  return dates.map((d,i)=>{ const total=+(best+(dates.length-1-i)*step).toFixed(2);
+    return { date:d, total, splits:distribute(total,n), pb:i===dates.length-1 }; });
+}
+const fmtT=s=> s>=60? `${Math.floor(s/60)}:${(s%60).toFixed(2).padStart(5,'0')}` : s.toFixed(2);
+const events=[
+  { key:'100 자유형', best:52.40, segN:4, unit:'y', step:0.42, hist:genHist(52.40,4,0.42) },
+  { key:'50 자유형',  best:25.10, segN:2, unit:'y', step:0.22, hist:genHist(25.10,2,0.22) },
+  { key:'100 배영',   best:61.30, segN:4, unit:'y', step:0.50, hist:genHist(61.30,4,0.50) },
+  { key:'100 평영',   best:68.20, segN:4, unit:'y', step:0.55, hist:genHist(68.20,4,0.55) },
+  { key:'100 접영',   best:59.90, segN:4, unit:'y', step:0.48, hist:genHist(59.90,4,0.48) },
+  { key:'200 자유형', best:118.50,segN:4, unit:'y', step:0.90, hist:genHist(118.50,4,0.90) }, // split 50
+];
+const segUnitOf=ev=> ev.key.startsWith('200')?50:25;
+
+let curEv=0; let sel=new Set();
+
+function renderEvents(){
+  document.getElementById('events').innerHTML = events.map((ev,i)=>{
+    const prev=ev.hist[ev.hist.length-2]?.total, last=ev.hist[ev.hist.length-1].total;
+    const d = prev!=null ? last-prev : 0;
+    const tag = d<0 ? `<div class="tag pb">▼${Math.abs(d).toFixed(2)} · 베스트</div>` : `<div class="tag up">▲${d.toFixed(2)}</div>`;
+    return `<button class="ev ${i===curEv?'on':''}" onclick="pick(${i})">
+      <div class="k">${ev.key}</div><div class="v">${fmtT(ev.best)}</div>${tag}</button>`;
+  }).join('');
+}
+function pick(i){ curEv=i; sel.clear(); renderEvents(); renderTrend(); renderHist(); updateCmp(); }
+
+function renderTrend(){
+  const ev=events[curEv]; const h=ev.hist;
+  document.getElementById('trendTitle').textContent = `${ev.key} 추세`;
+  document.getElementById('trendSub').textContent = `최근 ${h.length}회 · 총기록(낮을수록 좋음)`;
+  const W=320,H=130,pad=18, totals=h.map(x=>x.total);
+  const yMin=Math.min(...totals), yMax=Math.max(...totals), rng=(yMax-yMin)||1;
+  const X=i=> pad + i*(W-2*pad)/(h.length-1);
+  const Y=t=> 14 + (t-yMin)/rng*(H-34);  // 낮은 기록=위
+  const pts=h.map((x,i)=>`${X(i).toFixed(1)},${Y(x.total).toFixed(1)}`).join(' ');
+  const dots=h.map((x,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(x.total).toFixed(1)}" r="3.5" fill="${x.pb?'var(--ok)':'var(--lane-3)'}"/>`).join('');
+  const labs=h.map((x,i)=>`<text x="${X(i).toFixed(1)}" y="${H-4}" fill="var(--text-muted)" font-size="9" text-anchor="middle">${x.date}</text>`).join('');
+  const pbI=h.findIndex(x=>x.pb);
+  document.getElementById('trendSvg').innerHTML =
+    `<polyline fill="none" stroke="var(--lane-3)" stroke-width="2.5" points="${pts}"/>${dots}${labs}
+     <text x="${X(pbI).toFixed(1)}" y="${(Y(h[pbI].total)-8).toFixed(1)}" fill="var(--ok)" font-size="10" text-anchor="middle">PB ${fmtT(h[pbI].total)}</text>`;
+}
+
+function renderHist(){
+  const ev=events[curEv];
+  // 최신 순
+  const rows=ev.hist.map((x,i)=>({x,i})).reverse();
+  document.getElementById('hist').innerHTML = rows.map(({x,i})=>
+    `<div class="hrow ${sel.has(i)?'sel':''}" onclick="toggle(${i})">
+       <div class="ck">${sel.has(i)?'✓':''}</div>
+       <div><div class="date">${x.date}</div><div class="grp">${ev.key}${x.pb?' · 자기 최고':''}</div></div>
+       ${x.pb?'<span class="pb">PB</span>':''}
+       <div class="tot">${fmtT(x.total)}</div>
+     </div>`).join('');
+}
+function toggle(i){ if(sel.has(i)) sel.delete(i); else sel.add(i); renderHist(); updateCmp(); }
+function updateCmp(){
+  const btn=document.getElementById('cmpBtn');
+  btn.disabled = sel.size<2;
+  btn.textContent = sel.size<2 ? '구간 비교 (2개 이상 선택)' : `구간 비교 (${sel.size}개)`;
+}
+
+// ----- 구간 비교 팝업 -----
+function openCmp(){
+  const ev=events[curEv]; const idxs=[...sel].sort((a,b)=>a-b);
+  const sessions=idxs.map((i,k)=>({ ...ev.hist[i], color:LANE[k%LANE.length] }));
+  const segN=ev.segN, su=segUnitOf(ev);
+  const all=sessions.flatMap(s=>s.splits);
+  const yMin=Math.min(...all), yMax=Math.max(...all), rng=(yMax-yMin)||1;
+  const W=340,H=200,padL=34,padR=12,padT=14,padB=24;
+  const X=j=> padL + j*(W-padL-padR)/(Math.max(1,segN-1));
+  const Y=v=> padT + (v-yMin)/rng*(H-padT-padB);
+  // 그리드 + 축 라벨(구간)
+  let g='';
+  for(let j=0;j<segN;j++){ const x=X(j).toFixed(1);
+    g+=`<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="var(--line)" stroke-width="1"/>`;
+    g+=`<text x="${x}" y="${H-8}" fill="var(--text-muted)" font-size="10" text-anchor="middle">${(j+1)*su}${ev.unit}</text>`; }
+  const lines=sessions.map(s=>{
+    const pts=s.splits.map((v,j)=>`${X(j).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    const dots=s.splits.map((v,j)=>`<circle cx="${X(j).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3" fill="${s.color}"/>`).join('');
+    return `<polyline fill="none" stroke="${s.color}" stroke-width="2.5" points="${pts}"/>${dots}`;
+  }).join('');
+  document.getElementById('cmpSvg').innerHTML = g+lines;
+  document.getElementById('cmpTitle').textContent = `${ev.key} · 구간별 스플릿 비교`;
+  document.getElementById('legend').innerHTML = sessions.map(s=>
+    `<span><i style="background:${s.color}"></i>${s.date} · ${fmtT(s.total)}</span>`).join('');
+  // 표(구간별, 가장 빠른 구간 강조)
+  let th=`<tr><th>구간</th>${sessions.map(s=>`<th>${s.date}</th>`).join('')}</tr>`;
+  let trs='';
+  for(let j=0;j<segN;j++){
+    const vals=sessions.map(s=>s.splits[j]); const mn=Math.min(...vals);
+    trs+=`<tr><td>${(j+1)*su}${ev.unit}</td>${vals.map(v=>`<td class="${v===mn?'best':''}">${v.toFixed(2)}</td>`).join('')}</tr>`;
+  }
+  const totRow=`<tr><td>합계</td>${sessions.map(s=>`<td>${fmtT(s.total)}</td>`).join('')}</tr>`;
+  document.getElementById('cmpTable').innerHTML = `<table class="cmptbl">${th}${trs}${totRow}</table>`;
+  document.getElementById('modal').classList.add('show');
+}
+document.getElementById('cmpBtn').addEventListener('click', openCmp);
+document.getElementById('cmpClose').addEventListener('click', ()=>document.getElementById('modal').classList.remove('show'));
+document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') e.currentTarget.classList.remove('show'); });
+window.pick=pick; window.toggle=toggle;
+
+renderEvents(); renderTrend(); renderHist(); updateCmp();
+</script>
 </body>
 </html>

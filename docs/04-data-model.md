@@ -40,8 +40,9 @@ interface Swimmer {
 interface Target {
   stroke: Stroke;
   distance: number;        // 예: 100 (단위는 course의 단위계와 일치)
-  course: Course;
-  // segmentCount = distance / unitOf(course)  (예: 100 / 25 = 4)
+  course: Course;          // 풀 길이(설정값, 표시는 "25 Yard" 등 전체 이름)
+  splitInterval: number;   // 스플릿 1개의 거리(풀 길이의 배수). 전체=distance면 1회 기록
+  // segmentCount = distance / splitInterval  (예: 100/25=4, 100/100=1)
 }
 
 interface Split {
