@@ -250,9 +250,10 @@ svg { width:100%; display:block; }
 .hrow .grp { color:var(--text-muted); font-size:11px; }
 .hrow .tot { margin-left:auto; font-family:var(--font-mono); font-size:18px; }
 /* Deletion is rare — keep it small & unobtrusive, and require a confirm tap. */
-.del-mini { display:inline-flex; align-items:center; gap:5px; margin-top:12px;
+.del-mini { display:inline-flex; align-items:center; gap:6px; margin-top:12px;
   background:none; border:0; color:var(--text-muted); font-size:12px; cursor:pointer;
   font-family:var(--font-sans); padding:2px 0; -webkit-tap-highlight-color:transparent; }
+.del-mini svg { width:13px; height:13px; }
 .del-mini:active { color:var(--stop); }
 .del-confirm { display:flex; align-items:center; gap:8px; margin-top:12px; }
 .del-confirm .dc-q { color:var(--stop); font-size:12px; font-weight:600; margin-right:auto; }
@@ -560,7 +561,7 @@ en:{
   sessions:'Sessions', compareSplits:'Compare Splits',
   selectMode:'Select 2+ sessions', compare:'Compare',
   splitCmp:'Split Comparison', segSplits:'Segment Splits',
-  delRec:'🗑 Delete', delConfirm:'Delete this record?', delYes:'Delete',
+  delRec:'Delete', delConfirm:'Delete this record?', delYes:'Delete',
   cloudEntry:'SplitLane Cloud', cloudEntrySub:'Backup, sync & export', cloudBadge:'SOON',
   cloudTitle:'SplitLane Cloud', cloudHeadline:'Your records, everywhere.',
   cloudLead:'Securely back up your data and reach it from any device.',
@@ -612,7 +613,7 @@ ko:{
   sessions:'세션 기록', compareSplits:'구간 비교',
   selectMode:'2개 이상 선택 후 비교',  compare:'구간 비교',
   splitCmp:'구간별 스플릿 비교', segSplits:'구간별 스플릿',
-  delRec:'🗑 삭제', delConfirm:'이 기록을 삭제할까요?', delYes:'삭제',
+  delRec:'삭제', delConfirm:'이 기록을 삭제할까요?', delYes:'삭제',
   cloudEntry:'SplitLane Cloud', cloudEntrySub:'백업 · 동기화 · 내보내기', cloudBadge:'준비 중',
   cloudTitle:'SplitLane Cloud', cloudHeadline:'어디서든 내 기록을.',
   cloudLead:'데이터를 안전하게 백업하고 어느 기기에서나 이어서 사용하세요.',
@@ -905,6 +906,8 @@ function setSwimmer(idx,id){state[idx].swimmerId=id;renderAssign();}
 // RECORDS LOGIC — per-swimmer, backed by persisted sessions
 // ============================================================
 const LCOLS=['#FF4D6D','#FFB020','#19E3C6','#5B8DEF','#B36BFF','#41D7A7'];
+// stroked trash icon (matches the tab-bar / gear icon style) for the delete action
+const TRASH_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 const STROKE_W={en:{free:'Free',back:'Back',breast:'Breast',fly:'Fly',im:'IM'},
                 ko:{free:'자유형',back:'배영',breast:'평영',fly:'접영',im:'혼영'}};
 const fmtT=s=>s>=60?`${Math.floor(s/60)}:${(s%60).toFixed(2).padStart(5,'0')}`:s.toFixed(2);
@@ -1071,7 +1074,7 @@ function renderHist(){
         <div class="split-grid">${splitCells}</div>
         ${x.saved?(confirmDel===x.id
           ? `<div class="del-confirm"><span class="dc-q">${t('delConfirm')}</span><button class="dc-no" onclick="cancelDelete(event)">${t('cancel')}</button><button class="dc-yes" onclick="deleteSession('${x.id}',event)">${t('delYes')}</button></div>`
-          : `<button class="del-mini" onclick="askDelete('${x.id}',event)">${t('delRec')}</button>`):''}
+          : `<button class="del-mini" onclick="askDelete('${x.id}',event)">${TRASH_SVG}${t('delRec')}</button>`):''}
       </div>
     </div>`;
   }).join('');
@@ -1205,7 +1208,7 @@ document.getElementById('lap').addEventListener('click',onLap);
 document.getElementById('undo').addEventListener('click',undoLap);
 document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);t0=null;curRound=-1;tapped.clear();showTimer('setup');});
 // ---- Save records (persisted) with one-tap Undo ----
-let lastSaveBatch=null, toastTimer=null;
+let lastSaveBatch=null, toastTimer=null, advanceTimer=null;
 function showToast(msg, withUndo){
   const toast=document.getElementById('toast');
   document.getElementById('toastMsg').textContent=msg;
@@ -1234,9 +1237,13 @@ function doSave(){
   lastSaveBatch=batch.length?batch:null;
   if(curTab==='records')refreshRecords();
   showToast(t('savedToast',batch.length), batch.length>0);
+  // auto-return to the setup timer after 3s (the Undo toast stays visible until 6s)
+  clearTimeout(advanceTimer);
+  advanceTimer=setTimeout(()=>{t0=null;showTimer('setup');}, 3000);
 }
 function undoSave(){
   if(!lastSaveBatch)return;
+  clearTimeout(advanceTimer);   // undo cancels the auto-advance so the user can re-assign
   sessions=sessions.filter(s=>!lastSaveBatch.includes(s.id));
   persistSessions(); lastSaveBatch=null;
   if(curTab==='records')refreshRecords();
@@ -1244,7 +1251,7 @@ function undoSave(){
 }
 document.getElementById('save').addEventListener('click',doSave);
 document.getElementById('toastUndo').addEventListener('click',undoSave);
-document.getElementById('again').addEventListener('click',()=>{t0=null;showTimer('setup');});
+document.getElementById('again').addEventListener('click',()=>{clearTimeout(advanceTimer);t0=null;showTimer('setup');});
 
 // Add / Edit swimmer
 let addForSlot=null, editId=null;

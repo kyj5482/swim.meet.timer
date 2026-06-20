@@ -63,14 +63,16 @@ html, body {
 
 /* 실제 모바일: 프레임 없이 화면 가득 채워 페이지 스크롤 제거 */
 @media (max-width: 480px) {
-  /* Pin the body to the viewport so the on-screen keyboard can't scroll the
-     whole app up and leave it stuck there. Using inset:0 (not dvh) makes the
-     body fill the layout viewport exactly, and .phone takes 100% of that —
-     so the screen is always filled top-to-bottom and the tab bar sits flush
-     at the bottom. All scrolling happens inside each pane's scroll area. */
-  html, body { margin: 0; }
-  body { position: fixed; inset: 0; overflow: hidden; }
-  .phone { width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+  /* Make the .phone frame ITSELF the viewport-filling box: position:fixed with
+     inset:0 gives it a definite height from top/bottom, so the flex column
+     (app-body + tab bar) always stretches edge-to-edge. We must NOT rely on a
+     percentage-height chain (.phone height:100% of body) — because every pane
+     inside .app-body is absolutely positioned, the flow height collapses and
+     the tab bar floats up mid-screen, leaving a gap at the bottom.
+     html/body just lock scrolling so the keyboard can't shift the page. */
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  .phone { position: fixed; inset: 0; width: auto; height: auto;
+    margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 }
 
 .btn {
