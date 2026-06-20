@@ -35,12 +35,34 @@ let out = src
     /<title>SplitLane<\/title>\s*<link rel="stylesheet" href="tokens.css">/,
     head
   )
-  // register the service worker just before </body>
+  // register the service worker just before </body>, and auto-apply updates so
+  // the home-screen app never gets stuck on a stale cached version
   .replace(
     '</body>',
     `<script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+      const hadController = !!navigator.serviceWorker.controller;
+      reg.update();
+      // when a freshly installed worker is waiting, tell it to take over right away
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        nw && nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller && reg.waiting) reg.waiting.postMessage('skipWaiting');
+        });
+      });
+      // reload once the new worker has taken control (skip the very first install)
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || reloaded) return;
+        reloaded = true; location.reload();
+      });
+      // re-check for updates whenever the app is reopened/refocused
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update(); });
+    } catch (e) {}
+  });
 }
 </script>
 </body>`

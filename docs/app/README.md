@@ -45,6 +45,17 @@ Source of truth: `docs/design-preview/app.html` + `docs/design-preview/tokens.cs
 4. Launch **SplitLane** from your Home Screen — it opens full-screen and works
    offline. Switch language to Korean any time via the **⚙** Settings sheet.
 
+## Updates
+
+The service worker is **network-first for the app shell**, so the installed
+home-screen app fetches the latest version every time you open it online (and
+still works offline from cache). When a new version is detected it activates and
+reloads automatically — no need to delete and re-add the app.
+
+> The first time after this change, open the app once while online so the new
+> service worker can replace the old cache-first one; updates are automatic from
+> then on.
+
 > HTTPS is required for install/offline. GitHub Pages serves HTTPS automatically.
 > A native App Store build is also possible later by wrapping this PWA with
 > [Capacitor](https://capacitorjs.com/) (that path needs a Mac + Xcode + an

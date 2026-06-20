@@ -185,7 +185,7 @@ select.sel:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2p
 /* ══════════ RECORDS PANE ══════════ */
 .rec-header { flex-shrink:0; display:flex; align-items:center; gap:12px; width:100%;
   background:none; border:0; text-align:left; cursor:pointer; font-family:var(--font-sans);
-  -webkit-tap-highlight-color:transparent;
+  color:var(--text); -webkit-tap-highlight-color:transparent;
   padding:calc(12px + env(safe-area-inset-top,0px)) 18px 8px; }
 .rec-header:active { opacity:.7; }
 .rec-id { min-width:0; }
@@ -212,8 +212,10 @@ select.sel:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2p
   font-family:var(--font-sans); font-weight:800; font-size:14px; border-radius:10px;
   padding:7px 14px; cursor:pointer; }
 .avatar { width:44px; height:44px; border-radius:50%; background:var(--lane-1); display:grid;
-  place-items:center; color:#2a0612; font-weight:800; font-size:18px; }
-.rec-name { font-size:20px; font-weight:700; }
+  place-items:center; color:#fff; font-weight:800; font-size:18px; }
+/* white initials on the colored circle, with a soft dark backing for legibility */
+.avatar, .ath-av, .pick-av { color:#fff; text-shadow:0 1px 2px rgba(4,12,20,.45); }
+.rec-name { font-size:20px; font-weight:700; color:var(--text); }
 .rec-meta { color:var(--text-muted); font-size:12px; }
 .sectit { color:var(--text-muted); font-size:12px; padding:2px 18px 8px; flex-shrink:0; }
 .events { display:flex; gap:10px; overflow-x:auto; padding-bottom:6px;
@@ -879,7 +881,7 @@ function renderRecordsHeader(){
   document.getElementById('recName').textContent=sw?sw.name:'—';
   const av=document.getElementById('recAvatar');
   av.textContent=sw?sw.name.charAt(0):'?';
-  av.style.background=AVBG[idx%8]; av.style.color=AVTXT[idx%8];
+  av.style.background=AVBG[idx%8]; av.style.color='#fff';
   document.getElementById('recMeta').textContent=
     sw?[sw.age?t('yo',sw.age):null,sw.group||t('noGroup')].filter(Boolean).join(' · '):'';
 }
@@ -888,7 +890,7 @@ function renderRecordsHeader(){
 function openSwimmerPicker(){
   document.getElementById('swimmerList').innerHTML=roster.map((r,i)=>
     `<button class="pick-row ${r.id===curSwimmerId?'on':''}" onclick="pickSwimmer('${r.id}')">
-       <span class="pick-av" style="background:${AVBG[i%8]};color:${AVTXT[i%8]}">${r.name.charAt(0)}</span>
+       <span class="pick-av" style="background:${AVBG[i%8]}">${r.name.charAt(0)}</span>
        <span class="pick-name">${r.name}</span>
        ${r.id===curSwimmerId?'<span class="pick-chk">✓</span>':''}
      </button>`).join('');
@@ -1039,12 +1041,11 @@ document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='
 // ATHLETES
 // ============================================================
 const AVBG=['#FF4D6D','#FFB020','#19E3C6','#5B8DEF','#B36BFF','#41D7A7','#FF7A45','#E8E04F'];
-const AVTXT=['#2a0612','#2a1800','#04221d','#0a1630','#1a0733','#04221d','#2a1000','#1a1900'];
 function renderAthList(){
   document.getElementById('athList').innerHTML=roster.map((r,i)=>{
     const meta=[r.age?t('yo',r.age):null, r.group||t('noGroup')].filter(Boolean).join(' · ');
     return `<div class="ath-card" onclick="editSwimmer('${r.id}')">
-      <div class="ath-av" style="background:${AVBG[i%8]};color:${AVTXT[i%8]}">${r.name.charAt(0)}</div>
+      <div class="ath-av" style="background:${AVBG[i%8]}">${r.name.charAt(0)}</div>
       <div><div class="ath-name">${r.name}</div><div class="ath-meta">${meta}</div></div>
       <span class="chev">›</span>
     </div>`;
