@@ -26,7 +26,10 @@
 .top-bar { flex-shrink:0; display:flex; justify-content:space-between; align-items:center;
   padding:calc(16px + env(safe-area-inset-top,0px)) 18px 8px; }
 .top-bar .title { font-size:20px; font-weight:700; }
-.gear { background:none; border:0; color:var(--text-muted); font-size:20px; cursor:pointer; padding:2px 4px; }
+.gear { background:none; border:0; color:var(--text-muted); cursor:pointer; padding:4px;
+  display:flex; align-items:center; -webkit-tap-highlight-color:transparent; }
+.gear svg { width:22px; height:22px; }
+.gear:active { color:var(--text); }
 .link { background:none; border:0; color:var(--accent); font-size:13px; font-weight:600; cursor:pointer; padding:0;
   font-family:var(--font-sans); }
 
@@ -218,17 +221,7 @@ select.sel:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2p
 .rec-name { font-size:20px; font-weight:700; color:var(--text); }
 .rec-meta { color:var(--text-muted); font-size:12px; }
 .sectit { color:var(--text-muted); font-size:12px; padding:2px 18px 8px; flex-shrink:0; }
-.events { display:flex; gap:10px; overflow-x:auto; padding-bottom:6px;
-  padding-left:18px; padding-right:18px; scroll-snap-type:x proximity;
-  scroll-padding-left:18px; -webkit-overflow-scrolling:touch; flex-shrink:0; }
-.events::-webkit-scrollbar { height:0; }
-.ev { flex:0 0 auto; scroll-snap-align:start; min-width:118px; cursor:pointer;
-  background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card); padding:12px 14px; }
-.ev.on { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
-.ev .k { color:var(--text-muted); font-size:11px; }
-.ev .v { font-size:22px; margin-top:4px; font-family:var(--font-mono); color:var(--text); }
-.ev .tag { font-size:10px; margin-top:3px; }
-.ev .pb-tag { color:var(--ok); } .ev .up-tag { color:var(--stop); }
+.ev-pick { flex-shrink:0; padding:0 18px 8px; }
 .panel { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
   padding:14px; margin:10px 18px 8px; flex-shrink:0; }
 .panel h3 { margin:0 0 2px; font-size:14px; }
@@ -255,10 +248,11 @@ svg { width:100%; display:block; }
 .hrow.sel .ck { background:var(--accent); border-color:var(--accent); }
 .hrow .date { font-size:14px; font-weight:600; }
 .hrow .grp { color:var(--text-muted); font-size:11px; }
-.hrow .tot { font-family:var(--font-mono); font-size:18px; }
-.del-sess { background:none; border:none; color:var(--text-muted); font-size:18px; line-height:1;
-  cursor:pointer; padding:4px 2px 4px 10px; flex-shrink:0; margin-left:auto; }
-.del-sess:active { color:var(--stop); }
+.hrow .tot { margin-left:auto; font-family:var(--font-mono); font-size:18px; }
+.del-rec { display:block; width:100%; margin-top:10px; height:38px; border:1px solid var(--stop);
+  background:transparent; color:var(--stop); font-weight:700; font-size:13px; border-radius:10px;
+  cursor:pointer; font-family:var(--font-sans); }
+.del-rec:active { background:color-mix(in srgb,var(--stop) 14%,transparent); }
 .h-detail { background:var(--surface-2); border:1px solid var(--line); border-top:0;
   border-radius:0 0 12px 12px; padding:10px 14px 12px; margin-bottom:6px; display:none; }
 .h-detail.show { display:block; }
@@ -295,7 +289,9 @@ svg { width:100%; display:block; }
 <div class="tab-pane" id="pane-timer">
   <div class="top-bar">
     <span class="title" id="timerHeader">SplitLane</span>
-    <button class="gear" id="btnSettings">⚙</button>
+    <button class="gear" id="btnSettings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
   </div>
 
   <!-- Setup -->
@@ -376,8 +372,8 @@ svg { width:100%; display:block; }
     <span class="rec-switch"><span id="lSwitch">Switch</span> <span class="chev">⌄</span></span>
   </button>
   <div class="rec-body" id="recBody">
-    <div class="sectit" id="lEvSectit">Event (swipe to browse)</div>
-    <div class="events" id="events"></div>
+    <div class="sectit" id="lEvSectit">Event</div>
+    <div class="ev-pick"><select class="sel" id="eventSel" onchange="pick(this.selectedIndex)"></select></div>
     <div class="panel">
       <div class="ph"><h3 id="trendTitle">Trend</h3><span class="sub" id="trendSub"></span></div>
       <svg id="trendSvg" viewBox="0 0 320 142" preserveAspectRatio="none" style="height:142px"></svg>
@@ -501,11 +497,12 @@ en:{
   namePH:'e.g. Minjun', groupPH:'e.g. Elite (optional)', agePH:'12', yo:(n)=>`${n} yo`,
   rec:'Rec', firstRec:'First Record', prev:'Prev', pb:'🏅 PB', swapBtn:'↔ Swap',
   nearWarn:(n,g)=>`⚠ ${g}s gap with slot ${n} — confirm`,
-  evSectit:'Event (swipe to browse)',
+  evSectit:'Event',
   trendSub:(n)=>`${n} sessions · lower is better`,
   sessions:'Sessions', compareSplits:'Compare Splits',
   selectMode:'Select 2+ sessions', compare:'Compare',
   splitCmp:'Split Comparison', segSplits:'Segment Splits',
+  delRec:'🗑 Delete this record',
   hintStart:'Tap a lane row — or press LAP for the predicted next',
   hintRun:(d,tot,r)=>`Lap ${d}/${tot} · ${r} remaining`,
   lapNext:(n)=>`Next ▸ Lane ${n}`, lapDone:'Done',
@@ -541,11 +538,12 @@ ko:{
   namePH:'예: 민준', groupPH:'예: 엘리트반 (선택)', agePH:'12', yo:(n)=>`만 ${n}세`,
   rec:'추천', firstRec:'첫 기록', prev:'이전', pb:'🏅 PB', swapBtn:'↔ 맞바꾸기',
   nearWarn:(n,g)=>`⚠ ${n}번과 ${g}초 차 — 선수 확인`,
-  evSectit:'종목 선택 (좌우로 스와이프)',
+  evSectit:'종목',
   trendSub:(n)=>`최근 ${n}회 · 낮을수록 좋음`,
   sessions:'세션 기록', compareSplits:'구간 비교',
   selectMode:'2개 이상 선택 후 비교',  compare:'구간 비교',
   splitCmp:'구간별 스플릿 비교', segSplits:'구간별 스플릿',
+  delRec:'🗑 이 기록 삭제',
   hintStart:'벽을 찍은 레인을 탭하거나, 예측이 맞으면 LAP을 누르세요',
   hintRun:(d,tot,r)=>`랩 ${d}/${tot} · 남은 ${r}명`,
   lapNext:(n)=>`다음 예측 ▸ ${n}번`, lapDone:'완료',
@@ -675,7 +673,8 @@ function recomputeSeg(){
     ?(segCount===1?t('segOnce',cfg.distance,w):t('segInfo',segCount,cfg.split,w))
     :`<span style="color:var(--warn)">${t('segWarn',cfg.distance,p,w)}</span>`;
   document.getElementById('start').disabled=!valid;
-  document.getElementById('timerHeader').textContent=`${cfg.distance}${distSfx(cfg.course)} ${t('strokes')[cfg.stroke]||cfg.stroke}`;
+  const unitFull=lang==='ko'?(cfg.course.endsWith('y')?'야드':'미터'):unitWord(cfg.course);
+  document.getElementById('timerHeader').textContent=`${cfg.distance} ${unitFull} ${t('strokes')[cfg.stroke]||cfg.stroke}`;
   document.getElementById('courseDisp').textContent=CNAME[cfg.course];
   return valid;
 }
@@ -870,8 +869,11 @@ function buildEvents(swid){
     ev.hist.forEach(x=>x.pb=Math.abs(x.total-mn)<0.001);
     ev.best=mn;
   });
-  const order=EV_TMPL.map(e=>e.en);
-  list.sort((a,b)=>(order.indexOf(a.en)+1||99)-(order.indexOf(b.en)+1||99));
+  // sort short → long distance, then by stroke order
+  const strokeOrd=['Free','Back','Breast','Fly','IM'];
+  const distOf=ev=>parseInt(ev.en,10)||0;
+  const strkOf=ev=>{const m=/^\d+\s+(\S+)/.exec(ev.en);return m?(strokeOrd.indexOf(m[1])+1||99):99;};
+  list.sort((a,b)=>distOf(a)-distOf(b)||strkOf(a)-strkOf(b));
   return list;
 }
 
@@ -920,14 +922,9 @@ document.getElementById('pickCancel').addEventListener('click',closeSwimmerPicke
 document.getElementById('shSwimmer').addEventListener('click',e=>{if(e.target.id==='shSwimmer')closeSwimmerPicker();});
 
 function renderEvents(){
-  document.getElementById('events').innerHTML=curEvents.map((ev,i)=>{
-    const n=ev.hist.length, prev=ev.hist[n-2]?.total, last=ev.hist[n-1].total;
-    let tag;
-    if(n<2) tag=`<div class="tag pb-tag">${t('newTag')}</div>`;
-    else { const d=last-prev;
-      tag=d<0?`<div class="tag pb-tag">▼${Math.abs(d).toFixed(2)} · ${lang==='ko'?'베스트':'Best'}</div>`:`<div class="tag up-tag">▲${d.toFixed(2)}</div>`; }
-    return `<button class="ev ${i===curEv?'on':''}" onclick="pick(${i})"><div class="k">${evName(ev)}</div><div class="v">${fmtT(ev.best)}</div>${tag}</button>`;
-  }).join('');
+  document.getElementById('eventSel').innerHTML=curEvents.map((ev,i)=>
+    `<option value="${i}" ${i===curEv?'selected':''}>${evName(ev)} · ${t('pb')} ${fmtT(ev.best)}</option>`
+  ).join('');
 }
 function pick(i){
   curEv=i;recSel.clear();cmpSelecting=false;expandedRow=null;
@@ -983,11 +980,11 @@ function renderHist(){
         <div><div class="date">${x.date}</div><div class="grp">${evName(ev)}${x.pb?` · ${t('pbLabel')}`:''}${x.saved?'':''}</div></div>
         ${x.pb?`<span class="pb-badge">PB</span>`:''}
         <div class="tot">${fmtT(x.total)}</div>
-        ${x.saved&&!cmpSelecting?`<button class="del-sess" onclick="deleteSession('${x.id}',event)" title="Delete">✕</button>`:''}
       </div>
       <div class="h-detail ${isExp?'show':''}" id="detail-${i}">
         <div class="dlabel">${t('segSplits')}</div>
         <div class="split-grid">${splitCells}</div>
+        ${x.saved?`<button class="del-rec" onclick="deleteSession('${x.id}',event)">${t('delRec')}</button>`:''}
       </div>
     </div>`;
   }).join('');
