@@ -79,15 +79,11 @@ html, body {
 
 /* 실제 모바일: 프레임 없이 화면 가득 채워 페이지 스크롤 제거 */
 @media (max-width: 480px) {
-  /* Lock the page so it cannot scroll at all (no "wrong vs right" scroll
-     position) and pin .phone to the top of the viewport. Its height is the
-     JS-measured visible viewport (--app-h), with 100dvh as the pre-script
-     fallback. Because .phone is fixed and out of flow, the document has no
-     scrollable height — the layout is always at the correct position. */
+  /* Lock the page (no scrolling). The actual layout is done in app.html with
+     position:fixed regions anchored to the viewport edges — see the @media
+     block there — so we no longer compute a viewport height at all. */
   html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
-  .phone { position: fixed; top: 0; left: 0; width: 100%;
-    height: 100dvh; height: var(--app-h, 100dvh);
-    margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .phone { width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 }
 
 .btn {
@@ -409,6 +405,21 @@ svg { width:100%; display:block; }
   place-items:center; background:color-mix(in srgb,var(--accent) 18%,transparent); font-size:14px; }
 .cloud-cta { margin-top:4px; opacity:.5; }
 .cloud-cta:disabled { cursor:default; }
+
+/* ══════════ MOBILE LAYOUT — viewport-edge anchoring ══════════
+   New approach: don't size any container to the viewport height (iOS keeps
+   getting that wrong). Instead anchor both regions to the viewport edges with
+   position:fixed. The browser places fixed elements at the REAL viewport edges,
+   so a wrong 100dvh/innerHeight can't shift them. The tab bar height (incl. the
+   bottom safe area) is a single token used both for the bar's height and for
+   the content area's bottom inset, so they tile the screen exactly. */
+:root { --tabbar-h: calc(52px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 480px) {
+  .app-body { position: fixed; top: 0; left: 0; right: 0; bottom: var(--tabbar-h);
+    height: auto; flex: none; }
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; height: var(--tabbar-h);
+    z-index: 40; }
+}
 </style>
 </head>
 <body>
@@ -632,36 +643,6 @@ svg { width:100%; display:block; }
 </div><!-- /phone -->
 
 <script>
-// ============================================================
-// Viewport height fix (iOS launch-time stale 100dvh)
-// On iOS the viewport height can be reported wrong on launch and only settles
-// after the first scroll/resize — which is why "scrolling once" made the page
-// lay out correctly. Drive the .phone height from the actually-measured height
-// and re-apply on every viewport event so it's right from the first paint.
-// ============================================================
-(function(){
-  function setH(){
-    // Use the VISUAL viewport (the actually-visible area). window.innerHeight on
-    // iOS can report the larger layout viewport (incl. the strip behind the
-    // toolbar), which made .phone overflow and become scrollable — the cause of
-    // "scroll down to snap into place". visualViewport.height is the real height.
-    var vv = window.visualViewport;
-    var h = vv ? vv.height : window.innerHeight;
-    if (h) document.documentElement.style.setProperty('--app-h', Math.round(h) + 'px');
-  }
-  setH();
-  ['resize','orientationchange','pageshow','scroll','load'].forEach(function(ev){
-    window.addEventListener(ev, setH, { passive: true });
-  });
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', setH);
-    window.visualViewport.addEventListener('scroll', setH);
-  }
-  document.addEventListener('visibilitychange', function(){ if (!document.hidden) setH(); });
-  requestAnimationFrame(setH);
-  setTimeout(setH, 250);
-  setTimeout(setH, 600);
-})();
 // ============================================================
 // i18n
 // ============================================================
