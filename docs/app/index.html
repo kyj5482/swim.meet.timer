@@ -344,7 +344,10 @@ svg { width:100%; display:block; }
 .hrow.sel .ck { background:var(--accent); border-color:var(--accent); }
 .hrow .date { font-size:14px; font-weight:600; }
 .hrow .grp { color:var(--text-muted); font-size:11px; }
-.hrow .tot { margin-left:auto; font-family:var(--font-mono); font-size:18px; }
+.hrow .tot { font-family:var(--font-mono); font-size:18px; }
+.del-sess { background:none; border:none; color:var(--text-muted); font-size:18px; line-height:1;
+  cursor:pointer; padding:4px 2px 4px 10px; flex-shrink:0; margin-left:auto; }
+.del-sess:active { color:var(--stop); }
 .h-detail { background:var(--surface-2); border:1px solid var(--line); border-top:0;
   border-radius:0 0 12px 12px; padding:10px 14px 12px; margin-bottom:6px; display:none; }
 .h-detail.show { display:block; }
@@ -849,9 +852,22 @@ function finish(){
   setClock(Math.max(...state.map(s=>s.lastCum)));
   recommend();renderAssign();showTimer('assign');
 }
+// Compute best/last/typical for a swimmer from saved sessions for the current event.
+// Falls back to hardcoded roster values for seed swimmers with no sessions yet.
+function swStats(swid){
+  const curEn=`${cfg.distance} ${STROKE_W.en[cfg.stroke]}`;
+  const evSess=sessions.filter(s=>s.swimmerId===swid&&s.en===curEn).sort((a,b)=>a.ts-b.ts);
+  if(evSess.length>0){
+    const best=Math.min(...evSess.map(s=>s.total));
+    const last=evSess[evSess.length-1].total;
+    return{best,last,typical:last};
+  }
+  const r=roster.find(x=>x.id===swid);
+  return r?{best:r.best,last:r.last,typical:r.typical??9999}:{best:null,last:null,typical:9999};
+}
 function recommend(){
   const pairs=[];
-  state.forEach(s=>roster.forEach(r=>pairs.push({s,r,d:Math.abs(s.lastCum/1000-r.typical)})));
+  state.forEach(s=>roster.forEach(r=>pairs.push({s,r,d:Math.abs(s.lastCum/1000-swStats(r.id).typical)})));
   pairs.sort((a,b)=>a.d-b.d);
   const us=new Set(),ur=new Set();
   for(const p of pairs){if(us.has(p.s.idx)||ur.has(p.r.id))continue;p.s.swimmerId=p.r.id;us.add(p.s.idx);ur.add(p.r.id);}
@@ -859,12 +875,13 @@ function recommend(){
   state.forEach(s=>{s.lowConf=state.some(o=>o!==s&&Math.abs(o.lastCum-s.lastCum)/1000<CLOSE);});
 }
 function deltaHtml(slot){
-  const r=roster.find(x=>x.id===slot.swimmerId);if(!r)return '';
+  if(!slot.swimmerId)return '';
   const tot=slot.lastCum/1000;
-  if(r.last==null||r.best==null)return `<span class="prevnow"><b>${tot.toFixed(2)}</b></span><span class="pb-badge">${t('firstRec')}</span>`;
-  const dL=tot-r.last,cls=dL<0?'imp':'reg',ar=dL<0?'▼':'▲';
-  let h=`<span class="prevnow"><span class="muted">${t('prev')} ${r.last.toFixed(2)}</span> → <b>${tot.toFixed(2)}</b></span><span class="${cls}">${ar}${Math.abs(dL).toFixed(2)}</span>`;
-  if(tot<r.best-0.001)h+=`<span class="pb-badge${slot.lowConf?' pb-muted':''}">${t('pb')}</span>`;
+  const{best,last}=swStats(slot.swimmerId);
+  if(last==null||best==null)return `<span class="prevnow"><b>${tot.toFixed(2)}</b></span><span class="pb-badge">${t('firstRec')}</span>`;
+  const dL=tot-last,cls=dL<0?'imp':'reg',ar=dL<0?'▼':'▲';
+  let h=`<span class="prevnow"><span class="muted">${t('prev')} ${last.toFixed(2)}</span> → <b>${tot.toFixed(2)}</b></span><span class="${cls}">${ar}${Math.abs(dL).toFixed(2)}</span>`;
+  if(tot<best-0.001)h+=`<span class="pb-badge${slot.lowConf?' pb-muted':''}">${t('pb')}</span>`;
   return h;
 }
 function nearSib(slot){let best=null,bd=Infinity;for(const o of state){if(o===slot)continue;const d=Math.abs(o.lastCum-slot.lastCum)/1000;if(d<bd){bd=d;best=o;}}return{sib:best,gap:bd};}
@@ -876,7 +893,7 @@ function confBanner(slot){
 function swapSwimmers(a,b){const tmp=state[a].swimmerId;state[a].swimmerId=state[b].swimmerId;state[b].swimmerId=tmp;renderAssign();}
 function renderAssign(){
   let imp=0,pb=0;
-  state.forEach(s=>{const r=roster.find(x=>x.id===s.swimmerId);if(!r)return;const tot=s.lastCum/1000;if(tot<r.last)imp++;if(tot<r.best-0.001)pb++;});
+  state.forEach(s=>{if(!s.swimmerId)return;const{best,last}=swStats(s.swimmerId);const tot=s.lastCum/1000;if(last!=null&&tot<last)imp++;if(best!=null&&tot<best-0.001)pb++;});
   document.getElementById('summary').innerHTML=`<div class="summary"><span>${t('impCount',imp)}</span><span>${t('pbCount',pb)}</span><span class="muted">${t('total',state.length)}</span></div>`;
   const suf=distSfx(cfg.course);
   document.getElementById('acards').innerHTML=state.map(s=>{
@@ -1055,6 +1072,7 @@ function renderHist(){
         <div><div class="date">${x.date}</div><div class="grp">${evName(ev)}${x.pb?` · ${t('pbLabel')}`:''}${x.saved?'':''}</div></div>
         ${x.pb?`<span class="pb-badge">PB</span>`:''}
         <div class="tot">${fmtT(x.total)}</div>
+        ${x.saved&&!cmpSelecting?`<button class="del-sess" onclick="deleteSession('${x.id}',event)" title="Delete">✕</button>`:''}
       </div>
       <div class="h-detail ${isExp?'show':''}" id="detail-${i}">
         <div class="dlabel">${t('segSplits')}</div>
@@ -1072,6 +1090,12 @@ function toggleRow(i){
     expandedRow=expandedRow===i?null:i;
     renderHist();
   }
+}
+function deleteSession(id,e){
+  e.stopPropagation();
+  sessions=sessions.filter(s=>s.id!==id);
+  persistSessions();
+  refreshRecords();
 }
 function updateCmpUI(){
   const bar=document.getElementById('cmpBar'),btn=document.getElementById('cmpBtn');
