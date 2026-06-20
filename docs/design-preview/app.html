@@ -7,8 +7,11 @@
 <link rel="stylesheet" href="tokens.css">
 <style>
 /* ── App shell ── */
-.phone { display:flex; flex-direction:column; }
-.app-body { flex:1 1 auto; min-height:0; position:relative; overflow:hidden; }
+.phone { display:flex; flex-direction:column; background:var(--bg); }
+/* app-body keeps the dark content background; the page (body) behind it is set
+   to the tab-bar surface on mobile, so any sub-pixel/safe-area area below the
+   tab bar blends with the bar instead of showing a dark band. */
+.app-body { flex:1 1 auto; min-height:0; position:relative; overflow:hidden; background:var(--bg); }
 .tab-pane { position:absolute; inset:0; display:flex; flex-direction:column; overflow:hidden; }
 .tab-pane.hidden { display:none !important; }
 .hidden { display:none !important; }

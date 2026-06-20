@@ -75,6 +75,9 @@ html, body {
      The flex column (app-body + tab bar) then stretches edge-to-edge with the
      tab bar flush at the bottom; overflow:hidden locks page scroll. */
   html, body { margin: 0; height: 100%; overflow: hidden; }
+  /* page background matches the tab bar so a bottom gap can never show a dark
+     band; the content keeps --bg via .app-body's own background. */
+  body { background: var(--surface); }
   .phone { position: relative; width: 100%;
     height: 100vh; height: -webkit-fill-available; height: 100dvh;
     margin: 0; border: 0; border-radius: 0; box-shadow: none; }
