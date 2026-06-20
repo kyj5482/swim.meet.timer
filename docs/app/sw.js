@@ -4,7 +4,7 @@
 // installed home-screen PWA always shows the latest deploy when online, and
 // CACHE-FIRST only for static icons. Offline still works via the cache fallback.
 // Bumping CACHE wipes old caches on activate.
-const CACHE = 'splitlane-v4';
+const CACHE = 'splitlane-v5';
 const ASSETS = [
   '.',
   'index.html',

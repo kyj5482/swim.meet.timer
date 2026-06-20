@@ -79,23 +79,21 @@ html, body {
 
 /* 실제 모바일: 프레임 없이 화면 가득 채워 페이지 스크롤 제거 */
 @media (max-width: 480px) {
-  /* Fill the visible viewport EXACTLY. The viewport height is set DIRECTLY on
-     .phone (a definite value), with cascading fallbacks so it works whether
-     the app runs standalone from the Home Screen or inside Safari:
-       100vh                 — standalone has no dynamic toolbar, so = full screen
-       -webkit-fill-available — Safari: the currently-visible area
-       100dvh                — modern dynamic viewport (wins where supported)
-     We avoid the earlier percentage chain (.phone height:100% of body), which
-     could collapse, and avoid position:fixed height:auto, which iOS sized from
-     content and left a strip of page background below the tab bar.
-     The flex column (app-body + tab bar) then stretches edge-to-edge with the
-     tab bar flush at the bottom; overflow:hidden locks page scroll. */
+  /* Fill the visible viewport EXACTLY, so the flex column (app-body + tab bar)
+     stretches edge-to-edge and the tab bar sits flush at the bottom.
+     overflow:hidden locks page scroll so the keyboard can't shift the app. */
   html, body { margin: 0; height: 100%; overflow: hidden; }
   /* page background matches the tab bar so a bottom gap can never show a dark
      band; the content keeps --bg via .app-body's own background. */
   body { background: var(--surface); }
+  /* Fill the full screen with 100dvh (100vh fallback). NOTE: we deliberately do
+     NOT use -webkit-fill-available — on iOS standalone it resolves to a height
+     that excludes the bottom safe area, leaving the .phone frame short and the
+     tab bar floating above the home indicator. 100dvh + viewport-fit=cover
+     covers the whole screen; the tab bar's own safe-area padding lifts the
+     icons above the home indicator. */
   .phone { position: relative; width: 100%;
-    height: 100vh; height: -webkit-fill-available; height: 100dvh;
+    height: 100vh; height: 100dvh;
     margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 }
 
