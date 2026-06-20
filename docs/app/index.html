@@ -2,9 +2,98 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <title>SplitLane</title>
-<link rel="stylesheet" href="tokens.css">
+<meta name="description" content="Time multiple swimmers with one LAP button, then assign records.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#081623">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SplitLane">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+/* SplitLane — Design Tokens (see docs/06-design-guide.md) */
+:root {
+  /* base (dark default) */
+  --bg: #081623;
+  --surface: #0F2333;
+  --surface-2: #16344A;
+  --line: #23465F;
+  --text: #EAF4FB;
+  --text-muted: #8EA9BE;
+
+  /* accents */
+  --accent: #19E3C6;
+  --accent-press: #0FBFA6;
+  --stop: #FF5A4D;
+  --warn: #FFC24B;
+  --ok: #5BE584;
+
+  /* lanes */
+  --lane-1: #FF4D6D;
+  --lane-2: #FFB020;
+  --lane-3: #19E3C6;
+  --lane-4: #5B8DEF;
+  --lane-5: #B36BFF;
+  --lane-6: #41D7A7;
+  --lane-7: #FF7A45;
+  --lane-8: #E8E04F;
+
+  /* shape */
+  --r-card: 16px;
+  --r-btn: 20px;
+  --r-pill: 999px;
+
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Pretendard", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-muted); }
+
+/* phone frame for preview — 고정 기기 크기 + 내부 스크롤(모든 프리뷰 일관) */
+.phone {
+  width: 390px;
+  height: min(844px, calc(100dvh - 32px));
+  max-width: 100%;
+  margin: 16px auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 36px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 30px 80px rgba(0,0,0,.55);
+}
+.screen { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 18px 26px; }
+.screen::-webkit-scrollbar { width: 0; background: transparent; }
+
+/* 실제 모바일: 프레임 없이 화면 가득 채워 페이지 스크롤 제거 */
+@media (max-width: 480px) {
+  .phone { width: 100%; height: 100dvh; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+}
+
+.btn {
+  border: 0; cursor: pointer; font-family: var(--font-sans); font-weight: 700;
+  color: #04221d; background: var(--accent); border-radius: var(--r-btn);
+}
+.btn:active { transform: scale(.98); }
+.btn-ghost { background: var(--surface-2); color: var(--text); }
+.btn-stop { background: var(--stop); color: #2a0a07; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
 <style>
 /* ── App shell ── */
 .phone { display:flex; flex-direction:column; }
@@ -1016,6 +1105,11 @@ window.editSwimmer=editSwimmer;
 syncCourse();
 applyLang();
 renderAthList();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 </script>
 </body>
 </html>
