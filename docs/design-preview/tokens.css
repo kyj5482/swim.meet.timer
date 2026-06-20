@@ -63,22 +63,12 @@ html, body {
 
 /* 실제 모바일: 프레임 없이 화면 가득 채워 페이지 스크롤 제거 */
 @media (max-width: 480px) {
-  /* Fill the visible viewport EXACTLY, so the flex column (app-body + tab bar)
-     stretches edge-to-edge and the tab bar sits flush at the bottom.
-     overflow:hidden locks page scroll so the keyboard can't shift the app. */
-  html, body { margin: 0; height: 100%; overflow: hidden; }
-  /* page background matches the tab bar so a bottom gap can never show a dark
-     band; the content keeps --bg via .app-body's own background. */
-  body { background: var(--surface); }
-  /* Fill the full screen with 100dvh (100vh fallback). NOTE: we deliberately do
-     NOT use -webkit-fill-available — on iOS standalone it resolves to a height
-     that excludes the bottom safe area, leaving the .phone frame short and the
-     tab bar floating above the home indicator. 100dvh + viewport-fit=cover
-     covers the whole screen; the tab bar's own safe-area padding lifts the
-     icons above the home indicator. */
-  .phone { position: relative; width: 100%;
-    height: 100vh; height: 100dvh;
-    margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+  /* Original layout (this filled the screen correctly). The only addition is a
+     scroll lock: overflow:hidden + overscroll-behavior:none on the page stops
+     the whole app from rubber-banding / being pushed up while you scroll an
+     inner list or focus an input. Inner areas keep their own scrolling. */
+  html, body { overflow: hidden; overscroll-behavior: none; }
+  .phone { width: 100%; height: 100dvh; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 }
 
 .btn {
