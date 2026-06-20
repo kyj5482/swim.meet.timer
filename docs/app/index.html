@@ -79,15 +79,21 @@ html, body {
 
 /* 실제 모바일: 프레임 없이 화면 가득 채워 페이지 스크롤 제거 */
 @media (max-width: 480px) {
-  /* Make the .phone frame ITSELF the viewport-filling box: position:fixed with
-     inset:0 gives it a definite height from top/bottom, so the flex column
-     (app-body + tab bar) always stretches edge-to-edge. We must NOT rely on a
-     percentage-height chain (.phone height:100% of body) — because every pane
-     inside .app-body is absolutely positioned, the flow height collapses and
-     the tab bar floats up mid-screen, leaving a gap at the bottom.
-     html/body just lock scrolling so the keyboard can't shift the page. */
-  html, body { margin: 0; height: 100%; overflow: hidden; }
-  .phone { position: fixed; inset: 0; width: auto; height: auto;
+  /* Fill the visible viewport EXACTLY. Give <body> an explicit height (100dvh,
+     with a 100vh fallback) so .phone's height:100% resolves to the whole
+     screen. Two earlier attempts failed:
+       - .phone height:100% of a *fixed* body collapsed (the panes inside
+         app-body are absolutely positioned, so body had no flow height);
+       - .phone position:fixed; inset:0; height:auto left a strip of page
+         background below the tab bar, because iOS computes auto height on a
+         fixed box from its content, not from top/bottom.
+     An explicit body height sidesteps both — the percentage chain now resolves
+     to a definite value, so the flex column (app-body + tab bar) stretches
+     edge-to-edge and the tab bar sits flush at the bottom.
+     overflow:hidden locks page scroll so the keyboard can't shift the app. */
+  html { height: 100%; }
+  body { margin: 0; height: 100vh; height: 100dvh; overflow: hidden; }
+  .phone { position: relative; width: 100%; height: 100%;
     margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 }
 
