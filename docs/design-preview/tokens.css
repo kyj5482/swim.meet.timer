@@ -63,21 +63,20 @@ html, body {
 
 /* 실제 모바일: 프레임 없이 화면 가득 채워 페이지 스크롤 제거 */
 @media (max-width: 480px) {
-  /* Fill the visible viewport EXACTLY. Give <body> an explicit height (100dvh,
-     with a 100vh fallback) so .phone's height:100% resolves to the whole
-     screen. Two earlier attempts failed:
-       - .phone height:100% of a *fixed* body collapsed (the panes inside
-         app-body are absolutely positioned, so body had no flow height);
-       - .phone position:fixed; inset:0; height:auto left a strip of page
-         background below the tab bar, because iOS computes auto height on a
-         fixed box from its content, not from top/bottom.
-     An explicit body height sidesteps both — the percentage chain now resolves
-     to a definite value, so the flex column (app-body + tab bar) stretches
-     edge-to-edge and the tab bar sits flush at the bottom.
-     overflow:hidden locks page scroll so the keyboard can't shift the app. */
-  html { height: 100%; }
-  body { margin: 0; height: 100vh; height: 100dvh; overflow: hidden; }
-  .phone { position: relative; width: 100%; height: 100%;
+  /* Fill the visible viewport EXACTLY. The viewport height is set DIRECTLY on
+     .phone (a definite value), with cascading fallbacks so it works whether
+     the app runs standalone from the Home Screen or inside Safari:
+       100vh                 — standalone has no dynamic toolbar, so = full screen
+       -webkit-fill-available — Safari: the currently-visible area
+       100dvh                — modern dynamic viewport (wins where supported)
+     We avoid the earlier percentage chain (.phone height:100% of body), which
+     could collapse, and avoid position:fixed height:auto, which iOS sized from
+     content and left a strip of page background below the tab bar.
+     The flex column (app-body + tab bar) then stretches edge-to-edge with the
+     tab bar flush at the bottom; overflow:hidden locks page scroll. */
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  .phone { position: relative; width: 100%;
+    height: 100vh; height: -webkit-fill-available; height: 100dvh;
     margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 }
 
