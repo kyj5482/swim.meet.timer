@@ -312,21 +312,6 @@ svg { width:100%; display:block; }
   place-items:center; background:color-mix(in srgb,var(--accent) 18%,transparent); font-size:14px; }
 .cloud-cta { margin-top:4px; opacity:.5; }
 .cloud-cta:disabled { cursor:default; }
-
-/* ══════════ MOBILE LAYOUT — viewport-edge anchoring ══════════
-   New approach: don't size any container to the viewport height (iOS keeps
-   getting that wrong). Instead anchor both regions to the viewport edges with
-   position:fixed. The browser places fixed elements at the REAL viewport edges,
-   so a wrong 100dvh/innerHeight can't shift them. The tab bar height (incl. the
-   bottom safe area) is a single token used both for the bar's height and for
-   the content area's bottom inset, so they tile the screen exactly. */
-:root { --tabbar-h: calc(52px + env(safe-area-inset-bottom, 0px)); }
-@media (max-width: 480px) {
-  .app-body { position: fixed; top: 0; left: 0; right: 0; bottom: var(--tabbar-h);
-    height: auto; flex: none; }
-  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; height: var(--tabbar-h);
-    z-index: 40; }
-}
 </style>
 </head>
 <body>
