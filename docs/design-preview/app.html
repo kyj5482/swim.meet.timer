@@ -551,28 +551,6 @@ svg { width:100%; display:block; }
 
 <script>
 // ============================================================
-// TEMP DIAGNOSTIC — shows real device viewport / safe-area values so we can fix
-// the iOS standalone bottom-gap precisely. Remove once resolved.
-// ============================================================
-(function(){
-  function mk(css){ var d=document.createElement('div'); d.style.cssText=css; document.body.appendChild(d); return d; }
-  var probeB=mk('position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);pointer-events:none;');
-  var probeT=mk('position:fixed;left:0;top:0;width:0;height:env(safe-area-inset-top,0px);pointer-events:none;');
-  var box=mk('position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 2px);transform:translateX(-50%);z-index:99999;background:rgba(0,0,0,.82);color:#19E3C6;font:11px/1.45 monospace;padding:5px 9px;border-radius:7px;pointer-events:none;white-space:nowrap;text-align:center;');
-  function mode(){ return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone ? 'STANDALONE' : 'browser'; }
-  function upd(){
-    var vv=window.visualViewport, tb=document.querySelector('.tabbar');
-    var tbRect=tb?tb.getBoundingClientRect():null;
-    box.innerHTML='['+mode()+'] iH='+window.innerHeight+' vvH='+(vv?Math.round(vv.height):'-')
-      +'<br>SA top='+probeT.offsetHeight+' bottom='+probeB.offsetHeight
-      +'<br>tabbar.bottom='+(tbRect?Math.round(tbRect.bottom):'-')+' (= iH면 정상)';
-  }
-  upd();
-  ['resize','orientationchange','scroll','load'].forEach(function(e){ window.addEventListener(e,upd,{passive:true}); });
-  if(window.visualViewport) window.visualViewport.addEventListener('resize',upd);
-  setTimeout(upd,300); setTimeout(upd,900);
-})();
-// ============================================================
 // i18n
 // ============================================================
 const S = {
