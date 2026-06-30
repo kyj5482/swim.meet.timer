@@ -789,6 +789,7 @@ function switchTab(name){
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.id===`tab-${name}`));
   if(name==='records') refreshRecords();
   if(name==='athletes') renderAthList();
+  refreshWake();
 }
 
 // ============================================================
@@ -860,15 +861,24 @@ function showTimer(v){
   ['setup','running','assign'].forEach(s=>document.getElementById(`sec-${s}`).classList.toggle('hidden',s!==v));
 }
 
-// Keep the screen awake while timing. A poolside phone that dims/sleeps adds a
-// noticeable lag to the first tap after it wakes — the wake lock avoids that.
+// Keep the screen awake the whole time the Timer tab is open — including the
+// setup screen while you wait to tap START. Without this the phone dims/sleeps
+// during the wait, so the first tap only wakes the screen instead of starting.
 let wakeLock=null;
 async function acquireWake(){
-  try{ if('wakeLock' in navigator && document.visibilityState==='visible') wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
+  try{
+    if('wakeLock' in navigator && !wakeLock && document.visibilityState==='visible'){
+      wakeLock=await navigator.wakeLock.request('screen');
+      // The OS auto-releases the lock when the app is backgrounded; clear our
+      // ref so refreshWake() can re-take it when the app returns to foreground.
+      wakeLock.addEventListener('release',()=>{ wakeLock=null; });
+    }
+  }catch(e){}
 }
 function releaseWake(){ try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; }
-// The OS drops the lock when the app is backgrounded; re-take it on return.
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&timerView==='running') acquireWake(); });
+// Hold the lock while on the Timer tab (and visible); drop it everywhere else.
+function refreshWake(){ if(curTab==='timer') acquireWake(); else releaseWake(); }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') refreshWake(); });
 
 const fmt=ms=>{const s=Math.max(0,ms)/1000,m=Math.floor(s/60),r=s%60;
   return `${String(m).padStart(2,'0')}:${r.toFixed(2).padStart(5,'0')}`;};
@@ -882,7 +892,7 @@ function freshSlots(){
 function startTimer(){
   if(!recomputeSeg())return;
   freshSlots();taps=[];curRound=-1;tapped.clear();t0=performance.now();
-  showTimer('running');acquireWake();tick();renderRunning();
+  showTimer('running');tick();renderRunning();
 }
 function tick(){if(t0!=null&&timerView==='running'){setClock(performance.now()-t0);raf=requestAnimationFrame(tick);}}
 function setClock(ms){
@@ -944,7 +954,7 @@ function renderRunning(pulse){
   }).join('');
 }
 function finish(){
-  cancelAnimationFrame(raf);releaseWake();
+  cancelAnimationFrame(raf);
   setClock(Math.max(...state.map(s=>s.lastCum)));
   recommend();renderAssign();showTimer('assign');
 }
@@ -1307,7 +1317,7 @@ document.getElementById('plus').addEventListener('click',()=>{slotCount=Math.min
 document.getElementById('start').addEventListener('click',startTimer);
 document.getElementById('lap').addEventListener('click',onLap);
 document.getElementById('undo').addEventListener('click',undoLap);
-document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);releaseWake();t0=null;curRound=-1;tapped.clear();showTimer('setup');});
+document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);t0=null;curRound=-1;tapped.clear();showTimer('setup');});
 
 // Lane taps via delegated pointerdown on the container (not per-lane onclick).
 // Why: every commit() rebuilds #lanes innerHTML, which would destroy a lane node
@@ -1456,6 +1466,7 @@ syncCourse();
 syncSetupControls();
 applyLang();
 renderAthList();
+refreshWake(); // app opens on the Timer tab — keep the screen awake right away
 </script>
 <script>
 if ('serviceWorker' in navigator) {
