@@ -69,6 +69,7 @@ html, body {
 .btn {
   border: 0; cursor: pointer; font-family: var(--font-sans); font-weight: 700;
   color: #04221d; background: var(--accent); border-radius: var(--r-btn);
+  touch-action: manipulation; /* instant tap — no 300ms wait, no double-tap zoom */
 }
 .btn:active { transform: scale(.98); }
 .btn-ghost { background: var(--surface-2); color: var(--text); }

@@ -130,7 +130,8 @@ select.sel:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2p
 .lane { position:relative; background:var(--surface); border:1px solid var(--line);
   border-radius:14px; padding:0 14px 0 18px; overflow:hidden; cursor:pointer;
   flex:1 1 0; min-height:52px; max-height:84px; display:flex; flex-direction:column;
-  justify-content:center; gap:3px; -webkit-tap-highlight-color:transparent; }
+  justify-content:center; gap:3px; -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation; /* let two lanes be tapped at once without zoom/gesture stealing the touch */ }
 .lane::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--lc); }
 .lane:active { background:color-mix(in srgb,var(--lc) 12%,var(--surface)); }
 .lane.pulse { animation:pulse .6s ease-out; }
@@ -769,6 +770,16 @@ function showTimer(v){
   ['setup','running','assign'].forEach(s=>document.getElementById(`sec-${s}`).classList.toggle('hidden',s!==v));
 }
 
+// Keep the screen awake while timing. A poolside phone that dims/sleeps adds a
+// noticeable lag to the first tap after it wakes — the wake lock avoids that.
+let wakeLock=null;
+async function acquireWake(){
+  try{ if('wakeLock' in navigator && document.visibilityState==='visible') wakeLock=await navigator.wakeLock.request('screen'); }catch(e){}
+}
+function releaseWake(){ try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; }
+// The OS drops the lock when the app is backgrounded; re-take it on return.
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&timerView==='running') acquireWake(); });
+
 const fmt=ms=>{const s=Math.max(0,ms)/1000,m=Math.floor(s/60),r=s%60;
   return `${String(m).padStart(2,'0')}:${r.toFixed(2).padStart(5,'0')}`;};
 const fmtSplit=ms=>':'+(ms/1000).toFixed(2).padStart(5,'0');
@@ -781,7 +792,7 @@ function freshSlots(){
 function startTimer(){
   if(!recomputeSeg())return;
   freshSlots();taps=[];curRound=-1;tapped.clear();t0=performance.now();
-  showTimer('running');tick();renderRunning();
+  showTimer('running');acquireWake();tick();renderRunning();
 }
 function tick(){if(t0!=null&&timerView==='running'){setClock(performance.now()-t0);raf=requestAnimationFrame(tick);}}
 function setClock(ms){
@@ -837,13 +848,13 @@ function renderRunning(pulse){
     const right=s.finished?`<span class="fin">${t('finished',fmtTotal(s.lastCum))}</span>`:`<span class="prog">${dots}</span>`;
     const isNext=next&&next.idx===s.idx&&!s.finished;
     return `<div class="lane ${s.finished?'done':''} ${isNext?'next':''} ${pulse===s.idx?'pulse':''}"
-      style="--lc:${s.color}" ${s.finished?'':`onclick="tapLane(${s.idx})"`}>
+      style="--lc:${s.color}" data-idx="${s.idx}">
       <div class="row1"><span class="ln">${t('laneN',s.idx+1)}</span>${isNext?`<span class="nexttag">${lang==='ko'?'다음':'Next'}</span>`:''} ${right}</div>
       <div class="splits">${last||`<span>${t('waiting')}</span>`}</div></div>`;
   }).join('');
 }
 function finish(){
-  cancelAnimationFrame(raf);
+  cancelAnimationFrame(raf);releaseWake();
   setClock(Math.max(...state.map(s=>s.lastCum)));
   recommend();renderAssign();showTimer('assign');
 }
@@ -1206,7 +1217,19 @@ document.getElementById('plus').addEventListener('click',()=>{slotCount=Math.min
 document.getElementById('start').addEventListener('click',startTimer);
 document.getElementById('lap').addEventListener('click',onLap);
 document.getElementById('undo').addEventListener('click',undoLap);
-document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);t0=null;curRound=-1;tapped.clear();showTimer('setup');});
+document.getElementById('reset').addEventListener('click',()=>{cancelAnimationFrame(raf);releaseWake();t0=null;curRound=-1;tapped.clear();showTimer('setup');});
+
+// Lane taps via delegated pointerdown on the container (not per-lane onclick).
+// Why: every commit() rebuilds #lanes innerHTML, which would destroy a lane node
+// a second finger is mid-tap on — losing simultaneous taps when two swimmers hit
+// the wall together. A delegated pointerdown fires instantly per finger and
+// survives the re-render, so two lanes can be tapped at the same instant.
+document.getElementById('lanes').addEventListener('pointerdown',e=>{
+  if(timerView!=='running')return;
+  const laneEl=e.target.closest('.lane');
+  if(!laneEl||laneEl.dataset.idx==null)return;
+  tapLane(+laneEl.dataset.idx);
+});
 // ---- Save records (persisted) with one-tap Undo ----
 let lastSaveBatch=null, toastTimer=null, advanceTimer=null;
 function showToast(msg, withUndo){
@@ -1306,10 +1329,19 @@ document.getElementById('swDelete').addEventListener('click',()=>{
   if(curTab==='records')refreshRecords();
 });
 
-// Volume/keyboard LAP
+// Volume / keyboard control: START from setup, LAP while running.
+// NOTE: hardware volume buttons only reach the web as key events on some
+// external keyboards / Bluetooth remotes (and a few Android browsers). iOS
+// Safari and iOS home-screen PWAs do NOT deliver volume-button presses to a
+// web page at all, so on iPhone this works only with a paired remote/keyboard.
 window.addEventListener('keydown',e=>{
-  if(timerView!=='running')return;
-  if(e.code==='Space'||e.code==='Enter'||e.code==='AudioVolumeUp'||e.code==='AudioVolumeDown'){e.preventDefault();onLap();}
+  const k=e.code, vol=(k==='AudioVolumeUp'||k==='AudioVolumeDown');
+  if(!(vol||k==='Space'||k==='Enter'))return;
+  if(curTab!=='timer')return;
+  // don't steal Space/Enter while a field/control is focused (e.g. opening a select)
+  if(!vol){ const el=document.activeElement; if(el&&/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(el.tagName))return; }
+  if(timerView==='running'){e.preventDefault();onLap();}
+  else if(timerView==='setup'&&!document.getElementById('start').disabled){e.preventDefault();startTimer();}
 });
 
 // Expose for inline handlers
