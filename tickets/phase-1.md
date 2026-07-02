@@ -18,6 +18,10 @@
 - 탭 타임스탬프는 `e.nativeEvent.timestamp`(터치 발생 시각) 사용 — JS 렌더 지연과
   분리(1/100초 정확도 핵심). `onPressIn`에서 캡처.
 - 수용: timer-core 테스트 시나리오 TE-1~TE-12를 화면에서 재현 가능.
+- **결과(done)**: `src/features/timer/`에 Setup/Running/Assign + Clock(rAF 분리)
+  구현. 탭 시각은 `onPressIn`+`nativeEvent.timestamp`, 표시 시계는 `clockBase`
+  오프셋 보정(테스트 포함). 선수/기록 저장은 인메모리 스텁(`roster.ts`) —
+  T-103에서 sqlite로 교체. 햅틱·keep-awake는 T-106.
 
 ## T-103 로컬 DB (expo-sqlite)
 - `common/data-model.md`의 Swimmer/TrainingRecord/SessionLog/AppPrefs 저장.
