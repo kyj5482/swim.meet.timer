@@ -1,13 +1,11 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 
+import { useT } from '@/store/settings';
 import { color, font, radius, touch } from '@/theme';
 import {
   COURSES, STROKES, courseUnit, distanceOptions, segmentCount, splitOptions, type TimerConfig,
 } from './config';
 
-const STROKE_LABEL: Record<string, string> = {
-  free: 'Freestyle', back: 'Backstroke', breast: 'Breaststroke', fly: 'Butterfly', im: 'IM',
-};
 const COURSE_LABEL: Record<string, string> = { '25m': '25 Meter', '25y': '25 Yard', '50m': '50 Meter' };
 
 interface Props {
@@ -40,6 +38,7 @@ function PillRow<T extends string | number>({ label, options, value, format, onS
 }
 
 export default function SetupView({ config, onChange, onStart }: Props) {
+  const t = useT();
   const unit = courseUnit(config.course);
   const segs = segmentCount(config);
 
@@ -57,29 +56,28 @@ export default function SetupView({ config, onChange, onStart }: Props) {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* 코스는 자주 안 바뀌므로 상단 요약 행 (PWA .setrow) */}
         <View style={styles.setrow}>
-          <Text style={styles.setrowKey}>Course</Text>
+          <Text style={styles.setrowKey}>{t.lCourse}</Text>
           <Text style={styles.setrowVal}>{COURSE_LABEL[config.course]}</Text>
         </View>
         <PillRow label="" options={COURSES} value={config.course} format={(c) => COURSE_LABEL[c]!.replace(' ', '')} onSelect={(v) => set('course', v)} />
 
-        <PillRow label="Stroke" options={STROKES} value={config.stroke} format={(s) => STROKE_LABEL[s]!} onSelect={(v) => set('stroke', v)} />
-        <PillRow label="Distance" options={distanceOptions(config.course)} value={config.distance} format={(d) => `${d}`} onSelect={(v) => set('distance', v)} />
-        <PillRow label="Split" options={splitOptions(config.course, config.distance)} value={config.splitInterval} format={(d) => (d === config.distance ? 'once' : `${d}${unit}`)} onSelect={(v) => set('splitInterval', v)} />
+        <PillRow label={t.lStroke} options={STROKES} value={config.stroke} format={(s) => t.strokes[s]!} onSelect={(v) => set('stroke', v)} />
+        <PillRow label={t.lDist} options={distanceOptions(config.course)} value={config.distance} format={(d) => `${d}`} onSelect={(v) => set('distance', v)} />
+        <PillRow label={t.lSplit} options={splitOptions(config.course, config.distance)} value={config.splitInterval} format={(d) => (d === config.distance ? t.splitOnce : `${d}${unit}`)} onSelect={(v) => set('splitInterval', v)} />
 
         {segs != null ? (
           <Text style={styles.segInfo}>
-            <Text style={styles.segInfoStrong}>{segs}</Text>
-            {segs === 1 ? ` split · ${config.distance} ${unit} at once` : ` segments · LAP every ${config.splitInterval} ${unit}`}
+            {segs === 1 ? t.segOnce(config.distance, unit) : t.segInfo(segs, config.splitInterval, unit)}
           </Text>
         ) : (
-          <Text style={styles.segWarn}>{`${config.distance} doesn't fit in a ${config.course} pool`}</Text>
+          <Text style={styles.segWarn}>{t.segWarn(config.distance, config.course)}</Text>
         )}
 
         {/* 인원 스테퍼 (PWA .stepper) */}
         <View style={styles.stepper}>
           <View>
-            <Text style={styles.stepperLabel}>Swimmers</Text>
-            <Text style={styles.stepperSub}>Time first, assign after</Text>
+            <Text style={styles.stepperLabel}>{t.lSwimmers}</Text>
+            <Text style={styles.stepperSub}>{t.lSwimmersSub}</Text>
           </View>
           <View style={styles.stepperCtrl}>
             <Pressable style={styles.stepBtn} onPress={() => set('slotCount', Math.max(1, config.slotCount - 1))}>
@@ -91,7 +89,7 @@ export default function SetupView({ config, onChange, onStart }: Props) {
             </Pressable>
           </View>
         </View>
-        <Text style={styles.stepTip}>Slots are anonymous during timing. Assign swimmers after.</Text>
+        <Text style={styles.stepTip}>{t.steptip}</Text>
       </ScrollView>
 
       <Pressable

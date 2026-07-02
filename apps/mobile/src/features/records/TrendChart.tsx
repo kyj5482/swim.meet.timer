@@ -14,7 +14,11 @@ const PAD_L = 46, PAD_R = 14, PAD_T = 18, PAD_B = 24;
  * 아래 = 향상). 점선 그리드 2줄(최저/최고), 베스트는 ok색 도트 + PB 라벨,
  * x축은 날짜. 시리즈가 1개라 범례 없음(제목이 시리즈를 명명).
  */
-export default function TrendChart({ records, title }: { records: TrainingRecord[]; title: string }) {
+export default function TrendChart({ records, title, sub }: {
+  records: TrainingRecord[];
+  title: string;
+  sub: string;
+}) {
   const [width, setWidth] = useState(0);
   if (records.length === 0) return null;
 
@@ -44,8 +48,8 @@ export default function TrendChart({ records, title }: { records: TrainingRecord
   return (
     <View style={styles.panel}>
       <View style={styles.head}>
-        <Text style={styles.title}>{title} Trend</Text>
-        <Text style={styles.sub}>{`${h.length} sessions · lower is better`}</Text>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.sub}>{sub}</Text>
       </View>
       <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
         {width > 0 && (

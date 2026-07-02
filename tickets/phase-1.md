@@ -79,6 +79,19 @@
 ## T-109 i18n(en/ko) + 설정 화면
 - PWA(docs/app/index.html S 객체)의 en/ko 문자열 전체 이식, 언어 토글.
 - 설정 화면: 언어, 코스 기본값, 볼륨키 LAP 켬/끔(Android), 사운드/햅틱.
+- **결과(done)**: `src/i18n/strings.ts`(en/ko, 함수형 문자열 포함) +
+  `src/store/settings.ts`(useSyncExternalStore, prefs 영속: lang/haptics/
+  volumeLap). 라우트 재구성: Stack(루트) → (tabs) + settings 모달(⚙️ 헤더
+  버튼). 전 화면(탭·타이머 3단계·기록지·선수·Alert)에 t() 적용. 햅틱·볼륨키는
+  설정에서 켬/끔, iOS에는 볼륨키 미지원 안내 표시.
+
+## T-110 UI 디자인 폴리시 + 차트 (완료)
+- **결과(done)**: PWA(docs/app/index.html) 디자인을 네이티브로 이식 — 시계
+  (큰 MM:SS+액센트 .hh), 레인 컬러바·NEXT 태그·도트, 104pt START/LAP(예측
+  표시 2줄), 배정 카드(요약 패널·Prev→오늘·PB 필·세그먼트 칩·confbar),
+  기록지: react-native-svg 추세 라인 차트(그리드·PB 도트·날짜축) + 세션 펼침
+  상세 + 구간 비교 모달(다중 시리즈 라인 차트+범례+행별 베스트 표), 아바타.
+- 실기기 육안 확인: Expo Go(iPhone)에서 사용자 검증.
 
 ## T-107 EAS Build + 배포 파이프라인
 - eas.json(dev/preview/production), GitHub Actions: PR마다 lint+test,

@@ -5,12 +5,14 @@ import {
 } from 'react-native';
 
 import { addSwimmer, archiveSwimmer, listSwimmers, type Swimmer } from '@/db';
+import { useT } from '@/store/settings';
 import { color, initials, laneColor, radius, touch } from '@/theme';
 
 /** Athletes 탭: 명단 CRUD. 삭제는 아카이브(기록 보존). */
 export default function AthletesScreen() {
   const [swimmers, setSwimmers] = useState<Swimmer[]>([]);
   const [name, setName] = useState('');
+  const t = useT();
 
   const reload = useCallback(() => {
     void listSwimmers().then(setSwimmers);
@@ -25,11 +27,11 @@ export default function AthletesScreen() {
   }, [name, reload]);
 
   const onArchive = useCallback((s: Swimmer) => {
-    Alert.alert(`Delete ${s.name}?`, 'Saved records are kept.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => void archiveSwimmer(s.id).then(reload) },
+    Alert.alert(t.delSwTitle(s.name), t.delSwMsg, [
+      { text: t.cancel, style: 'cancel' },
+      { text: t.delYes, style: 'destructive', onPress: () => void archiveSwimmer(s.id).then(reload) },
     ]);
-  }, [reload]);
+  }, [reload, t]);
 
   return (
     <View style={styles.screen}>
@@ -38,22 +40,20 @@ export default function AthletesScreen() {
           style={styles.input}
           value={name}
           onChangeText={setName}
-          placeholder="e.g. Minjun"
+          placeholder={t.namePH}
           placeholderTextColor={color.textMuted}
           onSubmitEditing={onAdd}
           returnKeyType="done"
         />
         <Pressable style={[styles.addBtn, !name.trim() && styles.addDisabled]} disabled={!name.trim()} onPress={onAdd}>
-          <Text style={styles.addText}>Add</Text>
+          <Text style={styles.addText}>{t.add}</Text>
         </Pressable>
       </View>
       <FlatList
         data={swimmers}
         keyExtractor={(s) => s.id}
         contentContainerStyle={{ gap: 8, paddingBottom: 16 }}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No swimmers yet. Add one to assign records after timing.</Text>
-        }
+        ListEmptyComponent={<Text style={styles.empty}>{t.athEmpty}</Text>}
         renderItem={({ item, index }) => (
           <View style={styles.row}>
             <View style={[styles.avatar, { backgroundColor: laneColor(index) }]}>

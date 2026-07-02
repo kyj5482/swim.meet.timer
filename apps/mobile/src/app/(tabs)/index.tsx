@@ -14,6 +14,7 @@ import {
   DEFAULT_CONFIG, clockBase, courseUnit, restoredClockBase, segmentCount,
   type RunningSnapshot, type TimerConfig,
 } from '@/features/timer/config';
+import { useT } from '@/store/settings';
 import { TimerEngine, type CandidateStats, type SlotState, type Target } from '@splitlane/timer-core';
 
 type ViewState = 'setup' | 'running' | 'assign';
@@ -29,6 +30,7 @@ export default function TimerScreen() {
   const [assignData, setAssignData] = useState<{ swimmers: Swimmer[]; stats: CandidateStats[] } | null>(null);
   const engineRef = useRef<TimerEngine | null>(null);
   const baseRef = useRef<ReturnType<typeof clockBase> | null>(null);
+  const t = useT();
 
   // 타이머 탭이 보이는 동안 화면 꺼짐 방지 — START 대기 중 포함 (FR, PWA 동작 계승)
   useFocusEffect(
@@ -52,10 +54,10 @@ export default function TimerScreen() {
   useEffect(() => {
     void getPref<RunningSnapshot>(SNAPSHOT_PREF).then((snap) => {
       if (!snap) return;
-      Alert.alert('Resume timing?', 'A session was interrupted while running.', [
-        { text: 'Discard', style: 'destructive', onPress: () => void setPref(SNAPSHOT_PREF, null) },
+      Alert.alert(t.resumeTitle, t.resumeMsg, [
+        { text: t.discard, style: 'destructive', onPress: () => void setPref(SNAPSHOT_PREF, null) },
         {
-          text: 'Resume',
+          text: t.resume,
           onPress: () => {
             setConfig(snap.config);
             engineRef.current = TimerEngine.restore(snap.engine);
@@ -65,6 +67,7 @@ export default function TimerScreen() {
         },
       ]);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const persistSnapshot = useCallback(() => {
@@ -117,8 +120,8 @@ export default function TimerScreen() {
     void (async () => {
       const { sessionId, count } = await saveSession(engine.state, target);
       setView('setup');
-      Alert.alert(`✓ ${count} record${count === 1 ? '' : 's'} saved`, undefined, [
-        { text: 'Undo', style: 'destructive', onPress: () => void deleteSession(sessionId) },
+      Alert.alert(t.savedToast(count), undefined, [
+        { text: t.undoBtn, style: 'destructive', onPress: () => void deleteSession(sessionId) },
         { text: 'OK' },
       ]);
     })();
@@ -136,9 +139,9 @@ export default function TimerScreen() {
         onFinished={onFinished}
         onPersist={persistSnapshot}
         onReset={() =>
-          Alert.alert('Reset timer?', 'Current measurements will be lost.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Reset', style: 'destructive', onPress: () => { clearSnapshot(); setView('setup'); } },
+          Alert.alert(t.resetTitle, t.resetMsg, [
+            { text: t.cancel, style: 'cancel' },
+            { text: t.reset, style: 'destructive', onPress: () => { clearSnapshot(); setView('setup'); } },
           ])
         }
         ClockSlot={<Clock t0={base.t0} toEventBase={base.toEventBase} running />}

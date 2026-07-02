@@ -1,26 +1,30 @@
-import { Tabs } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 
+import { loadSettings, useT } from '@/store/settings';
 import { color } from '@/theme';
 
 export default function RootLayout() {
+  const t = useT();
+
+  useEffect(() => {
+    void loadSettings();
+  }, []);
+
   return (
     <>
       <StatusBar style="light" />
-      <Tabs
+      <Stack
         screenOptions={{
           headerStyle: { backgroundColor: color.bg },
           headerTintColor: color.text,
           headerShadowVisible: false,
-          tabBarStyle: { backgroundColor: color.surface, borderTopColor: color.line },
-          tabBarActiveTintColor: color.accent,
-          tabBarInactiveTintColor: color.textMuted,
-          sceneStyle: { backgroundColor: color.bg },
+          contentStyle: { backgroundColor: color.bg },
         }}>
-        <Tabs.Screen name="index" options={{ title: 'Timer' }} />
-        <Tabs.Screen name="records" options={{ title: 'Records' }} />
-        <Tabs.Screen name="athletes" options={{ title: 'Athletes' }} />
-      </Tabs>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="settings" options={{ presentation: 'modal', title: t.settings }} />
+      </Stack>
     </>
   );
 }

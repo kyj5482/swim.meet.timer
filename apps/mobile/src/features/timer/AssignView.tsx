@@ -2,6 +2,7 @@ import { useMemo, useReducer, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { Swimmer } from '@/db';
+import { useT } from '@/store/settings';
 import { color, font, initials, laneColor, radius } from '@/theme';
 import {
   fmtTotal, improvement, nearestSibling, recommend, swapSwimmers,
@@ -25,6 +26,7 @@ interface Props {
 export default function AssignView({ slots, swimmers, stats, splitInterval, unit, onSave, onAgain }: Props) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const [picking, setPicking] = useState<SlotState | null>(null);
+  const t = useT();
 
   const statsOf = (swimmerId: string | null) =>
     swimmerId ? stats.find((c) => c.swimmerId === swimmerId) ?? null : null;
@@ -48,14 +50,14 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
 
   return (
     <View style={styles.screen}>
-      <Text style={styles.title}>Done — Assign Swimmers</Text>
-      <Text style={styles.lead}>Match each slot to a swimmer. Pre-filled by pace history.</Text>
+      <Text style={styles.title}>{t.aTitle}</Text>
+      <Text style={styles.lead}>{t.aLead}</Text>
 
       {/* 요약 헤드라인 (PWA .summary) */}
       <View style={styles.summary}>
-        <Text style={styles.sumItem}>🎉 <Text style={styles.sumNum}>{summary.improved}</Text> improved</Text>
-        <Text style={styles.sumItem}>🏅 <Text style={styles.sumNum}>{summary.pb}</Text> PB</Text>
-        <Text style={styles.sumItem}><Text style={styles.sumNum}>{summary.total}</Text> total</Text>
+        <Text style={styles.sumItem}>🎉 <Text style={styles.sumNum}>{summary.improved}</Text> {t.improvedWord}</Text>
+        <Text style={styles.sumItem}>🏅 <Text style={styles.sumNum}>{summary.pb}</Text> {t.pbShort}</Text>
+        <Text style={styles.sumItem}><Text style={styles.sumNum}>{summary.total}</Text> {t.totalWord}</Text>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingBottom: 8 }}>
@@ -70,7 +72,7 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
               <View style={[styles.cardBar, { backgroundColor: lc }]} />
               <View style={styles.cardBody}>
                 <View style={styles.cardTop}>
-                  <Text style={[styles.slotName, { color: lc }]}>Lane {s.idx + 1}</Text>
+                  <Text style={[styles.slotName, { color: lc }]}>{t.laneN(s.idx + 1)}</Text>
                   {s.status === 'dnf' && <Text style={styles.dnfTag}>DNF</Text>}
                   <Text style={styles.total}>{fmtTotal(s.lastCumMs)}</Text>
                 </View>
@@ -82,20 +84,20 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
                       <Text style={styles.avatarSmText}>{initials(who.name)}</Text>
                     </View>
                   ) : null}
-                  <Text style={styles.pickText}>{who?.name ?? 'Select swimmer'}</Text>
+                  <Text style={styles.pickText}>{who?.name ?? t.pickTitle}</Text>
                   <Text style={styles.pickChev}>▾</Text>
-                  {who && <View style={styles.recTag}><Text style={styles.recTagText}>Rec</Text></View>}
+                  {who && <View style={styles.recTag}><Text style={styles.recTagText}>{t.rec}</Text></View>}
                 </Pressable>
 
                 {/* 향상/PB (PWA .delta) */}
                 {imp && (
                   <View style={styles.delta}>
                     {imp.kind === 'first' ? (
-                      <View style={styles.pbBadge}><Text style={styles.pbBadgeText}>First record</Text></View>
+                      <View style={styles.pbBadge}><Text style={styles.pbBadgeText}>{t.firstRec}</Text></View>
                     ) : (
                       <>
                         <Text style={styles.prevNow}>
-                          <Text style={styles.mutedMono}>{`Prev ${st!.lastMs != null ? fmtTotal(st!.lastMs) : '—'}`}</Text>
+                          <Text style={styles.mutedMono}>{`${t.prev} ${st!.lastMs != null ? fmtTotal(st!.lastMs) : '—'}`}</Text>
                           {'  →  '}
                           <Text style={styles.nowVal}>{fmtTotal(s.lastCumMs)}</Text>
                         </Text>
@@ -104,7 +106,7 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
                         </Text>
                         {imp.isPB && (
                           <View style={[styles.pbBadge, s.lowConfidence && styles.pbMuted]}>
-                            <Text style={styles.pbBadgeText}>🏅 PB</Text>
+                            <Text style={styles.pbBadgeText}>{t.pb}</Text>
                           </View>
                         )}
                       </>
@@ -126,10 +128,10 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
                 {near && (
                   <View style={styles.confBar}>
                     <Text style={styles.confText}>
-                      {`⚠ ${(near.gapMs / 1000).toFixed(2)}s gap with lane ${near.sibling.idx + 1} — confirm`}
+                      {t.nearWarn(near.sibling.idx + 1, (near.gapMs / 1000).toFixed(2))}
                     </Text>
                     <Pressable style={styles.swapBtn} onPress={() => { swapSwimmers(s, near.sibling); bump(); }}>
-                      <Text style={styles.swapText}>↔ Swap</Text>
+                      <Text style={styles.swapText}>{t.swapBtn}</Text>
                     </Pressable>
                   </View>
                 )}
@@ -141,17 +143,17 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
 
       <View style={styles.actions}>
         <Pressable style={styles.againBtn} onPress={onAgain}>
-          <Text style={styles.againText}>Time Again</Text>
+          <Text style={styles.againText}>{t.again}</Text>
         </Pressable>
         <Pressable style={({ pressed }) => [styles.saveBtn, pressed && styles.savePressed]} onPress={onSave}>
-          <Text style={styles.saveText}>Save Records</Text>
+          <Text style={styles.saveText}>{t.saveRec}</Text>
         </Pressable>
       </View>
 
       <Modal visible={picking != null} transparent animationType="fade" onRequestClose={() => setPicking(null)}>
         <Pressable style={styles.modalBack} onPress={() => setPicking(null)}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select Swimmer</Text>
+            <Text style={styles.modalTitle}>{t.pickTitle}</Text>
             {swimmers.map((w, wi) => {
               const isCurrent = picking?.swimmerId === w.id;
               return (

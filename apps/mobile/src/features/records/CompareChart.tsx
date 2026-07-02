@@ -13,10 +13,11 @@ const PAD_L = 40, PAD_R = 12, PAD_T = 14, PAD_B = 22;
  * x = 세그먼트(누적 거리), y = 구간 시간(초, 낮을수록 좋음).
  * ≥2 시리즈이므로 범례 필수(색+날짜). 색은 선택 순서 고정 배정(레인 팔레트).
  */
-export default function CompareChart({ records, splitInterval, unit }: {
+export default function CompareChart({ records, splitInterval, unit, axisNote }: {
   records: TrainingRecord[];
   splitInterval: number;
   unit: string;
+  axisNote: string;
 }) {
   const [width, setWidth] = useState(0);
   if (records.length < 2) return null;
@@ -81,7 +82,7 @@ export default function CompareChart({ records, splitInterval, unit }: {
           </Svg>
         )}
       </View>
-      <Text style={styles.axisNote}>segment split (s) · lower is better</Text>
+      <Text style={styles.axisNote}>{axisNote}</Text>
     </View>
   );
 }

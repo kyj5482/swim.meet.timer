@@ -10,6 +10,7 @@ import { deleteRecord, listRecords, listSwimmers, type Swimmer, type TrainingRec
 import CompareChart from '@/features/records/CompareChart';
 import TrendChart from '@/features/records/TrendChart';
 import { eventKeyOf, eventLabel, recordsToCsv } from '@/features/records/csv';
+import { useT } from '@/store/settings';
 import { color, font, initials, laneColor, radius, touch } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
 
@@ -23,6 +24,7 @@ export default function RecordsScreen() {
   const [cmpMode, setCmpMode] = useState(false);
   const [cmpIds, setCmpIds] = useState<Set<string>>(new Set());
   const [comparing, setComparing] = useState(false);
+  const t = useT();
 
   const reload = useCallback(() => {
     void (async () => {
@@ -59,11 +61,11 @@ export default function RecordsScreen() {
   const unit = activeTarget?.course === '25y' ? 'y' : 'm';
 
   const onDelete = useCallback((r: TrainingRecord) => {
-    Alert.alert('Delete this record?', undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => void deleteRecord(r.id).then(reload) },
+    Alert.alert(t.delConfirm, undefined, [
+      { text: t.cancel, style: 'cancel' },
+      { text: t.delYes, style: 'destructive', onPress: () => void deleteRecord(r.id).then(reload) },
     ]);
-  }, [reload]);
+  }, [reload, t]);
 
   const onExport = useCallback(() => {
     if (!swimmer) return;
@@ -74,17 +76,17 @@ export default function RecordsScreen() {
         file.write(recordsToCsv(swimmer.name, records));
         await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', dialogTitle: 'Export records' });
       } catch (err) {
-        Alert.alert('Export failed', String(err));
+        Alert.alert(t.exportFail, String(err));
       }
     })();
-  }, [swimmer, records]);
+  }, [swimmer, records, t]);
 
   if (swimmers.length === 0) {
     return (
       <View style={styles.emptyScreen}>
         <Text style={styles.emptyIcon}>🏊</Text>
-        <Text style={styles.emptyText}>No swimmers yet</Text>
-        <Text style={styles.emptySub}>Add swimmers in the Athletes tab, then time a session.</Text>
+        <Text style={styles.emptyText}>{t.noSwimmers}</Text>
+        <Text style={styles.emptySub}>{t.noSwimmersSub}</Text>
       </View>
     );
   }
@@ -115,12 +117,12 @@ export default function RecordsScreen() {
       {/* 종목 선택 */}
       {events.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillBar} contentContainerStyle={styles.pillRow}>
-          {events.map(([k, t]) => (
+          {events.map(([k, tg]) => (
             <Pressable
               key={k}
               onPress={() => { setEventKey(k); setCmpIds(new Set()); setCmpMode(false); setExpandedId(null); }}
               style={[styles.pill, k === activeEvent && styles.pillOn]}>
-              <Text style={[styles.pillText, k === activeEvent && styles.pillTextOn]}>{eventLabel(t)}</Text>
+              <Text style={[styles.pillText, k === activeEvent && styles.pillTextOn]}>{eventLabel(tg)}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -133,19 +135,23 @@ export default function RecordsScreen() {
         ListHeaderComponent={
           <View style={{ gap: 8 }}>
             {finished.length >= 2 && activeTarget && (
-              <TrendChart records={finished} title={eventLabel(activeTarget)} />
+              <TrendChart
+                records={finished}
+                title={`${eventLabel(activeTarget)} ${t.trend}`}
+                sub={t.trendSub(finished.length)}
+              />
             )}
             <View style={styles.histHead}>
-              <Text style={styles.histTitle}>Sessions</Text>
+              <Text style={styles.histTitle}>{t.sessions}</Text>
               <Pressable onPress={() => { setCmpMode(!cmpMode); setCmpIds(new Set()); }}>
                 <Text style={[styles.cmpLink, cmpMode && styles.cmpLinkActive]}>
-                  {cmpMode ? 'Cancel' : 'Compare Splits'}
+                  {cmpMode ? t.cancel : t.compareSplits}
                 </Text>
               </Pressable>
             </View>
           </View>
         }
-        ListEmptyComponent={<Text style={styles.emptySub}>No records yet. Time a session and save it.</Text>}
+        ListEmptyComponent={<Text style={styles.emptySub}>{t.noRecords}</Text>}
         renderItem={({ item }) => {
           const picked = cmpIds.has(item.id);
           const expanded = expandedId === item.id;
@@ -172,10 +178,10 @@ export default function RecordsScreen() {
                   <Text style={styles.rowDate}>{new Date(item.date).toLocaleDateString()}</Text>
                   <Text style={styles.rowMeta}>
                     {eventLabel(item.target)}
-                    {isPB ? ' · Best' : ''}
+                    {isPB ? ` · ${t.bestWord}` : ''}
                   </Text>
                 </View>
-                {isPB && <View style={styles.pbBadge}><Text style={styles.pbBadgeText}>PB</Text></View>}
+                {isPB && <View style={styles.pbBadge}><Text style={styles.pbBadgeText}>{t.pbShort}</Text></View>}
                 {item.status === 'dnf' && <Text style={styles.dnf}>DNF</Text>}
                 <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
               </Pressable>
@@ -183,7 +189,7 @@ export default function RecordsScreen() {
               {/* 펼침 상세 (PWA .h-detail) */}
               {expanded && !cmpMode && (
                 <View style={styles.detail}>
-                  <Text style={styles.detailLabel}>Segment Splits</Text>
+                  <Text style={styles.detailLabel}>{t.segSplits}</Text>
                   <View style={styles.segGrid}>
                     {item.splits.map((s, i) => (
                       <View key={i} style={styles.segChip}>
@@ -195,7 +201,7 @@ export default function RecordsScreen() {
                     ))}
                   </View>
                   <Pressable style={styles.delMini} onPress={() => onDelete(item)}>
-                    <Text style={styles.delMiniText}>🗑 Delete</Text>
+                    <Text style={styles.delMiniText}>{t.delRec}</Text>
                   </Pressable>
                 </View>
               )}
@@ -211,12 +217,12 @@ export default function RecordsScreen() {
             disabled={selected.length < 2}
             onPress={() => setComparing(true)}>
             <Text style={styles.compareText}>
-              {selected.length < 2 ? 'Select 2+ sessions' : `Compare ${selected.length} sessions`}
+              {selected.length < 2 ? t.selectMode : t.compareN(selected.length)}
             </Text>
           </Pressable>
         ) : (
           <Pressable style={[styles.exportBtn, records.length === 0 && styles.btnDisabled]} disabled={records.length === 0} onPress={onExport}>
-            <Text style={styles.exportText}>Export CSV</Text>
+            <Text style={styles.exportText}>{t.exportCsv}</Text>
           </Pressable>
         )}
       </View>
@@ -225,12 +231,17 @@ export default function RecordsScreen() {
       <Modal visible={comparing} transparent animationType="fade" onRequestClose={() => setComparing(false)}>
         <Pressable style={styles.modalBack} onPress={() => setComparing(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Split Comparison</Text>
+            <Text style={styles.modalTitle}>{t.splitCmp}</Text>
             {activeTarget && (
-              <CompareChart records={selected} splitInterval={activeTarget.splitInterval} unit={unit} />
+              <CompareChart
+                records={selected}
+                splitInterval={activeTarget.splitInterval}
+                unit={unit}
+                axisNote={t.cmpAxisNote}
+              />
             )}
             <View style={styles.cmpRow}>
-              <Text style={[styles.cmpCell, styles.cmpHead, styles.cmpFirst]}>Seg</Text>
+              <Text style={[styles.cmpCell, styles.cmpHead, styles.cmpFirst]}>{t.seg}</Text>
               {selected.map((r) => (
                 <Text key={r.id} style={[styles.cmpCell, styles.cmpHead]}>
                   {new Date(r.date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
@@ -254,7 +265,7 @@ export default function RecordsScreen() {
               );
             })}
             <View style={styles.cmpRow}>
-              <Text style={[styles.cmpCell, styles.cmpHead, styles.cmpFirst]}>Total</Text>
+              <Text style={[styles.cmpCell, styles.cmpHead, styles.cmpFirst]}>{t.total2}</Text>
               {selected.map((r) => (
                 <Text key={r.id} style={[styles.cmpCell, styles.cmpTotal]}>{fmtTotal(r.totalMs)}</Text>
               ))}
