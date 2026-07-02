@@ -73,3 +73,13 @@
 - eas.json(dev/preview/production), GitHub Actions: PR마다 lint+test,
   main 태그 시 EAS build → TestFlight/Play 내부 트랙 제출.
 - 수용: 태그 푸시만으로 양 스토어 내부 테스트 배포.
+- **결과(done — 파이프라인 코드)**: `apps/mobile/eas.json` 3개 프로필,
+  `.github/workflows/mobile-build.yml`(v* 태그 → production 빌드+제출,
+  수동 실행 → preview APK). **사용자 수동 1회 설정 필요**:
+  1) expo.dev 계정 → `npx eas init` (projectId가 app.json에 기록됨)
+  2) expo.dev Access Token 발급 → GitHub 저장소 시크릿 `EXPO_TOKEN` 등록
+  3) `npx eas credentials`로 iOS(App Store Connect API Key)·Android(서비스 계정
+     JSON) 제출 자격증명 연결 — 이후 태그 푸시만으로 빌드·제출
+  4) 첫 dev client 빌드: `npx eas build --profile development --platform android`
+     → 설치 후 볼륨키 LAP·SQLite 재시작 유지·햅틱·복구 실기기 수용 테스트
+     (T-102/103/105/106의 실기기 검증 항목이 여기서 수행됨)

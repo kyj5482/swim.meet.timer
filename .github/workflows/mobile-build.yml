@@ -1,0 +1,49 @@
+# 모바일 앱 빌드 (T-107)
+# - v* 태그 푸시 → EAS production 빌드(iOS+Android) + 스토어 제출
+# - 수동 실행(workflow_dispatch) → preview 빌드(내부 배포용 APK/시뮬레이터)
+# 사전 조건: 저장소 시크릿 EXPO_TOKEN (expo.dev → Access tokens), 최초 1회
+# `eas init`/`eas credentials` 완료 (tickets/phase-1.md T-107 참조).
+name: Mobile Build
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'EAS build profile'
+        default: 'preview'
+        type: choice
+        options: [development, preview, production]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check EXPO_TOKEN
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "::error::EXPO_TOKEN 시크릿이 없습니다. expo.dev에서 토큰을 만들어 등록하세요 (tickets/phase-1.md T-107)."
+            exit 1
+          fi
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+        working-directory: .
+      - run: npm test
+      - name: Build (tag → production, dispatch → selected profile)
+        run: |
+          PROFILE="${{ github.event.inputs.profile || 'production' }}"
+          eas build --non-interactive --no-wait --platform all --profile "$PROFILE"
+      - name: Submit to stores (production tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: eas submit --non-interactive --platform all --profile production || echo "::warning::스토어 자격증명 미설정 — eas credentials 후 재시도"
