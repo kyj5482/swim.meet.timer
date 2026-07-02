@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtClock, fmtSplit, fmtTotal, parseTime } from '../src/format.js';
+import { fmtClock, fmtSplit, fmtTotal, parseTime } from '../src/format';
 
 describe('TE-10: 전 구간 1/100초 표시', () => {
   it('fmtClock', () => {

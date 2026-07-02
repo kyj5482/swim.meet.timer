@@ -1,4 +1,4 @@
-import type { SlotState } from './types.js';
+import type { SlotState } from './types';
 
 /** 두 슬롯 총기록이 이 이내면 시간만으로 구분 불가 → 저신뢰 (§3.5a) */
 export const CLOSE_MS = 400;

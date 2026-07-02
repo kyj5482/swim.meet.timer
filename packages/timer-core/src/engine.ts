@@ -1,4 +1,4 @@
-import type { CommitResult, EngineSnapshot, SlotState, TapEvent } from './types.js';
+import type { CommitResult, EngineSnapshot, SlotState, TapEvent } from './types';
 
 function deepCopy<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;

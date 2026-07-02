@@ -1,7 +1,7 @@
-export * from './types.js';
-export { TimerEngine } from './engine.js';
+export * from './types';
+export { TimerEngine } from './engine';
 export {
   CLOSE_MS, recommend, markLowConfidence, nearestSibling, swapSwimmers, improvement,
-} from './assign.js';
-export type { CandidateStats, Improvement } from './assign.js';
-export { fmtClock, fmtSplit, fmtTotal, parseTime } from './format.js';
+} from './assign';
+export type { CandidateStats, Improvement } from './assign';
+export { fmtClock, fmtSplit, fmtTotal, parseTime } from './format';

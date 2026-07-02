@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { improvement, markLowConfidence, nearestSibling, recommend, swapSwimmers } from '../src/assign.js';
-import type { SlotState } from '../src/types.js';
+import { improvement, markLowConfidence, nearestSibling, recommend, swapSwimmers } from '../src/assign';
+import type { SlotState } from '../src/types';
 
 function slot(idx: number, totalMs: number): SlotState {
   return {

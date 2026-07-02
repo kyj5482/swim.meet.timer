@@ -12,7 +12,7 @@
 ## Phase 1 — 무료 네이티브 앱 (`tickets/phase-1.md`)
 | ID | 제목 | 상태 |
 | --- | --- | --- |
-| T-101 | Expo RN 앱 스캐폴드 + 디자인 토큰 적용 | todo |
+| T-101 | Expo RN 앱 스캐폴드 + 디자인 토큰 적용 | done |
 | T-102 | 타이머 화면(설정→측정→배정) — timer-core 연결 | todo |
 | T-103 | 로컬 DB(expo-sqlite): 선수·기록·세션 영속 | todo |
 | T-104 | 기록지/추세 화면 + CSV 내보내기 | todo |

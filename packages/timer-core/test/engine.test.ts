@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TimerEngine } from '../src/engine.js';
+import { TimerEngine } from '../src/engine';
 
 /** 3명 × 100/25(4구간) 세션. 페이스: A(30s) < B(32s) < C(34s) */
 function session3x4() {

@@ -8,6 +8,9 @@
 - `common/design-system.md`의 토큰을 `apps/mobile/src/theme.ts`로 구현(다크 기본).
 - 탭 3개 골격: Timer / Records / Athletes.
 - 수용: `npx expo start`로 구동, 탭 전환, 토큰 기반 스타일 적용.
+- **결과(done)**: Expo SDK 57 스캐폴드, `src/theme.ts` 토큰, 탭 3개(Timer/Records/
+  Athletes), `@splitlane/timer-core` 워크스페이스 연결(Metro 번들 확인,
+  `expo export` 성공). 탭 아이콘·폰트(JetBrains Mono/Pretendard)는 T-102에서.
 
 ## T-102 타이머 화면 — timer-core 연결
 - 설정(코스·종목·거리·스플릿·인원) → 측정(대형 시계, 레인 행 직접 탭 + 단일 LAP
