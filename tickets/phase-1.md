@@ -27,6 +27,11 @@
 - `common/data-model.md`의 Swimmer/TrainingRecord/SessionLog/AppPrefs 저장.
 - 저장 트랜잭션(all-or-nothing), schemaVersion 마이그레이션 틀.
 - 수용: 앱 재시작 후 데이터 유지, 세션 저장/삭제/Undo 동작.
+- **결과(done)**: `src/db/` — user_version 마이그레이션, swimmers/records/prefs
+  리포지토리, 세션 저장 트랜잭션 + 저장취소(tombstone), 시간순 id(newId),
+  종목 통계 집계(computeStats, 테스트). Athletes 탭 CRUD(아카이브 삭제),
+  마지막 타이머 설정 prefs 복원. 인메모리 스텁(roster.ts) 제거.
+  metro.config.js에 wasm(웹 sqlite) 추가. 실기기 재시작 검증은 T-107 빌드에서.
 
 ## T-104 기록지/추세 + CSV 내보내기
 - 선수별 종목 필터, 베스트/추세 차트, 세션 스플릿 비교(2개 이상 선택).

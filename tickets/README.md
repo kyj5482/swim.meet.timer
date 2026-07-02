@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | T-101 | Expo RN 앱 스캐폴드 + 디자인 토큰 적용 | done |
 | T-102 | 타이머 화면(설정→측정→배정) — timer-core 연결 | done |
-| T-103 | 로컬 DB(expo-sqlite): 선수·기록·세션 영속 | todo |
+| T-103 | 로컬 DB(expo-sqlite): 선수·기록·세션 영속 | done |
 | T-104 | 기록지/추세 화면 + CSV 내보내기 | todo |
 | T-105 | 볼륨 키 LAP(Android 네이티브 모듈) + BT 리모컨 입력(iOS/공통) | todo |
 | T-106 | 앱 폴리시: wake lock, 햅틱, i18n(en/ko), 크래시 복구 스냅샷 | todo |

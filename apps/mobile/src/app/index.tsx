@@ -1,21 +1,44 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, type GestureResponderEvent } from 'react-native';
 
+import {
+  deleteSession, getPref, listSwimmers, saveSession, setPref, statsForEvent, type Swimmer,
+} from '@/db';
 import AssignView from '@/features/timer/AssignView';
 import Clock from '@/features/timer/Clock';
 import RunningView from '@/features/timer/RunningView';
 import SetupView from '@/features/timer/SetupView';
 import { DEFAULT_CONFIG, clockBase, segmentCount, type TimerConfig } from '@/features/timer/config';
-import { TimerEngine, type SlotState, type Target } from '@splitlane/timer-core';
+import { TimerEngine, type CandidateStats, type SlotState, type Target } from '@splitlane/timer-core';
 
 type ViewState = 'setup' | 'running' | 'assign';
+
+const CONFIG_PREF = 'timerConfig';
 
 /** Timer 탭: 설정 → 측정 → 배정 (docs/03 §3.2 상태 기계). */
 export default function TimerScreen() {
   const [view, setView] = useState<ViewState>('setup');
   const [config, setConfig] = useState<TimerConfig>(DEFAULT_CONFIG);
+  const [assignData, setAssignData] = useState<{ swimmers: Swimmer[]; stats: CandidateStats[] } | null>(null);
   const engineRef = useRef<TimerEngine | null>(null);
   const baseRef = useRef<ReturnType<typeof clockBase> | null>(null);
+
+  // 마지막 타이머 설정 복원(다니는 풀은 잘 안 바뀜 — FR-S1)
+  useEffect(() => {
+    getPref<TimerConfig>(CONFIG_PREF).then((saved) => {
+      if (saved && segmentCount(saved) != null) setConfig(saved);
+    });
+  }, []);
+
+  const changeConfig = useCallback((c: TimerConfig) => {
+    setConfig(c);
+    void setPref(CONFIG_PREF, c);
+  }, []);
+
+  const target: Target = {
+    stroke: config.stroke, distance: config.distance,
+    course: config.course, splitInterval: config.splitInterval,
+  };
 
   const onStart = useCallback((e: GestureResponderEvent) => {
     const segs = segmentCount(config);
@@ -28,10 +51,29 @@ export default function TimerScreen() {
     setView('running');
   }, [config]);
 
-  const target: Target = {
-    stroke: config.stroke, distance: config.distance,
-    course: config.course, splitInterval: config.splitInterval,
-  };
+  const onFinished = useCallback(() => {
+    void (async () => {
+      const swimmers = await listSwimmers();
+      const stats = await statsForEvent(swimmers.map((s) => s.id), target);
+      setAssignData({ swimmers, stats });
+      setView('assign');
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config]);
+
+  const onSave = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    void (async () => {
+      const { sessionId, count } = await saveSession(engine.state, target);
+      setView('setup');
+      Alert.alert(`✓ ${count} record${count === 1 ? '' : 's'} saved`, undefined, [
+        { text: 'Undo', style: 'destructive', onPress: () => void deleteSession(sessionId) },
+        { text: 'OK' },
+      ]);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config]);
 
   if (view === 'running' && engineRef.current && baseRef.current) {
     const engine = engineRef.current;
@@ -41,37 +83,29 @@ export default function TimerScreen() {
         engine={engine}
         t0={base.t0}
         toEventBase={base.toEventBase}
-        onFinished={() => setView('assign')}
+        onFinished={onFinished}
         onReset={() =>
           Alert.alert('Reset timer?', 'Current measurements will be lost.', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Reset', style: 'destructive', onPress: () => setView('setup') },
           ])
         }
-        ClockSlot={
-          <Clock
-            t0={base.t0}
-            toEventBase={base.toEventBase}
-            running
-          />
-        }
+        ClockSlot={<Clock t0={base.t0} toEventBase={base.toEventBase} running />}
       />
     );
   }
 
-  if (view === 'assign' && engineRef.current) {
+  if (view === 'assign' && engineRef.current && assignData) {
     return (
       <AssignView
         slots={engineRef.current.state as SlotState[]}
-        target={target}
+        swimmers={assignData.swimmers}
+        stats={assignData.stats}
         onAgain={() => setView('setup')}
-        onSaved={(count) => {
-          Alert.alert(`✓ ${count} record${count === 1 ? '' : 's'} saved`);
-          setView('setup');
-        }}
+        onSave={onSave}
       />
     );
   }
 
-  return <SetupView config={config} onChange={setConfig} onStart={onStart} />;
+  return <SetupView config={config} onChange={changeConfig} onStart={onStart} />;
 }
