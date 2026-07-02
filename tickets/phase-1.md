@@ -11,14 +11,17 @@
 - **결과(done)**: Expo SDK 스캐폴드, `src/theme.ts` 토큰, 탭 3개(Timer/Records/
   Athletes), `@splitlane/timer-core` 워크스페이스 연결(Metro 번들 확인,
   `expo export` 성공). 탭 아이콘·폰트(JetBrains Mono/Pretendard)는 T-102에서.
-- **SDK 56 다운그레이드(추가 수정)**: 처음 SDK 57로 스캐폴드했으나 Expo Go
-  앱스토어 빌드가 아직 57을 지원하지 않아 "incompatible" 오류 발생 → 56.0.13
-  으로 고정(`node_modules/expo/bundledNativeModules.json`으로 정확한 호환
-  버전 확인). React Native 코어(0.86.0)·react(19.2.3)·gesture-handler/
-  reanimated/screens/safe-area-context/worklets는 56·57이 동일 버전 공유라
-  변경 없음. 미사용 템플릿 패키지(@expo/ui, expo-glass-effect, expo-device,
-  expo-image, expo-symbols, expo-web-browser) 제거. prebuild로 볼륨키 플러그인
-  재검증 완료.
+- **SDK 다운그레이드 이력**: 57 → 56 → **54**로 2회 조정(둘 다 "incompatible"
+  — 실제 원인은 사용자 iPhone의 Expo Go 앱이 SDK 54까지만 지원). 매번
+  `node_modules/expo/bundledNativeModules.json`으로 정확한 호환 버전 조합을
+  읽어 맞춤(추측 금지 — expo-*는 SDK 번호와 다른 독립 버전 체계).
+  최종: expo 54.0.35, RN 0.81.5, react 19.1.0. 미사용 템플릿 패키지(@expo/ui,
+  expo-glass-effect, expo-device, expo-image, expo-symbols, expo-web-browser)
+  제거. **다운그레이드 후에는 루트 node_modules에 이전 SDK의 react-native
+  사본이 남아 Metro 번들이 깨질 수 있음** — 워크스페이스 전체
+  `rm -rf node_modules apps/*/node_modules packages/*/node_modules
+  package-lock.json && npm install`로 완전 재설치해야 함. prebuild로 볼륨키
+  플러그인 재검증 완료.
 
 ## T-102 타이머 화면 — timer-core 연결
 - 설정(코스·종목·거리·스플릿·인원) → 측정(대형 시계, 레인 행 직접 탭 + 단일 LAP
