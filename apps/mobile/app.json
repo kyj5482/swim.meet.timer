@@ -10,7 +10,8 @@
     "backgroundColor": "#081623",
     "ios": {
       "icon": "./assets/expo.icon",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.splitlane.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,13 +20,15 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.splitlane.app"
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/withVolumeLap",
       "expo-router",
       [
         "expo-splash-screen",

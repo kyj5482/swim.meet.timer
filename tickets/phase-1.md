@@ -41,13 +41,21 @@
   2개 이상 선택 → 구간 비교 모달, CSV(스플릿 평면화·이스케이프 테스트) 공유.
   차트 실기기 육안 확인은 T-107 빌드에서.
 
-## T-105 볼륨 키 LAP + BT 리모컨
+## T-105 볼륨 키 LAP (Android)
 - Android: expo-modules 네이티브 모듈로 `onKeyDown`(KEYCODE_VOLUME_DOWN/UP)
   가로채기. `KeyEvent.getEventTime()`(모노토닉)을 그대로 엔진에 전달 — 최고 정밀.
   측정 화면에서만 활성화, 볼륨 UI 억제.
-- iOS: 볼륨 키 가로채기는 심사 거절 사유(가이드라인 2.5.9) → 하드웨어 키보드/BT
-  리모컨의 키 이벤트(스페이스/미디어키)를 LAP으로 매핑. 설정에서 켜고 끔.
 - 수용: 화면을 보지 않고 볼륨 키만으로 3명×4구간 측정 완료(Android 실기기).
+- **결과(done)**: `modules/volume-lap/`(Kotlin, repeatCount 필터, eventTime 전달)
+  + `plugins/withVolumeLap`(MainActivity 훅 주입, 멱등 — 변환 함수 테스트 3개)
+  + RunningView에서 측정 중에만 setEnabled. prebuild로 훅 주입 종단 확인.
+  Kotlin 컴파일·실기기 수용 테스트는 T-107 EAS 빌드에서.
+
+## T-108 iOS/공통 외부 리모컨 입력
+- iOS: 볼륨 키 가로채기는 심사 거절 사유(가이드라인 2.5.9) → 하드웨어 키보드/BT
+  리모컨의 키 이벤트(스페이스/미디어키)를 LAP으로 매핑(UIKeyCommand 또는
+  expo 모듈 ios 구현). 설정 화면(T-106)에서 켜고 끔.
+- 수용: iPhone + BT 셔터 리모컨으로 eyes-free 측정.
 
 ## T-106 앱 폴리시
 - expo-keep-awake(타이머 탭 전체), expo-haptics(랩마다), i18n en/ko(PWA 문자열 이식),

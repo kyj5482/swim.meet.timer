@@ -1,8 +1,9 @@
-import { useCallback, useReducer } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
 import {
   Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent,
 } from 'react-native';
 
+import { VolumeLap } from '../../../modules/volume-lap';
 import { color, laneColor, radius, touch } from '@/theme';
 import { fmtSplit, fmtTotal, type TimerEngine } from '@splitlane/timer-core';
 
@@ -25,15 +26,32 @@ interface Props {
 export default function RunningView({ engine, onFinished, onReset, ClockSlot }: Props) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
 
-  const commitFrom = useCallback(
-    (fn: (ts: number) => ReturnType<TimerEngine['lap']>) => (e: GestureResponderEvent) => {
-      const r = fn(e.nativeEvent.timestamp);
+  const applyCommit = useCallback(
+    (r: ReturnType<TimerEngine['lap']>) => {
       if (!r) return;
       bump();
       if (r.allDone) onFinished();
     },
     [onFinished],
   );
+
+  const commitFrom = useCallback(
+    (fn: (ts: number) => ReturnType<TimerEngine['lap']>) => (e: GestureResponderEvent) =>
+      applyCommit(fn(e.nativeEvent.timestamp)),
+    [applyCommit],
+  );
+
+  // 볼륨 키 LAP (Android, FR-T3c eyes-free): KeyEvent의 커널 캡처 시각을 그대로
+  // 엔진에 주입 — 터치 timestamp와 동일한 uptimeMillis 베이스라 t0와 호환된다.
+  useEffect(() => {
+    if (!VolumeLap.available) return;
+    const sub = VolumeLap.addListener(({ eventTimeMs }) => applyCommit(engine.lap(eventTimeMs)));
+    VolumeLap.setEnabled(true);
+    return () => {
+      VolumeLap.setEnabled(false);
+      sub.remove();
+    };
+  }, [engine, applyCommit]);
 
   const next = engine.peekNext();
   const totalSegs = engine.segmentCount * engine.slotCount;
