@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 
-import { color, radius, touch } from '@/theme';
+import { color, font, radius, touch } from '@/theme';
 import {
   COURSES, STROKES, courseUnit, distanceOptions, segmentCount, splitOptions, type TimerConfig,
 } from './config';
@@ -8,6 +8,7 @@ import {
 const STROKE_LABEL: Record<string, string> = {
   free: 'Freestyle', back: 'Backstroke', breast: 'Breaststroke', fly: 'Butterfly', im: 'IM',
 };
+const COURSE_LABEL: Record<string, string> = { '25m': '25 Meter', '25y': '25 Yard', '50m': '50 Meter' };
 
 interface Props {
   config: TimerConfig;
@@ -20,8 +21,8 @@ function PillRow<T extends string | number>({ label, options, value, format, onS
   label: string; options: T[]; value: T; format?: (v: T) => string; onSelect: (v: T) => void;
 }) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.pills}>
         {options.map((o) => (
           <Pressable
@@ -45,39 +46,58 @@ export default function SetupView({ config, onChange, onStart }: Props) {
   function set<K extends keyof TimerConfig>(key: K, value: TimerConfig[K]) {
     const next = { ...config, [key]: value };
     // 코스/거리 변경 시 스플릿을 유효한 값으로 재조정
+    if (!distanceOptions(next.course).includes(next.distance)) next.distance = 100;
     const opts = splitOptions(next.course, next.distance);
     if (!opts.includes(next.splitInterval)) next.splitInterval = opts[0]!;
-    if (!distanceOptions(next.course).includes(next.distance)) next.distance = 100;
     onChange(next);
   }
 
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <PillRow label={`Course (${unit})`} options={COURSES} value={config.course} onSelect={(v) => set('course', v)} />
+        {/* 코스는 자주 안 바뀌므로 상단 요약 행 (PWA .setrow) */}
+        <View style={styles.setrow}>
+          <Text style={styles.setrowKey}>Course</Text>
+          <Text style={styles.setrowVal}>{COURSE_LABEL[config.course]}</Text>
+        </View>
+        <PillRow label="" options={COURSES} value={config.course} format={(c) => COURSE_LABEL[c]!.replace(' ', '')} onSelect={(v) => set('course', v)} />
+
         <PillRow label="Stroke" options={STROKES} value={config.stroke} format={(s) => STROKE_LABEL[s]!} onSelect={(v) => set('stroke', v)} />
-        <PillRow label="Distance" options={distanceOptions(config.course)} value={config.distance} format={(d) => `${d}${unit}`} onSelect={(v) => set('distance', v)} />
-        <PillRow label="Split" options={splitOptions(config.course, config.distance)} value={config.splitInterval} format={(d) => (d === config.distance ? `${d}${unit} once` : `every ${d}${unit}`)} onSelect={(v) => set('splitInterval', v)} />
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Swimmers</Text>
-          <View style={styles.counter}>
-            <Pressable style={styles.counterBtn} onPress={() => set('slotCount', Math.max(1, config.slotCount - 1))}>
-              <Text style={styles.counterBtnText}>−</Text>
+        <PillRow label="Distance" options={distanceOptions(config.course)} value={config.distance} format={(d) => `${d}`} onSelect={(v) => set('distance', v)} />
+        <PillRow label="Split" options={splitOptions(config.course, config.distance)} value={config.splitInterval} format={(d) => (d === config.distance ? 'once' : `${d}${unit}`)} onSelect={(v) => set('splitInterval', v)} />
+
+        {segs != null ? (
+          <Text style={styles.segInfo}>
+            <Text style={styles.segInfoStrong}>{segs}</Text>
+            {segs === 1 ? ` split · ${config.distance} ${unit} at once` : ` segments · LAP every ${config.splitInterval} ${unit}`}
+          </Text>
+        ) : (
+          <Text style={styles.segWarn}>{`${config.distance} doesn't fit in a ${config.course} pool`}</Text>
+        )}
+
+        {/* 인원 스테퍼 (PWA .stepper) */}
+        <View style={styles.stepper}>
+          <View>
+            <Text style={styles.stepperLabel}>Swimmers</Text>
+            <Text style={styles.stepperSub}>Time first, assign after</Text>
+          </View>
+          <View style={styles.stepperCtrl}>
+            <Pressable style={styles.stepBtn} onPress={() => set('slotCount', Math.max(1, config.slotCount - 1))}>
+              <Text style={styles.stepBtnText}>−</Text>
             </Pressable>
-            <Text style={styles.counterValue}>{config.slotCount}</Text>
-            <Pressable style={styles.counterBtn} onPress={() => set('slotCount', Math.min(8, config.slotCount + 1))}>
-              <Text style={styles.counterBtnText}>+</Text>
+            <Text style={styles.stepNum}>{config.slotCount}</Text>
+            <Pressable style={styles.stepBtn} onPress={() => set('slotCount', Math.min(8, config.slotCount + 1))}>
+              <Text style={styles.stepBtnText}>＋</Text>
             </Pressable>
           </View>
-          <Text style={styles.subtle}>Slots are anonymous during timing. Assign swimmers after.</Text>
         </View>
-        {segs != null ? (
-          <Text style={styles.segInfo}>{segs === 1 ? `1 split · ${config.distance}${unit} at once` : `${segs} segments · every ${config.splitInterval}${unit}`}</Text>
-        ) : (
-          <Text style={styles.segWarn}>{`${config.distance}${unit} doesn't fit this pool`}</Text>
-        )}
+        <Text style={styles.stepTip}>Slots are anonymous during timing. Assign swimmers after.</Text>
       </ScrollView>
-      <Pressable style={[styles.startBtn, segs == null && styles.startDisabled]} disabled={segs == null} onPressIn={onStart}>
+
+      <Pressable
+        style={({ pressed }) => [styles.startBtn, segs == null && styles.startDisabled, pressed && styles.pressed]}
+        disabled={segs == null}
+        onPressIn={onStart}>
         <Text style={styles.startText}>START</Text>
       </Pressable>
     </View>
@@ -85,32 +105,51 @@ export default function SetupView({ config, onChange, onStart }: Props) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg, padding: 16 },
-  scroll: { gap: 20, paddingBottom: 16 },
-  row: { gap: 8 },
-  rowLabel: { color: color.textMuted, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+  screen: { flex: 1, backgroundColor: color.bg, padding: 16, gap: 10 },
+  scroll: { gap: 12, paddingBottom: 12 },
+  setrow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
+    borderRadius: 12, paddingHorizontal: 14, height: 52,
+  },
+  setrowKey: { color: color.textMuted, fontSize: 13, width: 64 },
+  setrowVal: { color: color.text, fontSize: 16, fontWeight: '700' },
+  field: { gap: 8 },
+  fieldLabel: { color: color.textMuted, fontSize: 13 },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill: {
     paddingHorizontal: 16, minHeight: 44, justifyContent: 'center',
-    borderRadius: radius.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
+    borderRadius: radius.pill, backgroundColor: color.surface2, borderWidth: 1, borderColor: color.line,
   },
-  pillOn: { backgroundColor: color.surface2, borderColor: color.accent },
-  pillText: { color: color.textMuted, fontSize: 15, fontWeight: '600' },
-  pillTextOn: { color: color.text },
-  counter: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  counterBtn: {
-    width: touch.min, height: touch.min, borderRadius: radius.btn,
-    backgroundColor: color.surface2, alignItems: 'center', justifyContent: 'center',
+  pillOn: { backgroundColor: color.accent, borderColor: color.accent },
+  pillText: { color: color.text, fontSize: 15, fontWeight: '600' },
+  pillTextOn: { color: color.accentInk, fontWeight: '800' },
+  segInfo: { color: color.textMuted, fontSize: 12, marginTop: 2 },
+  segInfoStrong: { color: color.accent, fontWeight: '800' },
+  segWarn: { color: color.warn, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  stepper: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
+    borderRadius: radius.card, padding: 14, marginTop: 4,
   },
-  counterBtnText: { color: color.text, fontSize: 28, fontWeight: '700' },
-  counterValue: { color: color.text, fontSize: 32, fontWeight: '800', minWidth: 40, textAlign: 'center' },
-  subtle: { color: color.textMuted, fontSize: 12 },
-  segInfo: { color: color.accent, fontSize: 14, fontWeight: '600' },
-  segWarn: { color: color.warn, fontSize: 14, fontWeight: '600' },
+  stepperLabel: { color: color.text, fontSize: 15, fontWeight: '600' },
+  stepperSub: { color: color.textMuted, fontSize: 12, marginTop: 2 },
+  stepperCtrl: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  stepBtn: {
+    width: 48, height: 48, borderRadius: 14, backgroundColor: color.surface2,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepBtnText: { color: color.text, fontSize: 26, fontWeight: '700', lineHeight: 30 },
+  stepNum: {
+    color: color.text, fontSize: 30, minWidth: 34, textAlign: 'center',
+    fontFamily: font.mono, fontVariant: ['tabular-nums'],
+  },
+  stepTip: { color: color.textMuted, fontSize: 12, lineHeight: 17, marginHorizontal: 2 },
   startBtn: {
-    height: touch.lapButton, borderRadius: radius.btn, backgroundColor: color.accent,
+    height: touch.lapButton, borderRadius: 26, backgroundColor: color.accent,
     alignItems: 'center', justifyContent: 'center',
   },
   startDisabled: { opacity: 0.4 },
-  startText: { color: '#04221d', fontSize: 26, fontWeight: '800', letterSpacing: 2 },
+  pressed: { transform: [{ scale: 0.98 }], backgroundColor: color.accentPress },
+  startText: { color: color.accentInk, fontSize: 30, fontWeight: '800', letterSpacing: 1 },
 });

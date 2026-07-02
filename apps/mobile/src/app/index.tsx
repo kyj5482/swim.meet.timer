@@ -11,7 +11,7 @@ import Clock from '@/features/timer/Clock';
 import RunningView from '@/features/timer/RunningView';
 import SetupView from '@/features/timer/SetupView';
 import {
-  DEFAULT_CONFIG, clockBase, restoredClockBase, segmentCount,
+  DEFAULT_CONFIG, clockBase, courseUnit, restoredClockBase, segmentCount,
   type RunningSnapshot, type TimerConfig,
 } from '@/features/timer/config';
 import { TimerEngine, type CandidateStats, type SlotState, type Target } from '@splitlane/timer-core';
@@ -152,6 +152,8 @@ export default function TimerScreen() {
         slots={engineRef.current.state as SlotState[]}
         swimmers={assignData.swimmers}
         stats={assignData.stats}
+        splitInterval={config.splitInterval}
+        unit={courseUnit(config.course)}
         onAgain={() => setView('setup')}
         onSave={onSave}
       />

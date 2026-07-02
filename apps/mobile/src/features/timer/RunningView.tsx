@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 
 import { VolumeLap } from '../../../modules/volume-lap';
-import { color, laneColor, radius, touch } from '@/theme';
+import { color, font, laneColor, radius, touch } from '@/theme';
 import { fmtSplit, fmtTotal, type TimerEngine } from '@splitlane/timer-core';
 
 interface Props {
@@ -71,78 +71,116 @@ export default function RunningView({ engine, onFinished, onReset, onPersist, Cl
           ? 'Tap a lane row — or press LAP for the predicted next'
           : `Lap ${doneSegs}/${totalSegs} · ${engine.state.filter((s) => s.status === 'in_progress').length} remaining`}
       </Text>
-      <ScrollView style={styles.lanes} contentContainerStyle={{ gap: 8 }}>
+
+      <ScrollView style={styles.lanes} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
         {engine.state.map((s) => {
+          const lc = laneColor(s.idx);
           const isNext = next?.idx === s.idx;
+          const done = s.status !== 'in_progress';
           const last = s.splits.slice(-3);
           return (
             <Pressable
               key={s.idx}
               onPressIn={commitFrom((ts) => engine.tapLane(s.idx, ts))}
-              disabled={s.status !== 'in_progress'}
-              style={[styles.lane, { borderLeftColor: laneColor(s.idx) }, isNext && styles.laneNext, s.status !== 'in_progress' && styles.laneDone]}>
-              <View style={styles.laneTop}>
-                <Text style={styles.laneName}>Lane {s.idx + 1}</Text>
-                {isNext && <Text style={styles.nextTag}>NEXT</Text>}
-                {s.status === 'finished' ? (
-                  <Text style={styles.fin}>Done {fmtTotal(s.lastCumMs)}</Text>
-                ) : (
-                  <View style={styles.dots}>
-                    {Array.from({ length: engine.segmentCount }, (_, i) => (
-                      <View key={i} style={[styles.dot, i < s.nextSegmentIndex && styles.dotOn]} />
-                    ))}
-                  </View>
-                )}
+              disabled={done}
+              style={({ pressed }) => [
+                styles.lane,
+                isNext && { borderColor: lc, borderWidth: 1.5 },
+                done && styles.laneDone,
+                pressed && !done && { backgroundColor: color.surface2 },
+              ]}>
+              <View style={[styles.laneBar, { backgroundColor: lc }]} />
+              <View style={styles.laneBody}>
+                <View style={styles.laneRow1}>
+                  <Text style={[styles.laneName, { color: lc }]}>Lane {s.idx + 1}</Text>
+                  {isNext && (
+                    <View style={[styles.nextTag, { borderColor: lc }]}>
+                      <Text style={[styles.nextTagText, { color: lc }]}>NEXT</Text>
+                    </View>
+                  )}
+                  {s.status === 'finished' ? (
+                    <Text style={styles.fin}>✓ {fmtTotal(s.lastCumMs)}</Text>
+                  ) : s.status === 'dnf' ? (
+                    <Text style={styles.dnf}>DNF</Text>
+                  ) : (
+                    <View style={styles.dots}>
+                      {Array.from({ length: engine.segmentCount }, (_, i) => (
+                        <View
+                          key={i}
+                          style={[styles.dot, { borderColor: lc }, i < s.nextSegmentIndex && { backgroundColor: lc }]}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </View>
+                <View style={styles.splitsRow}>
+                  {last.length ? (
+                    last.map((x, i) => (
+                      <Text key={i} style={styles.splitVal}>{fmtSplit(x.splitMs)}</Text>
+                    ))
+                  ) : (
+                    <Text style={styles.waiting}>Waiting</Text>
+                  )}
+                </View>
               </View>
-              <Text style={styles.splits}>
-                {last.length ? last.map((x) => fmtSplit(x.splitMs)).join('  ') : 'Waiting'}
-              </Text>
             </Pressable>
           );
         })}
       </ScrollView>
+
       <View style={styles.controls}>
-        <Pressable style={styles.sideBtn} onPress={() => { engine.undo(); bump(); onPersist(); }}>
-          <Text style={styles.sideBtnText}>↶ Undo</Text>
+        <Pressable style={styles.ghostBtn} onPress={() => { engine.undo(); bump(); onPersist(); }}>
+          <Text style={styles.ghostText}>↶ Undo</Text>
         </Pressable>
-        <Pressable style={styles.sideBtn} onPress={onReset}>
-          <Text style={styles.sideBtnText}>⟲ Reset</Text>
+        <Pressable style={styles.ghostBtn} onPress={onReset}>
+          <Text style={styles.ghostText}>⟲ Reset</Text>
         </Pressable>
       </View>
-      <Pressable style={styles.lapBtn} onPressIn={commitFrom((ts) => engine.lap(ts))}>
-        <Text style={styles.lapText}>{next ? `LAP · Next ▸ Lane ${next.idx + 1}` : 'Done'}</Text>
+
+      <Pressable
+        style={({ pressed }) => [styles.lapBtn, pressed && styles.lapPressed]}
+        onPressIn={commitFrom((ts) => engine.lap(ts))}>
+        <Text style={styles.lapWord}>LAP</Text>
+        <Text style={styles.lapNext}>{next ? `Next ▸ Lane ${next.idx + 1}` : 'Done'}</Text>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg, padding: 16, gap: 10 },
-  hint: { color: color.textMuted, fontSize: 13, textAlign: 'center' },
+  screen: { flex: 1, backgroundColor: color.bg, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 14, gap: 8 },
+  hint: { color: color.textMuted, fontSize: 12, textAlign: 'center' },
   lanes: { flex: 1 },
   lane: {
-    minHeight: touch.min + 14, backgroundColor: color.surface, borderRadius: radius.card,
-    borderLeftWidth: 6, padding: 12, gap: 4,
+    flexDirection: 'row', minHeight: touch.min + 8,
+    backgroundColor: color.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: color.line, overflow: 'hidden',
   },
-  laneNext: { backgroundColor: color.surface2 },
-  laneDone: { opacity: 0.55 },
-  laneTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  laneName: { color: color.text, fontSize: 17, fontWeight: '700', flexShrink: 0 },
-  nextTag: { color: color.accent, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  fin: { color: color.ok, fontSize: 15, fontWeight: '700', marginLeft: 'auto', fontVariant: ['tabular-nums'] },
-  dots: { flexDirection: 'row', gap: 4, marginLeft: 'auto' },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: color.line },
-  dotOn: { backgroundColor: color.accent },
-  splits: { color: color.textMuted, fontSize: 14, fontVariant: ['tabular-nums'] },
+  laneDone: { opacity: 0.7 },
+  laneBar: { width: 6 },
+  laneBody: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, gap: 4, justifyContent: 'center' },
+  laneRow1: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  laneName: { fontWeight: '800', fontSize: 15, minWidth: 52 },
+  nextTag: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 1 },
+  nextTagText: { fontSize: 10, fontWeight: '700' },
+  fin: { marginLeft: 'auto', color: color.ok, fontWeight: '700', fontSize: 14, fontFamily: font.mono },
+  dnf: { marginLeft: 'auto', color: color.warn, fontWeight: '800', fontSize: 12 },
+  dots: { marginLeft: 'auto', flexDirection: 'row', gap: 5, alignItems: 'center' },
+  dot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5 },
+  splitsRow: { flexDirection: 'row', gap: 12 },
+  splitVal: { color: color.text, fontSize: 13, fontWeight: '600', fontFamily: font.mono, fontVariant: ['tabular-nums'] },
+  waiting: { color: color.textMuted, fontSize: 12.5 },
   controls: { flexDirection: 'row', gap: 10 },
-  sideBtn: {
-    flex: 1, height: 48, borderRadius: radius.btn, backgroundColor: color.surface2,
+  ghostBtn: {
+    flex: 1, height: 46, borderRadius: radius.btn, backgroundColor: color.surface2,
     alignItems: 'center', justifyContent: 'center',
   },
-  sideBtnText: { color: color.text, fontSize: 15, fontWeight: '700' },
+  ghostText: { color: color.text, fontSize: 15, fontWeight: '700' },
   lapBtn: {
-    height: touch.lapButton, borderRadius: radius.btn, backgroundColor: color.accent,
-    alignItems: 'center', justifyContent: 'center',
+    height: touch.lapButton, borderRadius: 26, backgroundColor: color.accent,
+    alignItems: 'center', justifyContent: 'center', gap: 2,
   },
-  lapText: { color: '#04221d', fontSize: 22, fontWeight: '800' },
+  lapPressed: { transform: [{ scale: 0.98 }], backgroundColor: color.accentPress },
+  lapWord: { color: color.accentInk, fontSize: 32, fontWeight: '800', letterSpacing: 1, lineHeight: 36 },
+  lapNext: { color: color.accentInk, fontSize: 14, fontWeight: '700', opacity: 0.85 },
 });

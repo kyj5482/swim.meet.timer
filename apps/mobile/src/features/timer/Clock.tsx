@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { color } from '@/theme';
+import { color, font } from '@/theme';
 import { fmtClock } from '@splitlane/timer-core';
 
 /**
- * 표시 전용 시계. rAF로 자기만 리렌더 — 레인 목록 등 무거운 트리와 분리(§3.1).
+ * 표시 전용 시계 (PWA .clock 디자인: 큰 MM:SS + 액센트색 .hh).
+ * rAF로 자기만 리렌더 — 레인 목록 등 무거운 트리와 분리(§3.1).
  * 입력 정확도와 무관: 엔진 탭 시각은 터치 이벤트 타임스탬프를 그대로 쓴다.
  */
 export default function Clock({ t0, toEventBase, running, frozenMs }: {
@@ -28,12 +29,22 @@ export default function Clock({ t0, toEventBase, running, frozenMs }: {
     return () => cancelAnimationFrame(raf);
   }, [running, t0, toEventBase]);
 
-  return <Text style={styles.clock}>{fmtClock(frozenMs ?? ms)}</Text>;
+  const [main, frac] = fmtClock(frozenMs ?? ms).split('.');
+  return (
+    <View style={styles.wrap}>
+      <Text style={styles.main}>
+        {main}
+        <Text style={styles.frac}>{`.${frac}`}</Text>
+      </Text>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  clock: {
-    color: color.text, fontSize: 56, fontWeight: '800',
-    fontVariant: ['tabular-nums'], textAlign: 'center',
+  wrap: { alignItems: 'center', paddingVertical: 4 },
+  main: {
+    color: color.text, fontSize: 64, fontWeight: '700', fontFamily: font.mono,
+    fontVariant: ['tabular-nums'], letterSpacing: -2, lineHeight: 68,
   },
+  frac: { color: color.accent, fontSize: 30, letterSpacing: 0 },
 });

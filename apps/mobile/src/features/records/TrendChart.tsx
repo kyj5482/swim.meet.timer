@@ -1,81 +1,102 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
 import type { TrainingRecord } from '@/db';
 import { color } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
 
-const H = 140;
-const PAD_Y = 18;
-const DOT = 10;
+const H = 142;
+const PAD_L = 46, PAD_R = 14, PAD_T = 18, PAD_B = 24;
 
 /**
- * 한 종목의 기록 추세 — 단일 시리즈 도트 트렌드 (낮을수록 좋음 → 아래 = 향상).
- * 막대 대신 도트: 0-기준선 없이 min~max 구간을 확대해도 정직한 형태.
- * 직접 라벨은 베스트·최신만(선택적 라벨), 텍스트는 텍스트 토큰만 사용.
+ * 종목 추세 라인 차트 — PWA renderTrend 포팅 (단일 시리즈, 낮을수록 좋음 →
+ * 아래 = 향상). 점선 그리드 2줄(최저/최고), 베스트는 ok색 도트 + PB 라벨,
+ * x축은 날짜. 시리즈가 1개라 범례 없음(제목이 시리즈를 명명).
  */
-export default function TrendChart({ records }: { records: TrainingRecord[] }) {
+export default function TrendChart({ records, title }: { records: TrainingRecord[]; title: string }) {
   const [width, setWidth] = useState(0);
-  if (records.length < 2) return null;
+  if (records.length === 0) return null;
 
-  const sorted = [...records].sort((a, b) => a.date - b.date);
-  const times = sorted.map((r) => r.totalMs);
-  const best = Math.min(...times);
-  const worst = Math.max(...times);
-  const span = Math.max(worst - best, 500); // 전부 동일해도 퍼지지 않게 최소 스팬
-  const innerH = H - PAD_Y * 2;
-  const y = (ms: number) => PAD_Y + ((ms - best) / span) * innerH;
-  const x = (i: number) => (width <= DOT ? 0 : (i / (sorted.length - 1)) * (width - DOT));
-  const lastIdx = sorted.length - 1;
+  const h = [...records].sort((a, b) => a.date - b.date);
+  const tots = h.map((r) => r.totalMs);
+  const yMin = Math.min(...tots);
+  const yMax = Math.max(...tots);
+  const rng = yMax - yMin || 1;
+  const m = rng * 0.18 || 400;
+  const lo = yMin - m, hi = yMax + m, span = hi - lo;
+
+  const W = Math.max(width, PAD_L + PAD_R + 10);
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
+  const X = (i: number) => (h.length < 2 ? PAD_L + plotW / 2 : PAD_L + (i * plotW) / (h.length - 1));
+  const Y = (v: number) => PAD_T + ((hi - v) / span) * plotH; // 느림(큰 값)=위, 빠름=아래
+  const gy1 = Y(yMax), gy2 = Y(yMin);
+  const pts = h.map((r, i) => `${X(i).toFixed(1)},${Y(r.totalMs).toFixed(1)}`).join(' ');
+  const bestIdx = h.findIndex((r) => r.totalMs === yMin);
+  const dateLbl = (ms: number) => {
+    const d = new Date(ms);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+  // x 라벨은 겹치지 않게 최대 5개만
+  const lblStep = Math.max(1, Math.ceil(h.length / 5));
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.chart} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-        <View style={[styles.grid, { top: PAD_Y - 1 }]} />
-        <View style={[styles.grid, { top: H - PAD_Y - 1 }]} />
-        {width > 0 && sorted.map((r, i) => {
-          const isBest = r.totalMs === best;
-          const isLast = i === lastIdx;
-          return (
-            <View key={r.id}>
-              <View
-                style={[
-                  styles.dot,
-                  { left: x(i), top: y(r.totalMs) - DOT / 2 },
-                  isBest && styles.dotBest,
-                ]}
-              />
-              {(isBest || isLast) && (
-                <Text
-                  style={[styles.dotLabel, { left: Math.min(Math.max(x(i) - 24, 0), width - 60), top: y(r.totalMs) + DOT }]}
-                  numberOfLines={1}>
-                  {isBest ? `🏅 ${fmtTotal(r.totalMs)}` : fmtTotal(r.totalMs)}
-                </Text>
-              )}
-            </View>
-          );
-        })}
+    <View style={styles.panel}>
+      <View style={styles.head}>
+        <Text style={styles.title}>{title} Trend</Text>
+        <Text style={styles.sub}>{`${h.length} sessions · lower is better`}</Text>
       </View>
-      <View style={styles.axis}>
-        <Text style={styles.axisText}>{`best ${fmtTotal(best)}`}</Text>
-        <Text style={styles.axisText}>{`${sorted.length} sessions · lower is better`}</Text>
+      <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        {width > 0 && (
+          <Svg width={W} height={H}>
+            <Line x1={PAD_L} y1={gy1} x2={W - PAD_R} y2={gy1} stroke={color.line} strokeDasharray="2 3" />
+            <Line x1={PAD_L} y1={gy2} x2={W - PAD_R} y2={gy2} stroke={color.line} strokeDasharray="2 3" />
+            <SvgText x={PAD_L - 8} y={gy1 + 3} fill={color.textMuted} fontSize={9} textAnchor="end">
+              {fmtTotal(yMax)}
+            </SvgText>
+            <SvgText x={PAD_L - 8} y={gy2 + 3} fill={color.ok} fontSize={9} textAnchor="end">
+              {fmtTotal(yMin)}
+            </SvgText>
+            {h.length >= 2 && (
+              <Polyline points={pts} fill="none" stroke={color.accent} strokeWidth={2.5} />
+            )}
+            {h.map((r, i) => (
+              <Circle
+                key={r.id}
+                cx={X(i)}
+                cy={Y(r.totalMs)}
+                r={4}
+                fill={i === bestIdx ? color.ok : color.accent}
+                stroke={color.surface}
+                strokeWidth={2}
+              />
+            ))}
+            {h.map((r, i) =>
+              i % lblStep === 0 || i === h.length - 1 ? (
+                <SvgText key={`l${r.id}`} x={X(i)} y={H - 2} fill={color.textMuted} fontSize={9} textAnchor="middle">
+                  {dateLbl(r.date)}
+                </SvgText>
+              ) : null,
+            )}
+            {bestIdx >= 0 && (
+              <SvgText x={W - PAD_R} y={PAD_T + 9} fill={color.ok} fontSize={10.5} fontWeight="700" textAnchor="end">
+                {`PB ${fmtTotal(yMin)}`}
+              </SvgText>
+            )}
+          </Svg>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 4 },
-  chart: { height: H, backgroundColor: color.surface, borderRadius: 12, overflow: 'hidden' },
-  grid: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: color.line },
-  dot: {
-    position: 'absolute', width: DOT, height: DOT, borderRadius: DOT / 2,
-    backgroundColor: color.accent,
-    // 겹침 대비 2px 서피스 링
-    borderWidth: 2, borderColor: color.surface,
+  panel: {
+    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
+    borderRadius: 16, padding: 14, gap: 4,
   },
-  dotBest: { width: DOT + 4, height: DOT + 4, borderRadius: (DOT + 4) / 2, backgroundColor: color.ok },
-  dotLabel: { position: 'absolute', color: color.textMuted, fontSize: 11, fontVariant: ['tabular-nums'], width: 64 },
-  axis: { flexDirection: 'row', justifyContent: 'space-between' },
-  axisText: { color: color.textMuted, fontSize: 11 },
+  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  title: { color: color.text, fontSize: 14, fontWeight: '700' },
+  sub: { color: color.textMuted, fontSize: 11 },
 });

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 
 import { addSwimmer, archiveSwimmer, listSwimmers, type Swimmer } from '@/db';
-import { color, radius, touch } from '@/theme';
+import { color, initials, laneColor, radius, touch } from '@/theme';
 
 /** Athletes 탭: 명단 CRUD. 삭제는 아카이브(기록 보존). */
 export default function AthletesScreen() {
@@ -54,8 +54,11 @@ export default function AthletesScreen() {
         ListEmptyComponent={
           <Text style={styles.empty}>No swimmers yet. Add one to assign records after timing.</Text>
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <View style={styles.row}>
+            <View style={[styles.avatar, { backgroundColor: laneColor(index) }]}>
+              <Text style={styles.avatarText}>{initials(item.name)}</Text>
+            </View>
             <Text style={styles.name}>{item.name}</Text>
             {item.group ? <Text style={styles.group}>{item.group}</Text> : null}
             <Pressable style={styles.delBtn} onPress={() => onArchive(item)} hitSlop={8}>
@@ -82,6 +85,8 @@ const styles = StyleSheet.create({
   },
   addDisabled: { opacity: 0.4 },
   addText: { color: '#04221d', fontSize: 16, fontWeight: '800' },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   row: {
     minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: color.surface, borderRadius: radius.card, paddingHorizontal: 14,
