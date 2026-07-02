@@ -1,0 +1,43 @@
+{
+  "clubId": "nova-va",
+  "clubName": "NOVA of Virginia Aquatics",
+  "teamCode": "vsnva",
+  "source": "https://www.gomotionapp.com/team/vsnva/page/swim-team/practice-groups",
+  "researchedAt": "2026-07-02",
+  "note": "리서치 기반 시드. estimated=true 항목은 클럽 공지로 검증 후 확정할 것 (T-204).",
+  "groups": [
+    {
+      "groupId": "AGD-BRONZE",
+      "name": "Age Group Development Bronze",
+      "ageRange": [9, 11],
+      "requirements": [
+        { "type": "attendance", "perWeekMin": 2, "perWeekMax": 3 }
+      ],
+      "nextGroups": ["AGD-SILVER", "AG-BRONZE"]
+    },
+    {
+      "groupId": "AGD-SILVER",
+      "name": "Age Group Development Silver",
+      "ageRange": [9, 12],
+      "requirements": [
+        { "type": "standardLevel", "event": "100FR", "level": "B" },
+        { "type": "standardLevel", "event": "100IM", "level": "B" },
+        { "type": "attendance", "perWeekMin": 2, "perWeekMax": 3 }
+      ],
+      "typicalLevel": ["B", "BB"],
+      "nextGroups": ["AGD-GOLD", "AG-SILVER"]
+    },
+    {
+      "groupId": "AGD-GOLD",
+      "name": "Age Group Development Gold",
+      "ageRange": [8, 10],
+      "requirements": [
+        { "type": "standardLevel", "event": "100FR", "level": "BB", "estimated": true },
+        { "type": "standardLevel", "event": "100IM", "level": "BB", "estimated": true },
+        { "type": "attendance", "perWeekMin": 3 }
+      ],
+      "note": "10&U 최상위 그룹",
+      "nextGroups": ["AG-SILVER", "AG-GOLD"]
+    }
+  ]
+}

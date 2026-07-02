@@ -1,0 +1,20 @@
+# Phase 4 — 코치 마켓플레이스 & 운영
+
+## T-401 정체 감지 → 코치 전달
+- ai-coach가 N주 연속 정체/퇴보 감지 시 제안: 최근 기록 패키지 + 사용자가 첨부한
+  영상(S3 presigned 업로드) → 선택한 코치에게 전달.
+- 수용: 정체 시나리오에서 제안 노출, 패키지 생성·전달, 코치 열람.
+
+## T-402 코치 마켓플레이스
+- 코치 프로필(경력·전문 종목·요금)·검색·리뷰. 원격 분석 세션 판매.
+- 결제: Stripe Connect(플랫폼 수수료), 정산 대시보드.
+- 수용: 구매→코치 리뷰 작성→정산 흐름 e2e.
+
+## T-403 관측성 완성
+- 요청당 correlation-id가 API GW 액세스 로그 → Lambda 구조화 로그 → DynamoDB 호출
+  (X-Ray subsegment)까지 하나로 조회되는 CloudWatch/X-Ray 대시보드.
+- 알람: p99 지연, 5xx율, DLQ 깊이, 월 비용 예산(AWS Budgets).
+
+## T-404 부하·스케일 검증
+- artillery로 동기화/조회 부하, DynamoDB on-demand 스로틀·Lambda 동시성 확인,
+  비용 곡선 문서화. 병목 시 캐싱(CloudFront/DAX) 티켓 파생.

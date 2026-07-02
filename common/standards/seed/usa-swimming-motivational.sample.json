@@ -1,0 +1,13 @@
+{
+  "_comment": "스키마 예시 샘플 — 실수치 아님. T-204에서 공식 PDF 파싱으로 전체 생성. common/standards/README.md 참조.",
+  "authority": "usa-swimming",
+  "season": "2024-2028",
+  "records": [
+    { "course": "SCY", "gender": "F", "ageGroup": "11-12", "event": "100FR", "level": "B",    "timeMs": 0, "placeholder": true },
+    { "course": "SCY", "gender": "F", "ageGroup": "11-12", "event": "100FR", "level": "BB",   "timeMs": 0, "placeholder": true },
+    { "course": "SCY", "gender": "F", "ageGroup": "11-12", "event": "100FR", "level": "A",    "timeMs": 0, "placeholder": true },
+    { "course": "SCY", "gender": "F", "ageGroup": "11-12", "event": "100FR", "level": "AA",   "timeMs": 0, "placeholder": true },
+    { "course": "SCY", "gender": "F", "ageGroup": "11-12", "event": "100FR", "level": "AAA",  "timeMs": 0, "placeholder": true },
+    { "course": "SCY", "gender": "F", "ageGroup": "11-12", "event": "100FR", "level": "AAAA", "timeMs": 0, "placeholder": true }
+  ]
+}

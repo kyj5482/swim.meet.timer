@@ -1,0 +1,13 @@
+{
+  "name": "splitlane",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "services/*",
+    "infra"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces --if-present"
+  }
+}
