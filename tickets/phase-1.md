@@ -8,9 +8,17 @@
 - `common/design-system.md`의 토큰을 `apps/mobile/src/theme.ts`로 구현(다크 기본).
 - 탭 3개 골격: Timer / Records / Athletes.
 - 수용: `npx expo start`로 구동, 탭 전환, 토큰 기반 스타일 적용.
-- **결과(done)**: Expo SDK 57 스캐폴드, `src/theme.ts` 토큰, 탭 3개(Timer/Records/
+- **결과(done)**: Expo SDK 스캐폴드, `src/theme.ts` 토큰, 탭 3개(Timer/Records/
   Athletes), `@splitlane/timer-core` 워크스페이스 연결(Metro 번들 확인,
   `expo export` 성공). 탭 아이콘·폰트(JetBrains Mono/Pretendard)는 T-102에서.
+- **SDK 56 다운그레이드(추가 수정)**: 처음 SDK 57로 스캐폴드했으나 Expo Go
+  앱스토어 빌드가 아직 57을 지원하지 않아 "incompatible" 오류 발생 → 56.0.13
+  으로 고정(`node_modules/expo/bundledNativeModules.json`으로 정확한 호환
+  버전 확인). React Native 코어(0.86.0)·react(19.2.3)·gesture-handler/
+  reanimated/screens/safe-area-context/worklets는 56·57이 동일 버전 공유라
+  변경 없음. 미사용 템플릿 패키지(@expo/ui, expo-glass-effect, expo-device,
+  expo-image, expo-symbols, expo-web-browser) 제거. prebuild로 볼륨키 플러그인
+  재검증 완료.
 
 ## T-102 타이머 화면 — timer-core 연결
 - 설정(코스·종목·거리·스플릿·인원) → 측정(대형 시계, 레인 행 직접 탭 + 단일 LAP
