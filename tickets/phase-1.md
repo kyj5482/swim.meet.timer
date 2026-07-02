@@ -58,8 +58,16 @@
 - 수용: iPhone + BT 셔터 리모컨으로 eyes-free 측정.
 
 ## T-106 앱 폴리시
-- expo-keep-awake(타이머 탭 전체), expo-haptics(랩마다), i18n en/ko(PWA 문자열 이식),
+- expo-keep-awake(타이머 탭 전체), expo-haptics(랩마다),
   RUNNING 중 스냅샷 → 크래시 복구(NFR-7).
+- **결과(done)**: 타이머 탭 포커스 동안 keep-awake(START 대기 포함 — PWA 동작
+  계승), 랩·볼륨키마다 가벼운 햅틱, 매 탭/Undo 직후 스냅샷 저장 → 재실행 시
+  Resume/Discard 제안. 탭 클락(uptime)은 재시작 후에도 이어져 기록 정확도 유지,
+  표시 시계만 벽시계 앵커로 추정(restoredClockBase, 테스트 포함).
+
+## T-109 i18n(en/ko) + 설정 화면
+- PWA(docs/app/index.html S 객체)의 en/ko 문자열 전체 이식, 언어 토글.
+- 설정 화면: 언어, 코스 기본값, 볼륨키 LAP 켬/끔(Android), 사운드/햅틱.
 
 ## T-107 EAS Build + 배포 파이프라인
 - eas.json(dev/preview/production), GitHub Actions: PR마다 lint+test,

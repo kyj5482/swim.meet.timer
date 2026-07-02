@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { clockBase, distanceOptions, segmentCount, splitOptions } from './config';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { clockBase, distanceOptions, restoredClockBase, segmentCount, splitOptions } from './config';
 
 describe('세그먼트 계산', () => {
   it('100/25 = 4구간, 100/100 = 1회', () => {
@@ -27,5 +27,16 @@ describe('clockBase: 이벤트 타임스탬프 ↔ performance.now 베이스 보
     expect(base.t0).toBe(5_000);
     // 2.5초 뒤 프레임: perf=8_500 → 이벤트 베이스 7_500 → 경과 2_500
     expect(base.toEventBase(8_500) - base.t0).toBe(2_500);
+  });
+});
+
+describe('restoredClockBase: 크래시 복구 후 표시 시계', () => {
+  afterEach(() => vi.useRealTimers());
+  it('벽시계 앵커로 경과를 추정한다', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+    // 스냅샷: 벽시계 90_000, 그 시점 경과 30_000 → 지금 경과 = 30_000 + 10_000
+    const base = restoredClockBase(5_000, { wallMs: 90_000, elapsedMs: 30_000 });
+    expect(base.toEventBase(999) - base.t0).toBe(40_000);
   });
 });

@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useReducer } from 'react';
 import {
   Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent,
@@ -14,6 +15,8 @@ interface Props {
   /** 모든 슬롯 완주 시 */
   onFinished: () => void;
   onReset: () => void;
+  /** 매 탭 직후 크래시 복구 스냅샷 저장 (NFR-7) */
+  onPersist: () => void;
   ClockSlot: React.ReactNode;
 }
 
@@ -23,16 +26,19 @@ interface Props {
  * - 레인 행 직접 탭 → 그 슬롯(WYSIWYG, 역전에도 100%)
  * 모든 입력은 onPressIn + e.nativeEvent.timestamp — 렌더 지연과 무관한 캡처 시각.
  */
-export default function RunningView({ engine, onFinished, onReset, ClockSlot }: Props) {
+export default function RunningView({ engine, onFinished, onReset, onPersist, ClockSlot }: Props) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
 
   const applyCommit = useCallback(
     (r: ReturnType<TimerEngine['lap']>) => {
       if (!r) return;
+      // 젖은 손 피드백 — 입력 경로와 무관(fire-and-forget)
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       bump();
+      onPersist();
       if (r.allDone) onFinished();
     },
-    [onFinished],
+    [onFinished, onPersist],
   );
 
   const commitFrom = useCallback(
@@ -96,7 +102,7 @@ export default function RunningView({ engine, onFinished, onReset, ClockSlot }: 
         })}
       </ScrollView>
       <View style={styles.controls}>
-        <Pressable style={styles.sideBtn} onPress={() => { engine.undo(); bump(); }}>
+        <Pressable style={styles.sideBtn} onPress={() => { engine.undo(); bump(); onPersist(); }}>
           <Text style={styles.sideBtnText}>↶ Undo</Text>
         </Pressable>
         <Pressable style={styles.sideBtn} onPress={onReset}>

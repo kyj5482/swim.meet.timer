@@ -69,3 +69,24 @@ export function clockBase(pressTimestampMs: number, perfNowMs: number) {
     toEventBase: (perfMs: number) => perfMs - offset,
   };
 }
+
+/** 크래시 복구 스냅샷 페이로드 (NFR-7). prefs에 JSON 저장. */
+export interface RunningSnapshot {
+  engine: import('@splitlane/timer-core').EngineSnapshot;
+  config: TimerConfig;
+  /** 스냅샷 시각(벽시계)과 그 시점의 경과(ms) — 복구 후 표시 시계 추정용 */
+  wallMs: number;
+  elapsedMs: number;
+}
+
+/**
+ * 크래시 복구용 시계 베이스. 이벤트 클락(uptime)은 재시작 후에도 이어지므로
+ * 엔진 탭 시각은 그대로 정확하다. performance.now() 원점만 리셋되므로 표시
+ * 시계는 벽시계 앵커로 경과를 추정한다(표시 전용 — 기록 정확도와 무관).
+ */
+export function restoredClockBase(t0: number, snap: Pick<RunningSnapshot, 'wallMs' | 'elapsedMs'>) {
+  return {
+    t0,
+    toEventBase: (_perfMs: number) => t0 + snap.elapsedMs + (Date.now() - snap.wallMs),
+  };
+}

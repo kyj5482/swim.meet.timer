@@ -18,7 +18,8 @@
 | T-104 | 기록지/추세 화면 + CSV 내보내기 | done |
 | T-105 | 볼륨 키 LAP(Android 네이티브 모듈) | done |
 | T-108 | iOS/공통 외부 리모컨 입력(BT 키보드·미디어 키 → LAP) | todo |
-| T-106 | 앱 폴리시: wake lock, 햅틱, i18n(en/ko), 크래시 복구 스냅샷 | todo |
+| T-106 | 앱 폴리시: wake lock, 햅틱, 크래시 복구 스냅샷 | done |
+| T-109 | i18n(en/ko) — PWA 문자열 전체 이식 + 설정 화면(언어·볼륨키 토글) | todo |
 | T-107 | EAS Build + 스토어 배포 파이프라인(GitHub Actions) | todo |
 
 ## Phase 2 — 계정·동기화·타겟 (`tickets/phase-2.md`)
