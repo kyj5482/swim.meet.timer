@@ -64,3 +64,27 @@
   - 검증: Records에서 도윤 50 Free에 AA(26.09) 타겟 → 110.1% 달성·▼0.20/주·
     Accelerating·사다리 전부 통과 표시(스크린샷 확인). 테스트 timer-core 32개·
     앱 21개·typecheck·android 번들 통과.
+
+## 백엔드 스캐폴드 (T-201/T-203/T-204 — Phase 2 착수)
+- **infra/ (CDK, T-201)**: `bin/app.ts` + DataStack(DynamoDB 3테이블 on-demand:
+  Users/Records/Standards + Records byEvent GSI; Cognito User Pool + `custom:role`
+  선수/코치/부모, 클라이언트) + ApiStack(HTTP API GW v2, Cognito JWT authorizer,
+  표준 라우트는 공개·records는 인증, NodejsFunction, X-Ray Active, Powertools env,
+  로그 보존 dev7/prod30, project/stage 태그). dev/prod 스테이지. `cdk synth`
+  assertion 테스트 3개 통과.
+- **services/_shared**: Powertools 구조화 로거(correlation-id 부착),
+  http 응답 규약(ok/fail/에러코드), Cognito 클레임 파싱(auth), DynamoDB
+  DocumentClient. 테스트 5개.
+- **services/standards (T-204)**: `data.ts`(검증된 여자 11-12 SCY 50/100 Free +
+  NOVA 클럽 그룹, 확장 구조) → `importer.ts`(DynamoDB 배치 적재 = "미리 읽어와서
+  업데이트" 잡, 멱등, EventBridge/CLI 실행) → `handler.ts`(GET /v1/standards,
+  /v1/standards/clubs/{clubId}/groups). 테스트 5개. 공식 전체 PDF 파서 연결 시
+  같은 잡이 전 종목/연령/성별 적재.
+- **services/records (T-203)**: `handler.ts`(PUT /v1/records/batch 멱등 업서트
+  last-write-wins, GET /v1/records?swimmerId=&since= 델타·tombstone), zod 검증,
+  선수 파티션+updatedAt#id 정렬 키. 테스트 6개(인증 401 포함).
+- 전 워크스페이스 테스트: timer-core 32 · 앱 21 · shared 5 · standards 5 ·
+  records 6 · infra 3 = 72개 통과. 배포는 사용자 AWS 계정+OIDC 연결 후
+  `cdk deploy`(T-201 문서 절차).
+- 잔여: 앱↔records 동기화 클라이언트, /auth API·초대(T-206), ai-coach(Phase 3),
+  공식 표준 전량 임포트, 관측성 대시보드/알람(T-403).
