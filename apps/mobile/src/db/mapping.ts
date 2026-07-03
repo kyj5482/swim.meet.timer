@@ -10,6 +10,11 @@ export interface Swimmer {
   archived: boolean;
 }
 
+/** 만 나이(연도 기준 근사 — currentDate 2026). birthYear 없으면 null. */
+export function ageOf(s: Pick<Swimmer, 'birthYear'>, baseYear = 2026): number | null {
+  return s.birthYear ? baseYear - s.birthYear : null;
+}
+
 export interface TrainingRecord {
   id: string;
   swimmerId: string;

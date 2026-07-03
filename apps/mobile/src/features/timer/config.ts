@@ -20,6 +20,21 @@ export function courseUnit(course: Course): 'm' | 'y' {
   return course === '25y' ? 'y' : 'm';
 }
 
+/** 코스 단위 단어(제목용): 25y→Yard, 그 외→Meter. PWA 이벤트 제목 형식. */
+export function courseWord(course: Course): 'Yard' | 'Meter' {
+  return course === '25y' ? 'Yard' : 'Meter';
+}
+
+/** 코스 전체 이름: "25 Yard" 등. */
+export function courseName(course: Course): string {
+  return `${poolLength(course)} ${courseWord(course)}`;
+}
+
+/** 헤더 이벤트 제목: "100 Yard Freestyle" (strokeLabel은 i18n에서 주입). */
+export function eventTitle(config: Pick<TimerConfig, 'course' | 'distance'>, strokeLabel: string): string {
+  return `${config.distance} ${courseWord(config.course)} ${strokeLabel}`;
+}
+
 /** 코스에서 선택 가능한 거리 목록. */
 export function distanceOptions(course: Course): number[] {
   const len = poolLength(course);

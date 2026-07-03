@@ -1,20 +1,22 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, type GestureResponderEvent } from 'react-native';
+import { Alert, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 
+import TopBar from '@/components/TopBar';
 import {
-  deleteSession, getPref, listSwimmers, saveSession, setPref, statsForEvent, type Swimmer,
+  addSwimmer, deleteSession, getPref, listSwimmers, saveSession, setPref, statsForEvent, type Swimmer,
 } from '@/db';
 import AssignView from '@/features/timer/AssignView';
 import Clock from '@/features/timer/Clock';
 import RunningView from '@/features/timer/RunningView';
 import SetupView from '@/features/timer/SetupView';
 import {
-  DEFAULT_CONFIG, clockBase, courseUnit, restoredClockBase, segmentCount,
+  DEFAULT_CONFIG, clockBase, courseUnit, eventTitle, restoredClockBase, segmentCount,
   type RunningSnapshot, type TimerConfig,
 } from '@/features/timer/config';
-import { useT } from '@/store/settings';
+import { useSettings, useT } from '@/store/settings';
+import { color } from '@/theme';
 import { TimerEngine, type CandidateStats, type SlotState, type Target } from '@splitlane/timer-core';
 
 type ViewState = 'setup' | 'running' | 'assign';
@@ -31,6 +33,12 @@ export default function TimerScreen() {
   const engineRef = useRef<TimerEngine | null>(null);
   const baseRef = useRef<ReturnType<typeof clockBase> | null>(null);
   const t = useT();
+  const { course } = useSettings();
+
+  // 코스 단위는 앱 전역 설정이 소스 — 설정에서 바뀌면 타이머 설정에 반영(PWA와 동일).
+  useEffect(() => {
+    setConfig((c) => (c.course === course ? c : { ...c, course }));
+  }, [course]);
 
   // 타이머 탭이 보이는 동안 화면 꺼짐 방지 — START 대기 중 포함 (FR, PWA 동작 계승)
   useFocusEffect(
@@ -128,10 +136,13 @@ export default function TimerScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config]);
 
+  const title = eventTitle(config, t.strokes[config.stroke]!);
+
+  let body: React.ReactNode;
   if (view === 'running' && engineRef.current && baseRef.current) {
     const engine = engineRef.current;
     const base = baseRef.current;
-    return (
+    body = (
       <RunningView
         engine={engine}
         t0={base.t0}
@@ -147,10 +158,8 @@ export default function TimerScreen() {
         ClockSlot={<Clock t0={base.t0} toEventBase={base.toEventBase} running />}
       />
     );
-  }
-
-  if (view === 'assign' && engineRef.current && assignData) {
-    return (
+  } else if (view === 'assign' && engineRef.current && assignData) {
+    body = (
       <AssignView
         slots={engineRef.current.state as SlotState[]}
         swimmers={assignData.swimmers}
@@ -159,9 +168,25 @@ export default function TimerScreen() {
         unit={courseUnit(config.course)}
         onAgain={() => setView('setup')}
         onSave={onSave}
+        onAddSwimmer={async (name) => {
+          const sw = await addSwimmer(name);
+          setAssignData((d) => (d ? { ...d, swimmers: [...d.swimmers, sw] } : d));
+          return sw.id;
+        }}
       />
     );
+  } else {
+    body = <SetupView config={config} onChange={changeConfig} onStart={onStart} />;
   }
 
-  return <SetupView config={config} onChange={changeConfig} onStart={onStart} />;
+  return (
+    <View style={styles.screen}>
+      <TopBar title={title} />
+      {body}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: color.bg },
+});

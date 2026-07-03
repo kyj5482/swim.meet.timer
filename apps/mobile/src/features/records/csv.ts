@@ -33,9 +33,14 @@ export function recordsToCsv(swimmerName: string, records: TrainingRecord[]): st
   return lines.join('\n');
 }
 
-/** 종목 라벨: "100 free · 25y" */
+/** 스트로크 짧은 이름(라벨용): Free/Back/Breast/Fly/IM. */
+const STROKE_SHORT: Record<string, string> = {
+  free: 'Free', back: 'Back', breast: 'Breast', fly: 'Fly', im: 'IM',
+};
+
+/** 종목 라벨: "100 Free · 25y" (PWA 표기와 동일). */
 export function eventLabel(t: TrainingRecord['target']): string {
-  return `${t.distance} ${t.stroke} · ${t.course}`;
+  return `${t.distance} ${STROKE_SHORT[t.stroke] ?? t.stroke} · ${t.course}`;
 }
 
 /** 종목 그룹 키(같은 종목·거리·코스 = 같은 추세). */

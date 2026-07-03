@@ -32,7 +32,7 @@ describe('CSV 내보내기', () => {
   });
   it('종목 라벨/키', () => {
     const t = rec({}).target;
-    expect(eventLabel(t)).toBe('100 free · 25y');
+    expect(eventLabel(t)).toBe('100 Free · 25y');
     expect(eventKeyOf(t)).toBe('100|free|25y');
   });
 });

@@ -39,4 +39,9 @@ export const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // v2: 데모 시드 여부 표시 컬럼 (시드 데이터는 사용자가 언제든 비울 수 있게 구분)
+  `
+  ALTER TABLE swimmers ADD COLUMN seed INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE records ADD COLUMN seed INTEGER NOT NULL DEFAULT 0;
+  `,
 ];

@@ -6,15 +6,18 @@ import {
   Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
 
-import { deleteRecord, listRecords, listSwimmers, type Swimmer, type TrainingRecord } from '@/db';
+import Avatar from '@/components/Avatar';
+import { ChevronDown } from '@/components/Icons';
+import Select from '@/components/Select';
+import { ageOf, deleteRecord, listRecords, listSwimmers, type Swimmer, type TrainingRecord } from '@/db';
 import CompareChart from '@/features/records/CompareChart';
 import TrendChart from '@/features/records/TrendChart';
 import { eventKeyOf, eventLabel, recordsToCsv } from '@/features/records/csv';
 import { useT } from '@/store/settings';
-import { color, font, initials, laneColor, radius, touch } from '@/theme';
+import { color, font, laneColor, radius, touch } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
 
-/** Records 탭 (PWA records 페인 이식): 선수→종목, 추세 차트, 펼침 상세, 구간 비교, CSV. */
+/** Records 탭 (PWA records 페인 이식): 아바타 헤더 + Switch, 이벤트 드롭다운, 추세 차트, 세션. */
 export default function RecordsScreen() {
   const [swimmers, setSwimmers] = useState<Swimmer[]>([]);
   const [swimmerId, setSwimmerId] = useState<string | null>(null);
@@ -24,7 +27,12 @@ export default function RecordsScreen() {
   const [cmpMode, setCmpMode] = useState(false);
   const [cmpIds, setCmpIds] = useState<Set<string>>(new Set());
   const [comparing, setComparing] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const t = useT();
+
+  const loadRecords = useCallback((sid: string) => {
+    void listRecords(sid).then(setRecords);
+  }, []);
 
   const reload = useCallback(() => {
     void (async () => {
@@ -37,16 +45,25 @@ export default function RecordsScreen() {
   }, [swimmerId]);
   useFocusEffect(reload);
 
+  const swimmerIdx = Math.max(0, swimmers.findIndex((s) => s.id === swimmerId));
+  const swimmer = swimmers.find((s) => s.id === swimmerId);
+
+  // 종목 목록(최근순) + 각 종목 PB
   const events = useMemo(() => {
-    const map = new Map<string, TrainingRecord['target']>();
-    for (const r of [...records].sort((a, b) => b.date - a.date)) {
-      if (!map.has(eventKeyOf(r.target))) map.set(eventKeyOf(r.target), r.target);
+    const map = new Map<string, { target: TrainingRecord['target']; bestMs: number }>();
+    for (const r of records) {
+      const k = eventKeyOf(r.target);
+      const cur = map.get(k);
+      const best = r.status === 'finished' ? r.totalMs : Infinity;
+      if (!cur) map.set(k, { target: r.target, bestMs: best });
+      else cur.bestMs = Math.min(cur.bestMs, best);
     }
-    return [...map.entries()];
+    // 거리 오름차순, 그 다음 종목
+    return [...map.entries()].sort((a, b) => a[1].target.distance - b[1].target.distance);
   }, [records]);
 
   const activeEvent = eventKey && events.some(([k]) => k === eventKey) ? eventKey : events[0]?.[0] ?? null;
-  const activeTarget = events.find(([k]) => k === activeEvent)?.[1] ?? null;
+  const activeTarget = events.find(([k]) => k === activeEvent)?.[1].target ?? null;
   const filtered = useMemo(
     () =>
       records
@@ -57,8 +74,12 @@ export default function RecordsScreen() {
   const finished = filtered.filter((r) => r.status === 'finished');
   const bestMs = finished.length ? Math.min(...finished.map((r) => r.totalMs)) : null;
   const selected = filtered.filter((r) => cmpIds.has(r.id)).sort((a, b) => a.date - b.date);
-  const swimmer = swimmers.find((s) => s.id === swimmerId);
   const unit = activeTarget?.course === '25y' ? 'y' : 'm';
+
+  const switchTo = useCallback((sid: string) => {
+    setSwimmerId(sid); setCmpIds(new Set()); setCmpMode(false); setExpandedId(null); setSwitching(false);
+    loadRecords(sid);
+  }, [loadRecords]);
 
   const onDelete = useCallback((r: TrainingRecord) => {
     Alert.alert(t.delConfirm, undefined, [
@@ -81,6 +102,11 @@ export default function RecordsScreen() {
     })();
   }, [swimmer, records, t]);
 
+  function metaLine(s: Swimmer): string {
+    const age = ageOf(s);
+    return [age != null ? t.yo(age) : null, s.group ?? null].filter(Boolean).join(' · ') || t.noGroup;
+  }
+
   if (swimmers.length === 0) {
     return (
       <View style={styles.emptyScreen}>
@@ -93,39 +119,33 @@ export default function RecordsScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* 선수 선택 */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillBar} contentContainerStyle={styles.pillRow}>
-        {swimmers.map((s, i) => {
-          const on = s.id === swimmerId;
-          return (
-            <Pressable
-              key={s.id}
-              onPress={() => {
-                setSwimmerId(s.id); setCmpIds(new Set()); setCmpMode(false); setExpandedId(null);
-                void listRecords(s.id).then(setRecords);
-              }}
-              style={[styles.swPill, on && styles.swPillOn]}>
-              <View style={[styles.swAvatar, { backgroundColor: laneColor(i) }]}>
-                <Text style={styles.swAvatarText}>{initials(s.name)}</Text>
-              </View>
-              <Text style={[styles.pillText, on && styles.pillTextOn2]}>{s.name}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {/* 아바타 헤더 + Switch (PWA .rec-header) */}
+      <Pressable style={styles.recHeader} onPress={() => setSwitching(true)}>
+        <Avatar name={swimmer?.name ?? '?'} index={swimmerIdx} size={52} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.recName}>{swimmer?.name}</Text>
+          <Text style={styles.recMeta}>{swimmer ? metaLine(swimmer) : ''}</Text>
+        </View>
+        <View style={styles.switchWrap}>
+          <Text style={styles.switchText}>{t.switchLbl}</Text>
+          <ChevronDown color={color.accent} size={16} />
+        </View>
+      </Pressable>
 
-      {/* 종목 선택 */}
-      {events.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillBar} contentContainerStyle={styles.pillRow}>
-          {events.map(([k, tg]) => (
-            <Pressable
-              key={k}
-              onPress={() => { setEventKey(k); setCmpIds(new Set()); setCmpMode(false); setExpandedId(null); }}
-              style={[styles.pill, k === activeEvent && styles.pillOn]}>
-              <Text style={[styles.pillText, k === activeEvent && styles.pillTextOn]}>{eventLabel(tg)}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+      {/* 이벤트 드롭다운 (PB 인라인) */}
+      {events.length > 0 && activeEvent && (
+        <View style={styles.eventBlock}>
+          <Text style={styles.eventLabel}>{t.event}</Text>
+          <Select
+            value={activeEvent}
+            options={events.map(([k, v]) => ({
+              value: k,
+              label: `${eventLabel(v.target)}${Number.isFinite(v.bestMs) ? `  ·  🏅 ${fmtTotal(v.bestMs)}` : ''}`,
+            }))}
+            onChange={setEventKey}
+            title={t.event}
+          />
+        </View>
       )}
 
       <FlatList
@@ -152,10 +172,14 @@ export default function RecordsScreen() {
           </View>
         }
         ListEmptyComponent={<Text style={styles.emptySub}>{t.noRecords}</Text>}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const picked = cmpIds.has(item.id);
           const expanded = expandedId === item.id;
           const isPB = bestMs != null && item.status === 'finished' && item.totalMs === bestMs;
+          // 직전(더 오래된) 같은 종목 세션 대비 증감 — "잘 가고 있는지" 즉시 표시.
+          const prev = filtered[index + 1];
+          const deltaMs = prev && item.status === 'finished' && prev.status === 'finished'
+            ? item.totalMs - prev.totalMs : null;
           return (
             <View>
               <Pressable
@@ -181,12 +205,16 @@ export default function RecordsScreen() {
                     {isPB ? ` · ${t.bestWord}` : ''}
                   </Text>
                 </View>
+                {deltaMs != null && deltaMs !== 0 && (
+                  <Text style={deltaMs < 0 ? styles.deltaDown : styles.deltaUp}>
+                    {`${deltaMs < 0 ? '▼' : '▲'}${(Math.abs(deltaMs) / 1000).toFixed(2)}`}
+                  </Text>
+                )}
                 {isPB && <View style={styles.pbBadge}><Text style={styles.pbBadgeText}>{t.pbShort}</Text></View>}
                 {item.status === 'dnf' && <Text style={styles.dnf}>DNF</Text>}
                 <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
               </Pressable>
 
-              {/* 펼침 상세 (PWA .h-detail) */}
               {expanded && !cmpMode && (
                 <View style={styles.detail}>
                   <Text style={styles.detailLabel}>{t.segSplits}</Text>
@@ -226,6 +254,30 @@ export default function RecordsScreen() {
           </Pressable>
         )}
       </View>
+
+      {/* 선수 전환 모달 (Switch) */}
+      <Modal visible={switching} transparent animationType="fade" onRequestClose={() => setSwitching(false)}>
+        <Pressable style={styles.modalBack} onPress={() => setSwitching(false)}>
+          <View style={styles.pickerCard}>
+            <Text style={styles.modalTitle}>{t.pickTitle}</Text>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {swimmers.map((s, i) => {
+                const on = s.id === swimmerId;
+                return (
+                  <Pressable key={s.id} style={[styles.pickRow, on && styles.pickRowOn]} onPress={() => switchTo(s.id)}>
+                    <Avatar name={s.name} index={i} size={38} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.pickName}>{s.name}</Text>
+                      <Text style={styles.pickMeta}>{metaLine(s)}</Text>
+                    </View>
+                    {on && <Text style={styles.pickChk}>✓</Text>}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* 구간 비교 모달 (차트 + 표) */}
       <Modal visible={comparing} transparent animationType="fade" onRequestClose={() => setComparing(false)}>
@@ -278,37 +330,26 @@ export default function RecordsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg, padding: 16, gap: 10 },
+  screen: { flex: 1, backgroundColor: color.bg, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 14, gap: 10 },
   emptyScreen: { flex: 1, backgroundColor: color.bg, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 32 },
   emptyIcon: { fontSize: 40, opacity: 0.7 },
   emptyText: { color: color.text, fontSize: 18, fontWeight: '700' },
   emptySub: { color: color.textMuted, fontSize: 13, textAlign: 'center' },
-  pillBar: { flexGrow: 0 },
-  pillRow: { gap: 8 },
-  swPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingLeft: 6, paddingRight: 14, height: 44,
-    borderRadius: radius.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-  },
-  swPillOn: { borderColor: color.accent, backgroundColor: color.surface2 },
-  swAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  swAvatarText: { color: '#fff', fontWeight: '800', fontSize: 12 },
-  pill: {
-    paddingHorizontal: 14, height: 40, justifyContent: 'center',
-    borderRadius: radius.pill, backgroundColor: color.surface2, borderWidth: 1, borderColor: color.line,
-  },
-  pillOn: { backgroundColor: color.accent, borderColor: color.accent },
-  pillText: { color: color.text, fontSize: 14, fontWeight: '600' },
-  pillTextOn: { color: color.accentInk, fontWeight: '800' },
-  pillTextOn2: { color: color.text, fontWeight: '700' },
-  histHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 2 },
-  histTitle: { color: color.text, fontSize: 14, fontWeight: '700' },
+  recHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
+  recName: { color: color.text, fontSize: 20, fontWeight: '700' },
+  recMeta: { color: color.textMuted, fontSize: 12, marginTop: 2 },
+  switchWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  switchText: { color: color.accent, fontSize: 13, fontWeight: '600' },
+  eventBlock: { gap: 6 },
+  eventLabel: { color: color.textMuted, fontSize: 12 },
+  histHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 2, marginTop: 2 },
+  histTitle: { color: color.text, fontSize: 15, fontWeight: '700' },
   cmpLink: { color: color.accent, fontSize: 13, fontWeight: '600' },
   cmpLinkActive: { color: color.warn },
   row: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: touch.min,
+    flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: touch.min + 6,
     backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-    borderRadius: radius.card, paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: radius.card, paddingHorizontal: 14, paddingVertical: 12,
   },
   rowPicked: { borderColor: color.accent },
   rowOpen: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
@@ -318,13 +359,15 @@ const styles = StyleSheet.create({
   },
   checkOn: { borderColor: color.accent, backgroundColor: color.accent },
   checkMark: { color: color.accentInk, fontSize: 12, fontWeight: '900', lineHeight: 14 },
-  rowDate: { color: color.text, fontSize: 14, fontWeight: '600' },
-  rowMeta: { color: color.textMuted, fontSize: 11, marginTop: 2 },
+  rowDate: { color: color.text, fontSize: 16, fontWeight: '700' },
+  rowMeta: { color: color.textMuted, fontSize: 12, marginTop: 2 },
   dnf: { color: color.warn, fontSize: 12, fontWeight: '800' },
+  deltaDown: { color: color.ok, fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  deltaUp: { color: color.stop, fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   pbBadge: { backgroundColor: color.ok, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   pbBadgeText: { color: color.okInk, fontWeight: '800', fontSize: 11 },
   rowTotal: {
-    color: color.text, fontSize: 18, fontWeight: '700',
+    color: color.text, fontSize: 22, fontWeight: '700',
     fontFamily: font.mono, fontVariant: ['tabular-nums'],
   },
   detail: {
@@ -362,7 +405,20 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
     borderRadius: radius.card, padding: 16, gap: 8, maxHeight: '88%',
   },
+  pickerCard: {
+    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
+    borderRadius: radius.card, padding: 16, gap: 8, maxHeight: '80%',
+  },
   modalTitle: { color: color.text, fontSize: 17, fontWeight: '800', marginBottom: 4 },
+  pickRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: color.surface2, borderWidth: 1, borderColor: color.line,
+    borderRadius: 12, padding: 10, marginBottom: 8,
+  },
+  pickRowOn: { borderColor: color.accent },
+  pickName: { color: color.text, fontSize: 16, fontWeight: '700' },
+  pickMeta: { color: color.textMuted, fontSize: 12, marginTop: 2 },
+  pickChk: { color: color.accent, fontWeight: '900', fontSize: 16 },
   cmpRow: { flexDirection: 'row', gap: 6, borderBottomWidth: 1, borderBottomColor: color.line, paddingVertical: 6 },
   cmpCell: {
     flex: 1, color: color.text, fontSize: 12, textAlign: 'right',

@@ -1,9 +1,10 @@
 import { useMemo, useReducer, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import Select from '@/components/Select';
 import type { Swimmer } from '@/db';
 import { useT } from '@/store/settings';
-import { color, font, initials, laneColor, radius } from '@/theme';
+import { color, font, laneColor as laneCol, radius } from '@/theme';
 import {
   fmtTotal, improvement, nearestSibling, recommend, swapSwimmers,
   type CandidateStats, type SlotState,
@@ -11,21 +12,21 @@ import {
 
 interface Props {
   slots: SlotState[];
-  /** DB에서 로드된 명단·현재 종목 통계 (index.tsx가 측정 종료 시 조회) */
   swimmers: Swimmer[];
   stats: CandidateStats[];
-  /** 세그먼트 칩 라벨용: 스플릿 1구간 거리와 단위 (예: 25, 'y' → 25y·50y·75y…) */
   splitInterval: number;
   unit: string;
-  /** 저장은 부모가 수행(트랜잭션 + 저장취소 Alert) */
   onSave: () => void;
   onAgain: () => void;
+  /** 배정 중 새 선수 추가 → id 반환(추가한 선수를 현재 슬롯에 배정) */
+  onAddSwimmer: (name: string) => Promise<string>;
 }
 
-/** 측정 후 배정 화면 (§3.6): 추천 → 향상/PB → 저신뢰 맞바꾸기 → 저장. */
-export default function AssignView({ slots, swimmers, stats, splitInterval, unit, onSave, onAgain }: Props) {
+/** 측정 후 배정 화면 (§3.6): 추천 → 저신뢰 맞바꾸기 → 향상/PB → 저장. PWA 레이아웃. */
+export default function AssignView({ slots, swimmers, stats, splitInterval, unit, onSave, onAgain, onAddSwimmer }: Props) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
-  const [picking, setPicking] = useState<SlotState | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState('');
   const t = useT();
 
   const statsOf = (swimmerId: string | null) =>
@@ -48,6 +49,18 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots, stats]);
 
+  async function submitAdd() {
+    const name = newName.trim();
+    if (!name) return;
+    setNewName('');
+    setAddOpen(false);
+    const id = await onAddSwimmer(name);
+    // 방금 추가한 선수를 아직 배정 안 된 첫 슬롯에 배정
+    const target = slots.find((s) => !s.swimmerId) ?? slots[0];
+    if (target) target.swimmerId = id;
+    bump();
+  }
+
   return (
     <View style={styles.screen}>
       <Text style={styles.title}>{t.aTitle}</Text>
@@ -62,32 +75,51 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingBottom: 8 }}>
         {slots.map((s) => {
-          const lc = laneColor(s.idx);
           const st = statsOf(s.swimmerId);
           const imp = st ? improvement(s.lastCumMs, st) : null;
           const near = s.lowConfidence ? nearestSibling(slots, s) : null;
-          const who = swimmers.find((w) => w.id === s.swimmerId);
           return (
             <View key={s.idx} style={[styles.card, s.lowConfidence && styles.cardLowConf]}>
-              <View style={[styles.cardBar, { backgroundColor: lc }]} />
+              <View style={[styles.cardBar, { backgroundColor: laneCol(s.idx) }]} />
               <View style={styles.cardBody}>
                 <View style={styles.cardTop}>
-                  <Text style={[styles.slotName, { color: lc }]}>{t.laneN(s.idx + 1)}</Text>
+                  <Text style={[styles.slotName, { color: laneCol(s.idx) }]}>{t.laneN(s.idx + 1)}</Text>
                   {s.status === 'dnf' && <Text style={styles.dnfTag}>DNF</Text>}
                   <Text style={styles.total}>{fmtTotal(s.lastCumMs)}</Text>
                 </View>
 
-                {/* 선수 선택 (PWA .who) */}
-                <Pressable style={styles.pickBtn} onPress={() => setPicking(s)}>
-                  {who ? (
-                    <View style={[styles.avatarSm, { backgroundColor: lc }]}>
-                      <Text style={styles.avatarSmText}>{initials(who.name)}</Text>
-                    </View>
-                  ) : null}
-                  <Text style={styles.pickText}>{who?.name ?? t.pickTitle}</Text>
-                  <Text style={styles.pickChev}>▾</Text>
-                  {who && <View style={styles.recTag}><Text style={styles.recTagText}>{t.rec}</Text></View>}
-                </Pressable>
+                {/* 선수 드롭다운 + Rec (PWA .who) */}
+                <View style={styles.whoRow}>
+                  <View style={{ flex: 1 }}>
+                    <Select
+                      value={s.swimmerId ?? ''}
+                      options={swimmers.map((w) => ({ value: w.id, label: w.name }))}
+                      onChange={(id) => {
+                        const holder = slots.find((o) => o.swimmerId === id);
+                        if (holder && holder !== s) holder.swimmerId = s.swimmerId;
+                        s.swimmerId = id;
+                        bump();
+                      }}
+                      renderValue={(opt) => (
+                        <Text style={styles.whoName}>{opt?.label ?? t.pickTitle}</Text>
+                      )}
+                      title={t.pickTitle}
+                    />
+                  </View>
+                  {s.swimmerId && <View style={styles.recTag}><Text style={styles.recTagText}>{t.rec}</Text></View>}
+                </View>
+
+                {/* 저신뢰 경고 + 맞바꾸기 (delta 위에) */}
+                {near && (
+                  <View style={styles.confBar}>
+                    <Text style={styles.confText}>
+                      {t.nearWarn(near.sibling.idx + 1, (near.gapMs / 1000).toFixed(2))}
+                    </Text>
+                    <Pressable style={styles.swapBtn} onPress={() => { swapSwimmers(s, near.sibling); bump(); }}>
+                      <Text style={styles.swapText}>{t.swapBtn}</Text>
+                    </Pressable>
+                  </View>
+                )}
 
                 {/* 향상/PB (PWA .delta) */}
                 {imp && (
@@ -123,62 +155,43 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
                     </View>
                   ))}
                 </View>
-
-                {/* 저신뢰 경고 + 맞바꾸기 (PWA .confbar) */}
-                {near && (
-                  <View style={styles.confBar}>
-                    <Text style={styles.confText}>
-                      {t.nearWarn(near.sibling.idx + 1, (near.gapMs / 1000).toFixed(2))}
-                    </Text>
-                    <Pressable style={styles.swapBtn} onPress={() => { swapSwimmers(s, near.sibling); bump(); }}>
-                      <Text style={styles.swapText}>{t.swapBtn}</Text>
-                    </Pressable>
-                  </View>
-                )}
               </View>
             </View>
           );
         })}
+
+        {/* + Add Swimmer (PWA .addbtn) */}
+        <Pressable style={styles.addBtn} onPress={() => setAddOpen(true)}>
+          <Text style={styles.addBtnText}>{`＋ ${t.addSw}`}</Text>
+        </Pressable>
       </ScrollView>
 
-      <View style={styles.actions}>
-        <Pressable style={styles.againBtn} onPress={onAgain}>
-          <Text style={styles.againText}>{t.again}</Text>
-        </Pressable>
-        <Pressable style={({ pressed }) => [styles.saveBtn, pressed && styles.savePressed]} onPress={onSave}>
-          <Text style={styles.saveText}>{t.saveRec}</Text>
-        </Pressable>
-      </View>
+      {/* Save / Time Again 세로 스택 (PWA) */}
+      <Pressable style={({ pressed }) => [styles.saveBtn, pressed && styles.savePressed]} onPress={onSave}>
+        <Text style={styles.saveText}>{t.saveRec}</Text>
+      </Pressable>
+      <Pressable style={styles.againBtn} onPress={onAgain}>
+        <Text style={styles.againText}>{t.again}</Text>
+      </Pressable>
 
-      <Modal visible={picking != null} transparent animationType="fade" onRequestClose={() => setPicking(null)}>
-        <Pressable style={styles.modalBack} onPress={() => setPicking(null)}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t.pickTitle}</Text>
-            {swimmers.map((w, wi) => {
-              const isCurrent = picking?.swimmerId === w.id;
-              return (
-                <Pressable
-                  key={w.id}
-                  style={[styles.pickRow, isCurrent && styles.pickRowOn]}
-                  onPress={() => {
-                    if (picking) {
-                      // 이미 그 선수를 가진 슬롯과는 교환(중복 배정 방지)
-                      const holder = slots.find((o) => o.swimmerId === w.id);
-                      if (holder && holder !== picking) holder.swimmerId = picking.swimmerId;
-                      picking.swimmerId = w.id;
-                    }
-                    setPicking(null);
-                    bump();
-                  }}>
-                  <View style={[styles.avatarSm, { backgroundColor: laneColor(wi) }]}>
-                    <Text style={styles.avatarSmText}>{initials(w.name)}</Text>
-                  </View>
-                  <Text style={styles.pickRowText}>{w.name}</Text>
-                  {isCurrent && <Text style={styles.pickChk}>✓</Text>}
-                </Pressable>
-              );
-            })}
-          </View>
+      <Modal visible={addOpen} transparent animationType="fade" onRequestClose={() => setAddOpen(false)}>
+        <Pressable style={styles.modalBack} onPress={() => setAddOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>{t.addSw}</Text>
+            <TextInput
+              style={styles.input}
+              value={newName}
+              onChangeText={setNewName}
+              placeholder={t.namePH}
+              placeholderTextColor={color.textMuted}
+              autoFocus
+              onSubmitEditing={submitAdd}
+              returnKeyType="done"
+            />
+            <Pressable style={styles.modalAdd} onPress={submitAdd}>
+              <Text style={styles.modalAddText}>{t.add}</Text>
+            </Pressable>
+          </Pressable>
         </Pressable>
       </Modal>
     </View>
@@ -186,7 +199,7 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg, padding: 16, gap: 8 },
+  screen: { flex: 1, backgroundColor: color.bg, paddingHorizontal: 16, paddingBottom: 14, gap: 8 },
   title: { color: color.text, fontSize: 20, fontWeight: '800' },
   lead: { color: color.textMuted, fontSize: 12 },
   summary: {
@@ -210,28 +223,20 @@ const styles = StyleSheet.create({
     marginLeft: 'auto', color: color.text, fontSize: 24,
     fontFamily: font.mono, fontVariant: ['tabular-nums'],
   },
-  pickBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    minHeight: 44, paddingHorizontal: 12,
-    backgroundColor: color.surface2, borderRadius: 12, borderWidth: 1, borderColor: color.line,
-  },
-  pickText: { color: color.text, fontSize: 16, fontWeight: '700' },
-  pickChev: { color: color.textMuted, fontSize: 12 },
+  whoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  whoName: { color: color.text, fontSize: 16, fontWeight: '700' },
   recTag: {
-    marginLeft: 'auto', borderWidth: 1, borderColor: color.accent,
-    borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: color.accent,
+    borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4,
   },
-  recTagText: { color: color.accent, fontSize: 10, fontWeight: '700' },
+  recTagText: { color: color.accent, fontSize: 11, fontWeight: '700' },
   delta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   prevNow: { fontSize: 13 },
   mutedMono: { color: color.textMuted, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
   nowVal: { color: color.text, fontSize: 15, fontWeight: '700', fontFamily: font.mono, fontVariant: ['tabular-nums'] },
   imp: { color: color.ok, fontWeight: '700', fontSize: 13 },
   reg: { color: color.stop, fontWeight: '700', fontSize: 13 },
-  pbBadge: {
-    backgroundColor: color.ok, borderRadius: radius.pill,
-    paddingHorizontal: 8, paddingVertical: 2,
-  },
+  pbBadge: { backgroundColor: color.ok, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   pbMuted: { opacity: 0.45 },
   pbBadgeText: { color: color.okInk, fontWeight: '800', fontSize: 11 },
   segList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -240,10 +245,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface2, borderRadius: 8, paddingVertical: 6, alignItems: 'center',
   },
   segChipLabel: { color: color.textMuted, fontSize: 9 },
-  segChipVal: {
-    color: color.text, fontSize: 13, marginTop: 2,
-    fontFamily: font.mono, fontVariant: ['tabular-nums'],
-  },
+  segChipVal: { color: color.text, fontSize: 13, marginTop: 2, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
   confBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
     backgroundColor: 'rgba(255,194,75,0.16)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8,
@@ -254,34 +256,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 5,
   },
   swapText: { color: color.warn, fontWeight: '700', fontSize: 12 },
-  actions: { flexDirection: 'row', gap: 10 },
+  addBtn: {
+    height: 46, borderRadius: 12, borderWidth: 1, borderColor: color.line, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  addBtnText: { color: color.accent, fontSize: 15, fontWeight: '700' },
+  saveBtn: {
+    height: 56, borderRadius: radius.btn, backgroundColor: color.accent,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  savePressed: { transform: [{ scale: 0.99 }], backgroundColor: color.accentPress },
+  saveText: { color: color.accentInk, fontSize: 18, fontWeight: '800' },
   againBtn: {
-    flex: 1, height: 52, borderRadius: radius.btn, backgroundColor: color.surface2,
+    height: 52, borderRadius: radius.btn, backgroundColor: color.surface2,
     alignItems: 'center', justifyContent: 'center',
   },
   againText: { color: color.text, fontSize: 15, fontWeight: '700' },
-  saveBtn: {
-    flex: 2, height: 52, borderRadius: radius.btn, backgroundColor: color.accent,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  savePressed: { transform: [{ scale: 0.98 }], backgroundColor: color.accentPress },
-  saveText: { color: color.accentInk, fontSize: 16, fontWeight: '800' },
   modalBack: { flex: 1, backgroundColor: 'rgba(2,10,18,0.72)', justifyContent: 'center', padding: 28 },
   modalCard: {
     backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-    borderRadius: radius.card, padding: 16, gap: 8,
+    borderRadius: radius.card, padding: 16, gap: 10,
   },
-  modalTitle: { color: color.text, fontSize: 17, fontWeight: '700', marginBottom: 4 },
-  pickRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: color.surface2, borderWidth: 1, borderColor: color.line,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+  modalTitle: { color: color.text, fontSize: 17, fontWeight: '700' },
+  input: {
+    height: 48, borderRadius: 12, paddingHorizontal: 14,
+    backgroundColor: color.surface2, color: color.text, fontSize: 16,
+    borderWidth: 1, borderColor: color.line,
   },
-  pickRowOn: { borderColor: color.accent },
-  pickRowText: { color: color.text, fontSize: 15, fontWeight: '600' },
-  pickChk: { marginLeft: 'auto', color: color.accent, fontWeight: '900' },
-  avatarSm: {
-    width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
-  },
-  avatarSmText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  modalAdd: { height: 48, borderRadius: 12, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center' },
+  modalAddText: { color: color.accentInk, fontSize: 16, fontWeight: '800' },
 });

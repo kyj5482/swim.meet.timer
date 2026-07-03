@@ -135,8 +135,8 @@ export default function RunningView({ engine, onFinished, onReset, onPersist, Cl
         <Pressable style={styles.ghostBtn} onPress={() => { engine.undo(); bump(); onPersist(); }}>
           <Text style={styles.ghostText}>{t.undo}</Text>
         </Pressable>
-        <Pressable style={styles.ghostBtn} onPress={onReset}>
-          <Text style={styles.ghostText}>{t.reset}</Text>
+        <Pressable style={styles.resetBtn} onPress={onReset}>
+          <Text style={styles.resetText}>{t.reset}</Text>
         </Pressable>
       </View>
 
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   hint: { color: color.textMuted, fontSize: 12, textAlign: 'center' },
   lanes: { flex: 1 },
   lane: {
-    flexDirection: 'row', minHeight: touch.min + 8,
+    flexDirection: 'row', minHeight: 76,
     backgroundColor: color.surface, borderRadius: 14,
     borderWidth: 1, borderColor: color.line, overflow: 'hidden',
   },
@@ -179,6 +179,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   ghostText: { color: color.text, fontSize: 15, fontWeight: '700' },
+  resetBtn: {
+    flex: 1, height: 46, borderRadius: radius.btn, backgroundColor: color.stop,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  resetText: { color: '#2a0a07', fontSize: 15, fontWeight: '800' },
   lapBtn: {
     height: touch.lapButton, borderRadius: 26, backgroundColor: color.accent,
     alignItems: 'center', justifyContent: 'center', gap: 2,

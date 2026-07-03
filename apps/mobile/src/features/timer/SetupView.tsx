@@ -1,12 +1,12 @@
+import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 
+import Select from '@/components/Select';
 import { useT } from '@/store/settings';
-import { color, font, radius, touch } from '@/theme';
+import { color, font, touch } from '@/theme';
 import {
-  COURSES, STROKES, courseUnit, distanceOptions, segmentCount, splitOptions, type TimerConfig,
+  STROKES, courseName, courseUnit, distanceOptions, segmentCount, splitOptions, type TimerConfig,
 } from './config';
-
-const COURSE_LABEL: Record<string, string> = { '25m': '25 Meter', '25y': '25 Yard', '50m': '50 Meter' };
 
 interface Props {
   config: TimerConfig;
@@ -15,37 +15,14 @@ interface Props {
   onStart: (e: GestureResponderEvent) => void;
 }
 
-function PillRow<T extends string | number>({ label, options, value, format, onSelect }: {
-  label: string; options: T[]; value: T; format?: (v: T) => string; onSelect: (v: T) => void;
-}) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.pills}>
-        {options.map((o) => (
-          <Pressable
-            key={String(o)}
-            onPress={() => onSelect(o)}
-            style={[styles.pill, o === value && styles.pillOn]}>
-            <Text style={[styles.pillText, o === value && styles.pillTextOn]}>
-              {format ? format(o) : String(o)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 export default function SetupView({ config, onChange, onStart }: Props) {
   const t = useT();
+  const router = useRouter();
   const unit = courseUnit(config.course);
   const segs = segmentCount(config);
 
   function set<K extends keyof TimerConfig>(key: K, value: TimerConfig[K]) {
     const next = { ...config, [key]: value };
-    // 코스/거리 변경 시 스플릿을 유효한 값으로 재조정
-    if (!distanceOptions(next.course).includes(next.distance)) next.distance = 100;
     const opts = splitOptions(next.course, next.distance);
     if (!opts.includes(next.splitInterval)) next.splitInterval = opts[0]!;
     onChange(next);
@@ -54,16 +31,52 @@ export default function SetupView({ config, onChange, onStart }: Props) {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* 코스는 자주 안 바뀌므로 상단 요약 행 (PWA .setrow) */}
+        {/* 코스: 읽기 전용 요약 행 + 설정에서 변경 (PWA .setrow) */}
         <View style={styles.setrow}>
           <Text style={styles.setrowKey}>{t.lCourse}</Text>
-          <Text style={styles.setrowVal}>{COURSE_LABEL[config.course]}</Text>
+          <Text style={styles.setrowVal}>{courseName(config.course)}</Text>
+          <Pressable onPress={() => router.push('/settings')} hitSlop={8}>
+            <Text style={styles.link}>{t.changeInSettings}</Text>
+          </Pressable>
         </View>
-        <PillRow label="" options={COURSES} value={config.course} format={(c) => COURSE_LABEL[c]!.replace(' ', '')} onSelect={(v) => set('course', v)} />
 
-        <PillRow label={t.lStroke} options={STROKES} value={config.stroke} format={(s) => t.strokes[s]!} onSelect={(v) => set('stroke', v)} />
-        <PillRow label={t.lDist} options={distanceOptions(config.course)} value={config.distance} format={(d) => `${d}`} onSelect={(v) => set('distance', v)} />
-        <PillRow label={t.lSplit} options={splitOptions(config.course, config.distance)} value={config.splitInterval} format={(d) => (d === config.distance ? t.splitOnce : `${d}${unit}`)} onSelect={(v) => set('splitInterval', v)} />
+        {/* Stroke / Distance / Split: 라벨 + 드롭다운 (PWA .field) */}
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>{t.lStroke}</Text>
+          <View style={styles.control}>
+            <Select
+              value={config.stroke}
+              options={STROKES.map((s) => ({ value: s, label: t.strokes[s]! }))}
+              onChange={(v) => set('stroke', v)}
+              title={t.lStroke}
+            />
+          </View>
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>{t.lDist}</Text>
+          <View style={styles.control}>
+            <Select
+              value={config.distance}
+              options={distanceOptions(config.course).map((d) => ({ value: d, label: `${d}` }))}
+              onChange={(v) => set('distance', v)}
+              title={t.lDist}
+            />
+          </View>
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>{t.lSplit}</Text>
+          <View style={styles.control}>
+            <Select
+              value={config.splitInterval}
+              options={splitOptions(config.course, config.distance).map((d) => ({
+                value: d,
+                label: d === config.distance ? t.splitOnce : t.splitEvery(d, unit),
+              }))}
+              onChange={(v) => set('splitInterval', v)}
+              title={t.lSplit}
+            />
+          </View>
+        </View>
 
         {segs != null ? (
           <Text style={styles.segInfo}>
@@ -103,34 +116,27 @@ export default function SetupView({ config, onChange, onStart }: Props) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg, padding: 16, gap: 10 },
-  scroll: { gap: 12, paddingBottom: 12 },
+  screen: { flex: 1, backgroundColor: color.bg, paddingHorizontal: 18, paddingBottom: 14, gap: 10 },
+  scroll: { gap: 14, paddingTop: 4, paddingBottom: 12 },
   setrow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-    borderRadius: 12, paddingHorizontal: 14, height: 52,
+    borderRadius: 14, paddingHorizontal: 16, height: 56,
   },
-  setrowKey: { color: color.textMuted, fontSize: 13, width: 64 },
-  setrowVal: { color: color.text, fontSize: 16, fontWeight: '700' },
-  field: { gap: 8 },
-  fieldLabel: { color: color.textMuted, fontSize: 13 },
-  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: {
-    paddingHorizontal: 16, minHeight: 44, justifyContent: 'center',
-    borderRadius: radius.pill, backgroundColor: color.surface2, borderWidth: 1, borderColor: color.line,
-  },
-  pillOn: { backgroundColor: color.accent, borderColor: color.accent },
-  pillText: { color: color.text, fontSize: 15, fontWeight: '600' },
-  pillTextOn: { color: color.accentInk, fontWeight: '800' },
-  segInfo: { color: color.textMuted, fontSize: 12, marginTop: 2 },
-  segInfoStrong: { color: color.accent, fontWeight: '800' },
-  segWarn: { color: color.warn, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  setrowKey: { color: color.textMuted, fontSize: 14 },
+  setrowVal: { color: color.text, fontSize: 18, fontWeight: '700' },
+  link: { color: color.accent, fontSize: 14, fontWeight: '700', marginLeft: 'auto' },
+  field: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  fieldLabel: { width: 64, color: color.textMuted, fontSize: 14 },
+  control: { flex: 1 },
+  segInfo: { color: color.textMuted, fontSize: 13, marginTop: -2 },
+  segWarn: { color: color.warn, fontSize: 13, fontWeight: '600', marginTop: -2 },
   stepper: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-    borderRadius: radius.card, padding: 14, marginTop: 4,
+    borderRadius: 16, padding: 16, marginTop: 2,
   },
-  stepperLabel: { color: color.text, fontSize: 15, fontWeight: '600' },
+  stepperLabel: { color: color.text, fontSize: 17, fontWeight: '700' },
   stepperSub: { color: color.textMuted, fontSize: 12, marginTop: 2 },
   stepperCtrl: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   stepBtn: {
@@ -142,7 +148,7 @@ const styles = StyleSheet.create({
     color: color.text, fontSize: 30, minWidth: 34, textAlign: 'center',
     fontFamily: font.mono, fontVariant: ['tabular-nums'],
   },
-  stepTip: { color: color.textMuted, fontSize: 12, lineHeight: 17, marginHorizontal: 2 },
+  stepTip: { color: color.textMuted, fontSize: 12, lineHeight: 17 },
   startBtn: {
     height: touch.lapButton, borderRadius: 26, backgroundColor: color.accent,
     alignItems: 'center', justifyContent: 'center',

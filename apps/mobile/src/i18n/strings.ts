@@ -11,6 +11,8 @@ const en = {
 
   // setup
   lCourse: 'Course', lStroke: 'Stroke', lDist: 'Distance', lSplit: 'Split',
+  changeInSettings: 'Change in Settings', courseUnit: 'Course',
+  splitEvery: (d: number, u: string) => `${d} ${u} splits`,
   lSwimmers: 'Swimmers', lSwimmersSub: 'Time first, assign after',
   steptip: 'Slots are anonymous during timing. Assign swimmers after.',
   segInfo: (n: number, iv: number, u: string) => `${n} segments · LAP every ${iv} ${u}`,
@@ -36,7 +38,7 @@ const en = {
   prev: 'Prev', pb: '🏅 PB', pbShort: 'PB', totalWord: 'total', improvedWord: 'improved',
   swapBtn: '↔ Swap',
   nearWarn: (n: number, g: string) => `⚠ ${g}s gap with lane ${n} — confirm`,
-  saveRec: 'Save Records', again: 'Time Again', pickTitle: 'Select Swimmer',
+  saveRec: 'Save Records', again: 'Time Again', pickTitle: 'Select Swimmer', addSw: 'Add Swimmer',
   savedToast: (n: number) => `✓ ${n} ${n === 1 ? 'record' : 'records'} saved`,
   undoBtn: 'Undo',
 
@@ -47,6 +49,7 @@ const en = {
   delRec: '🗑 Delete', delConfirm: 'Delete this record?', delYes: 'Delete',
   trendSub: (n: number) => `${n} sessions · lower is better`,
   trend: 'Trend', seg: 'Seg', total2: 'Total', bestWord: 'Best',
+  switchLbl: 'Switch', event: 'Event', yo: (n: number) => `${n} yo`, noGroup: 'No group',
   cmpAxisNote: 'segment split (s) · lower is better',
   exportCsv: 'Export CSV', exportFail: 'Export failed',
   noRecords: 'No records yet. Time a session and save it.',
@@ -58,11 +61,15 @@ const en = {
   athEmpty: 'No swimmers yet. Add one to assign records after timing.',
   delSwTitle: (name: string) => `Delete ${name}?`,
   delSwMsg: 'Saved records are kept.',
+  editSw: 'Edit Swimmer', lName: 'Name', lAge: 'Age', lGroup: 'Group',
+  deleteSw: 'Delete Swimmer', save: 'Save', groupPH: 'e.g. Elite (optional)',
 
   // settings
   haptics: 'Haptics', hapticsSub: 'Vibrate on every lap',
   volumeLap: 'Volume-key LAP', volumeLapSub: 'Press volume buttons to lap (Android)',
   volumeLapIos: 'Not available on iOS (App Store policy). Use the on-screen LAP button.',
+  clearDemo: 'Clear demo data', clearDemoSub: 'Remove the 5 sample swimmers and their history',
+  clearDemoConfirm: 'Sample swimmers and their demo records will be removed. Your own data is kept.',
   settingsTip: 'Settings are saved on this device.',
 };
 
@@ -72,6 +79,8 @@ const ko: typeof en = {
   lang: '언어',
 
   lCourse: '코스', lStroke: '종목', lDist: '거리', lSplit: '스플릿',
+  changeInSettings: '설정에서 변경', courseUnit: '코스 단위',
+  splitEvery: (d, u) => `${d} ${u}마다`,
   lSwimmers: '인원', lSwimmersSub: '익명 측정 후 선수 배정',
   steptip: '익명 슬롯으로 측정하고, 끝난 뒤 선수를 배정합니다.',
   segInfo: (n, iv, u) => `구간 ${n}개 · ${iv} ${u}마다 LAP`,
@@ -95,7 +104,7 @@ const ko: typeof en = {
   prev: '이전', pb: '🏅 PB', pbShort: 'PB', totalWord: '총', improvedWord: '향상',
   swapBtn: '↔ 맞바꾸기',
   nearWarn: (n, g) => `⚠ ${n}번과 ${g}초 차 — 선수 확인`,
-  saveRec: '기록 저장', again: '다시 측정', pickTitle: '선수 선택',
+  saveRec: '기록 저장', again: '다시 측정', pickTitle: '선수 선택', addSw: '선수 추가',
   savedToast: (n) => `✓ ${n}명 기록 저장됨`,
   undoBtn: '되돌리기',
 
@@ -105,6 +114,7 @@ const ko: typeof en = {
   delRec: '🗑 삭제', delConfirm: '이 기록을 삭제할까요?', delYes: '삭제',
   trendSub: (n) => `최근 ${n}회 · 낮을수록 좋음`,
   trend: '추세', seg: '구간', total2: '합계', bestWord: '베스트',
+  switchLbl: '변경', event: '종목', yo: (n) => `만 ${n}세`, noGroup: '그룹 없음',
   cmpAxisNote: '구간 스플릿(초) · 낮을수록 좋음',
   exportCsv: 'CSV 내보내기', exportFail: '내보내기 실패',
   noRecords: '아직 기록이 없습니다. 측정 후 저장하면 표시됩니다.',
@@ -115,10 +125,14 @@ const ko: typeof en = {
   athEmpty: '아직 선수가 없습니다. 측정 후 배정하려면 선수를 추가하세요.',
   delSwTitle: (name) => `${name} 선수를 삭제할까요?`,
   delSwMsg: '저장된 기록은 유지됩니다.',
+  editSw: '선수 정보 수정', lName: '이름', lAge: '나이', lGroup: '그룹',
+  deleteSw: '선수 삭제', save: '저장', groupPH: '예: 엘리트반 (선택)',
 
   haptics: '햅틱', hapticsSub: '랩마다 진동 피드백',
   volumeLap: '볼륨 키 LAP', volumeLapSub: '볼륨 버튼으로 랩 기록 (Android)',
   volumeLapIos: 'iOS는 정책상 지원되지 않습니다. 화면의 LAP 버튼을 사용하세요.',
+  clearDemo: '데모 데이터 지우기', clearDemoSub: '샘플 선수 5명과 데모 기록 삭제',
+  clearDemoConfirm: '샘플 선수와 데모 기록이 삭제됩니다. 내가 만든 데이터는 유지됩니다.',
   settingsTip: '설정은 이 기기에 저장됩니다.',
 };
 
