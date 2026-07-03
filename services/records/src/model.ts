@@ -1,10 +1,13 @@
 import { z } from 'zod';
 
+/** ms 값은 클라 타이머 특성상 소수(float)로 올 수 있어 정수로 반올림해 수용. */
+const roundedMs = z.number().finite().transform((v) => Math.round(v));
+
 /** common/data-model.md TrainingRecord (동기화 페이로드). id=UUIDv7(클라 생성). */
 export const splitSchema = z.object({
   segmentIndex: z.number().int().nonnegative(),
-  cumulativeMs: z.number().int().nonnegative(),
-  splitMs: z.number().int(),
+  cumulativeMs: roundedMs.pipe(z.number().int().nonnegative()),
+  splitMs: roundedMs.pipe(z.number().int()),
 });
 
 export const recordSchema = z.object({
@@ -16,7 +19,7 @@ export const recordSchema = z.object({
   distance: z.number().int().positive(),
   course: z.string(),
   splitInterval: z.number().int().positive(),
-  totalMs: z.number().int().nonnegative(),
+  totalMs: roundedMs.pipe(z.number().int().nonnegative()),
   status: z.enum(['finished', 'dnf']),
   slot: z.number().int(),
   splits: z.array(splitSchema),

@@ -27,6 +27,7 @@ export default function RootLayout() {
         }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ presentation: 'modal', title: t.settings }} />
+        <Stack.Screen name="athletes" options={{ title: t.manageAthletes }} />
       </Stack>
     </SafeAreaProvider>
   );

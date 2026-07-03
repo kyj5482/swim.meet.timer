@@ -1,5 +1,5 @@
 import { File, Paths } from 'expo-file-system';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -19,12 +19,14 @@ import CompareChart from '@/features/records/CompareChart';
 import TrendChart from '@/features/records/TrendChart';
 import { eventKeyOf, eventLabel, fmtDate, fmtTime, recordsToCsv } from '@/features/records/csv';
 import TargetCard from '@/features/targets/TargetCard';
+import { standardLadder, stdCourse } from '@/features/targets/standards';
 import { useT } from '@/store/settings';
 import { color, font, radius, touch } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
 
-/** Records 탭 (PWA records 페인 이식): 아바타 헤더 + Switch, 이벤트 드롭다운, 추세 차트, 세션. */
+/** 세부 종목 탭: 아바타 헤더 + Switch, 이벤트 드롭다운, 표준 레벨 축 추세 차트, 세션. */
 export default function RecordsScreen() {
+  const params = useLocalSearchParams<{ event?: string; swimmer?: string }>();
   const [swimmers, setSwimmers] = useState<Swimmer[]>([]);
   const [swimmerId, setSwimmerId] = useState<string | null>(null);
   const [records, setRecords] = useState<TrainingRecord[]>([]);
@@ -54,6 +56,12 @@ export default function RecordsScreen() {
     })();
   }, [swimmerId]);
   useFocusEffect(reload);
+
+  // 전체 종목 탭에서 행 탭 → 해당 선수·종목으로 진입
+  useEffect(() => {
+    if (params.swimmer) { setSwimmerId(params.swimmer); loadRecords(params.swimmer); }
+    if (params.event) setEventKey(params.event);
+  }, [params.swimmer, params.event, loadRecords]);
 
   const swimmerIdx = Math.max(0, swimmers.findIndex((s) => s.id === swimmerId));
   const swimmer = swimmers.find((s) => s.id === swimmerId);
@@ -85,6 +93,15 @@ export default function RecordsScreen() {
   const bestMs = finished.length ? Math.min(...finished.map((r) => r.totalMs)) : null;
   const selected = filtered.filter((r) => cmpIds.has(r.id)).sort((a, b) => a.date - b.date);
   const unit = activeTarget?.course === '25y' ? 'y' : 'm';
+
+  // 표준 사다리(있으면 차트 Y축을 레벨 컷 기준으로) — 성별·나이 미입력 시 null
+  const chartLadder = useMemo(() => {
+    if (!swimmer?.gender || !activeTarget) return null;
+    return standardLadder(
+      stdCourse(activeTarget.course), swimmer.gender === 'M' ? 'M' : 'F',
+      ageOf(swimmer), activeTarget.stroke, activeTarget.distance,
+    );
+  }, [swimmer, activeTarget]);
 
   // 현재 선수·종목의 타겟 로드
   useEffect(() => {
@@ -167,7 +184,7 @@ export default function RecordsScreen() {
             value={activeEvent}
             options={events.map(([k, v]) => ({
               value: k,
-              label: `${eventLabel(v.target)}${Number.isFinite(v.bestMs) ? `  ·  🏅 ${fmtTotal(v.bestMs)}` : ''}`,
+              label: `${eventLabel(v.target)}${Number.isFinite(v.bestMs) ? `  ·  ${fmtTotal(v.bestMs)}` : ''}`,
             }))}
             onChange={setEventKey}
             title={t.event}
@@ -197,6 +214,7 @@ export default function RecordsScreen() {
                 records={finished}
                 title={`${eventLabel(activeTarget)} ${t.trend}`}
                 sub={t.trendSub(finished.length)}
+                ladder={chartLadder}
               />
             )}
             <View style={styles.histHead}>

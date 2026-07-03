@@ -5,9 +5,19 @@
 export type Lang = 'en' | 'ko';
 
 const en = {
-  tabTimer: 'Timer', tabRec: 'Records', tabAth: 'Athletes',
+  tabTimer: 'Timer', tabRec: 'Event Detail', tabAth: 'Athletes', tabAll: 'All Events',
   settings: 'Settings', done: 'Done', cancel: 'Cancel', add: 'Add',
   lang: 'Language',
+
+  // all-events overview
+  manageAthletes: 'Manage athletes',
+  ovBest: 'Best', ovLevel: 'Std', ovNext: 'Next level',
+  ovDrop: (level: string, pct: number) => `${level} needs −${pct}%`,
+  ovTopLevel: 'Top level ✓',
+  ovNoStd: 'No standard',
+  ovNoStdHint: 'Set age & gender in Manage athletes to see USA Swimming standards',
+  ovEmpty: 'No records yet',
+  ovEmptySub: 'Finish a timed session in the Timer tab and results appear here',
 
   // setup
   lCourse: 'Course', lStroke: 'Stroke', lDist: 'Distance', lSplit: 'Split',
@@ -54,7 +64,7 @@ const en = {
   exportCsv: 'Export CSV', exportFail: 'Export failed',
   noRecords: 'No records yet. Time a session and save it.',
   noSwimmers: 'No swimmers yet',
-  noSwimmersSub: 'Add swimmers in the Athletes tab, then time a session.',
+  noSwimmersSub: 'Add swimmers in Manage athletes, then time a session.',
 
   // athletes
   namePH: 'e.g. Minjun',
@@ -95,9 +105,18 @@ const en = {
 };
 
 const ko: typeof en = {
-  tabTimer: '타이머', tabRec: '기록지', tabAth: '선수',
+  tabTimer: '타이머', tabRec: '세부 종목', tabAth: '선수', tabAll: '전체 종목',
   settings: '설정', done: '완료', cancel: '취소', add: '추가',
   lang: '언어',
+
+  manageAthletes: '선수 관리',
+  ovBest: '베스트', ovLevel: '표준', ovNext: '다음 레벨',
+  ovDrop: (level, pct) => `${level}까지 −${pct}%`,
+  ovTopLevel: '최고 레벨 ✓',
+  ovNoStd: '표준 없음',
+  ovNoStdHint: '선수 관리에서 나이·성별을 입력하면 USA Swimming 표준이 표시됩니다',
+  ovEmpty: '아직 기록이 없습니다',
+  ovEmptySub: '타이머 탭에서 측정을 마치면 여기에 종목별로 정리됩니다',
 
   lCourse: '코스', lStroke: '종목', lDist: '거리', lSplit: '스플릿',
   changeInSettings: '설정에서 변경', courseUnit: '코스 단위',
@@ -140,7 +159,7 @@ const ko: typeof en = {
   exportCsv: 'CSV 내보내기', exportFail: '내보내기 실패',
   noRecords: '아직 기록이 없습니다. 측정 후 저장하면 표시됩니다.',
   noSwimmers: '선수가 없습니다',
-  noSwimmersSub: '선수 탭에서 선수를 추가하고 측정해 보세요.',
+  noSwimmersSub: '선수 관리에서 선수를 추가하고 측정해 보세요.',
 
   namePH: '예: 민준',
   athEmpty: '아직 선수가 없습니다. 측정 후 배정하려면 선수를 추가하세요.',

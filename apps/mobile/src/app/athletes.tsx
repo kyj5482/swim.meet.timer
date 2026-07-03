@@ -6,16 +6,19 @@ import {
 
 import Avatar from '@/components/Avatar';
 import { ChevronRight } from '@/components/Icons';
-import TopBar from '@/components/TopBar';
 import { addSwimmer, ageOf, archiveSwimmer, listSwimmers, updateSwimmer, type Swimmer } from '@/db';
 import { useT } from '@/store/settings';
-import { color, radius, touch } from '@/theme';
+import { color, radius } from '@/theme';
 
 const BASE_YEAR = 2026;
 
 type Editing = { swimmer: Swimmer | null }; // null swimmer = 신규 추가
 
-/** Athletes 탭 (PWA 이식): 아바타 카드 목록 + 추가/편집 모달. 삭제는 아카이브(기록 보존). */
+/**
+ * 선수 관리 화면(스택 라우트 — 전체 종목 탭의 '선수 관리'에서 진입).
+ * 아바타 카드 목록 + 추가/편집 모달. 삭제는 아카이브(기록 보존).
+ * 자주 바뀌지 않는 정보라 탭에서 내렸다(탭은 Timer·전체 종목·세부 종목).
+ */
 export default function AthletesScreen() {
   const [swimmers, setSwimmers] = useState<Swimmer[]>([]);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -74,8 +77,7 @@ export default function AthletesScreen() {
 
   return (
     <View style={styles.screen}>
-      <TopBar title={t.tabAth} showGear={false} />
-      <View style={styles.body}>
+      <View style={[styles.body, { paddingTop: 12 }]}>
         <Pressable style={styles.addBtn} onPress={openAdd}>
           <Text style={styles.addBtnText}>{`＋ ${t.addSw}`}</Text>
         </Pressable>

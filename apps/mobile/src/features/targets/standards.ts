@@ -1,15 +1,23 @@
 import type { LadderStep } from '@splitlane/timer-core';
 
+import { MOTIVATIONAL } from './standards.data';
+
 /**
- * 표준기록 데이터(온디바이스 subset). 값은 실제 USA Swimming 2024-2028 SCY
- * Motivational에서 확인한 것만 verified. 전체 공식 임포트는 백엔드 T-204.
- * 출처: swimstandards.com / USA Swimming 공식 PDF (2024-2028).
- *
- * 구조가 핵심 — 여기에 (성별×연령대×종목) 키를 추가하면 그대로 확장된다.
+ * 표준기록 조회. 데이터는 standards.data.ts(임포터 생성물,
+ * tools/standards-import) — 코스×성별×연령그룹×종목 → 레벨별 컷타임(ms).
+ * 값이 없는 조합은 null을 돌려주고 UI는 해당 선택지를 숨긴다.
  */
 export type Gender = 'F' | 'M';
 export type Level = 'B' | 'BB' | 'A' | 'AA' | 'AAA' | 'AAAA';
 export const LEVELS: Level[] = ['B', 'BB', 'A', 'AA', 'AAA', 'AAAA'];
+
+/** 표준기록 코스 표기. 앱 설정 코스('25y'|'25m'|'50m') → SCY/SCM/LCM. */
+export type StdCourse = 'SCY' | 'SCM' | 'LCM';
+export function stdCourse(appCourse: string): StdCourse {
+  if (appCourse === '25m') return 'SCM';
+  if (appCourse === '50m') return 'LCM';
+  return 'SCY';
+}
 
 /** 종목 키: `${distance}${strokeCode}` 예 '50FR','100BK'. */
 const STROKE_CODE: Record<string, string> = { free: 'FR', back: 'BK', breast: 'BR', fly: 'FL', im: 'IM' };
@@ -30,40 +38,39 @@ export function ageGroup(age: number | null): AgeGroup | null {
   return '17-18';
 }
 
-type LevelTimes = Record<Level, number>; // ms
-const sec = (s: number) => Math.round(s * 1000);
-
-/**
- * MOTIVATIONAL[gender][ageGroup][eventCode] = 레벨별 컷타임(ms).
- * 현재 verified: 여자 11-12 SCY 50 Free / 100 Free (2024-2028).
- */
-const MOTIVATIONAL: Record<string, Record<string, Record<string, LevelTimes>>> = {
-  F: {
-    '11-12': {
-      '50FR': { B: sec(31.79), BB: sec(29.49), A: sec(27.29), AA: sec(26.09), AAA: sec(24.99), AAAA: sec(23.89) },
-      '100FR': { B: sec(68.79), BB: sec(63.79), A: sec(58.89), AA: sec(56.49), AAA: sec(53.99), AAAA: sec(51.59) },
-    },
-  },
-};
+function times(course: StdCourse, gender: Gender, ag: AgeGroup, stroke: string, distance: number) {
+  return MOTIVATIONAL[course]?.[gender]?.[ag]?.[eventCode(stroke, distance)] ?? null;
+}
 
 /** 연령그룹 문자열로 직접 조회(타겟 시트에서 사용자가 그룹을 고를 때). */
-export function standardLadderForGroup(gender: Gender, ag: AgeGroup, stroke: string, distance: number): LadderStep[] | null {
-  const times = MOTIVATIONAL[gender]?.[ag]?.[eventCode(stroke, distance)];
-  if (!times) return null;
-  return LEVELS.map((level) => ({ level, timeMs: times[level] }));
+export function standardLadderForGroup(
+  course: StdCourse, gender: Gender, ag: AgeGroup, stroke: string, distance: number,
+): LadderStep[] | null {
+  const t = times(course, gender, ag, stroke, distance);
+  if (!t) return null;
+  const steps: LadderStep[] = [];
+  for (const level of LEVELS) {
+    const ms = t[level];
+    if (ms != null) steps.push({ level, timeMs: ms });
+  }
+  return steps.length > 0 ? steps : null;
 }
 
 /** 이 조합에 표준 사다리가 있으면 LadderStep[](빠른→느린 정렬은 엔진이 처리), 없으면 null. */
-export function standardLadder(gender: Gender, age: number | null, stroke: string, distance: number): LadderStep[] | null {
+export function standardLadder(
+  course: StdCourse, gender: Gender, age: number | null, stroke: string, distance: number,
+): LadderStep[] | null {
   const ag = ageGroup(age);
   if (!ag) return null;
-  return standardLadderForGroup(gender, ag, stroke, distance);
+  return standardLadderForGroup(course, gender, ag, stroke, distance);
 }
 
 /** 특정 레벨의 컷타임(ms) 또는 null. */
-export function levelTime(gender: Gender, age: number | null, stroke: string, distance: number, level: Level): number | null {
+export function levelTime(
+  course: StdCourse, gender: Gender, age: number | null, stroke: string, distance: number, level: Level,
+): number | null {
   const ag = ageGroup(age);
-  const t = ag ? MOTIVATIONAL[gender]?.[ag]?.[eventCode(stroke, distance)]?.[level] : undefined;
+  const t = ag ? times(course, gender, ag, stroke, distance)?.[level] : undefined;
   return t ?? null;
 }
 

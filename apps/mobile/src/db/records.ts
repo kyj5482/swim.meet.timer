@@ -4,6 +4,11 @@ import { getDb } from './database';
 import { newId } from './ids';
 import { computeStats, rowToRecord, type RecordRow, type TrainingRecord } from './mapping';
 
+/** 탭 이벤트 타임스탬프는 소수(ms)일 수 있어 저장·동기화 전 정수로 반올림. */
+function roundSplit<T extends { cumulativeMs: number; splitMs: number }>(sp: T): T {
+  return { ...sp, cumulativeMs: Math.round(sp.cumulativeMs), splitMs: Math.round(sp.splitMs) };
+}
+
 /**
  * ASSIGN 확정 저장 (§3.7): 배정된 슬롯마다 TrainingRecord 1개, 트랜잭션
  * (전부 저장 또는 전부 롤백). 반환된 sessionId로 저장 취소(deleteSession) 가능.
@@ -25,8 +30,8 @@ export async function saveSession(
         [
           newId(now), s.swimmerId!, sessionId, now,
           target.stroke, target.distance, target.course, target.splitInterval,
-          s.lastCumMs, s.status === 'dnf' ? 'dnf' : 'finished', s.idx + 1,
-          JSON.stringify(s.splits), now,
+          Math.round(s.lastCumMs), s.status === 'dnf' ? 'dnf' : 'finished', s.idx + 1,
+          JSON.stringify(s.splits.map(roundSplit)), now,
         ],
       );
     }
@@ -89,8 +94,9 @@ export async function recordsForPush(swimmerId: string): Promise<SyncPayload[]> 
   return rows.map((r) => ({
     id: r.id, swimmerId: r.swimmerId, sessionId: r.sessionId, date: r.date,
     stroke: r.stroke, distance: r.distance, course: r.course, splitInterval: r.splitInterval,
-    totalMs: r.totalMs, status: r.status as 'finished' | 'dnf', slot: r.slot,
-    splits: JSON.parse(r.splitsJson), updatedAt: r.updatedAt, deleted: r.deleted === 1,
+    totalMs: Math.round(r.totalMs), status: r.status as 'finished' | 'dnf', slot: r.slot,
+    splits: (JSON.parse(r.splitsJson) as SyncPayload['splits']).map(roundSplit),
+    updatedAt: r.updatedAt, deleted: r.deleted === 1,
   }));
 }
 

@@ -15,7 +15,8 @@ testing)만 읽는다. 서비스 코드(services/*)는 열지 않는다 — API 
 ## 구조
 ```
 src/
-  app/            # expo-router 라우트. _layout.tsx = 탭 3개(timer=index, records, athletes)
+  app/            # expo-router 라우트. 탭 3개(timer=index, events=전체 종목, records=세부 종목)
+                  # + 스택: athletes(선수 관리), settings
   theme.ts        # common/design-system.md 토큰의 유일한 구현
   db/             # (T-103) sqlite 스키마·마이그레이션·리포지토리
   sync/           # (Phase 2) records API 동기화

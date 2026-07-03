@@ -37,6 +37,14 @@ export function laneColor(i: number): string {
   return color.lane[i % color.lane.length]!;
 }
 
+/** 표준기록 레벨 배지/셀 색 — B(입문)→AAAA(최상위) 진행 램프(어두운 배경 위). */
+const STD_LEVEL: Record<string, string> = {
+  B: '#5B8DEF', BB: '#41B9D7', A: '#19E3C6', AA: '#5BE584', AAA: '#FFC24B', AAAA: '#FF7A45',
+};
+export function stdLevelColor(level: string): string {
+  return STD_LEVEL[level] ?? color.textMuted;
+}
+
 /** 이름 이니셜(아바타용) — 한글은 첫 글자, 영문은 두 글자. */
 export function initials(name: string): string {
   const t = name.trim();

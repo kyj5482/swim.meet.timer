@@ -11,7 +11,8 @@ import {
   fmtTotal, ladderPosition, parseTime, trajectory, type TrendPoint,
 } from '@splitlane/timer-core';
 import {
-  AGE_GROUPS, ageGroup, standardLadder, standardLadderForGroup, type AgeGroup, type Gender, type Level,
+  AGE_GROUPS, ageGroup, standardLadder, standardLadderForGroup, stdCourse,
+  type AgeGroup, type Gender, type Level,
 } from './standards';
 
 interface Props {
@@ -38,8 +39,8 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
   const gender: Gender = swimmer.gender === 'M' ? 'M' : 'F';
   const age = swimmer.birthYear ? 2026 - swimmer.birthYear : null;
   const ladder = useMemo(
-    () => standardLadder(gender, age, target.stroke, target.distance),
-    [gender, age, target.stroke, target.distance],
+    () => standardLadder(stdCourse(target.course), gender, age, target.stroke, target.distance),
+    [gender, age, target.stroke, target.distance, target.course],
   );
   const points: TrendPoint[] = useMemo(
     () => finished.map((r) => ({ date: r.date, totalMs: r.totalMs })),
@@ -167,8 +168,8 @@ function TargetSheet({ onClose, swimmer, target, bestMs, eventKey, initial, onSa
   const swAge = swimmer.birthYear ? 2026 - swimmer.birthYear : null;
   const [ag, setAg] = useState<AgeGroup>(ageGroup(swAge) ?? '11-12');
   const ladder = useMemo(
-    () => standardLadderForGroup(gender, ag, target.stroke, target.distance),
-    [gender, ag, target.stroke, target.distance],
+    () => standardLadderForGroup(stdCourse(target.course), gender, ag, target.stroke, target.distance),
+    [gender, ag, target.stroke, target.distance, target.course],
   );
   const [mode, setMode] = useState<'level' | 'custom'>(ladder ? 'level' : 'custom');
   const [level, setLevel] = useState<Level | null>(null);

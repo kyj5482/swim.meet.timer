@@ -39,6 +39,15 @@ describe('PUT /records/batch', () => {
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).upserted).toBe(1);
   });
+  it('소수(ms float) 값은 반올림해 수용 — iOS 이벤트 타임스탬프 대응', async () => {
+    ddb.on(BatchWriteCommand).resolves({});
+    const floaty = {
+      ...rec, totalMs: 62_340.4179992,
+      splits: [{ segmentIndex: 0, cumulativeMs: 62_340.4179992, splitMs: 62_340.4179992 }],
+    };
+    const res = await handler(evt('PUT', { body: JSON.stringify({ records: [floaty] }) }), {} as never, () => {}) as { statusCode: number };
+    expect(res.statusCode).toBe(200);
+  });
   it('스키마 위반 400', async () => {
     const res = await handler(evt('PUT', { body: JSON.stringify({ records: [{ id: 'x' }] }) }), {} as never, () => {}) as { statusCode: number };
     expect(res.statusCode).toBe(400);

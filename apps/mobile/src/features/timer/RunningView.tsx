@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import {
   Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent,
 } from 'react-native';
@@ -25,8 +25,65 @@ interface Props {
  * 측정 화면. 입력 2종(§3.4):
  * - 단일 LAP 버튼 → 예측 슬롯(peekNext)
  * - 레인 행 직접 탭 → 그 슬롯(WYSIWYG, 역전에도 100%)
- * 모든 입력은 onPressIn + e.nativeEvent.timestamp — 렌더 지연과 무관한 캡처 시각.
+ * 모든 입력은 이벤트가 가진 timestamp — 렌더 지연과 무관한 캡처 시각.
+ *
+ * 동시 터치: RN 책임자(responder) 시스템은 한 번에 한 뷰만 응답해 onPressIn으로는
+ * 두 레인 동시 탭이 불가능하다. 레인 행은 손가락마다 각자의 타깃 뷰로 전달되는
+ * raw touch 이벤트(MultiTapPressable)로 처리 — 두 레인을 동시에 눌러도 각각
+ * 자기 손가락이 닿은 시각으로 기록된다(1/100초 유지).
  */
+/** 스크롤 판정 슬롭(px) — 이 이상 움직이면 탭이 아니라 스크롤. */
+const TAP_SLOP = 12;
+/** 같은 레인 행에 이 간격(ms) 이내 재터치는 중복(팜 터치)으로 무시. */
+const DOUBLE_TAP_GUARD_MS = 250;
+
+type MultiTapProps = React.ComponentProps<typeof Pressable> & {
+  /** 손가락이 닿았던 시각(이벤트 timestamp)으로 호출. 손가락마다 1회. */
+  onMultiTap: (ts: number) => void;
+  tapDisabled?: boolean;
+};
+
+/**
+ * 여러 손가락 동시 탭을 각각 인식하는 Pressable. 커밋 시각은 finger-down의
+ * 이벤트 timestamp(정밀), 확정은 finger-up(스크롤 시작이면 move-slop 또는
+ * 네이티브 touchCancel로 취소되어 오탭 방지).
+ */
+function MultiTapPressable({ onMultiTap, tapDisabled, ...rest }: MultiTapProps) {
+  // identifier → 시작 시각/좌표. 이 행에서 시작한 손가락만 들어있다.
+  const touches = useRef(new Map<string, { ts: number; x: number; y: number }>()).current;
+  const lastCommitTs = useRef(-Infinity);
+  return (
+    <Pressable
+      {...rest}
+      onTouchStart={(e) => {
+        for (const tc of e.nativeEvent.changedTouches) {
+          touches.set(String(tc.identifier), { ts: tc.timestamp, x: tc.pageX, y: tc.pageY });
+        }
+      }}
+      onTouchMove={(e) => {
+        for (const tc of e.nativeEvent.changedTouches) {
+          const d = touches.get(String(tc.identifier));
+          if (d && (Math.abs(tc.pageX - d.x) > TAP_SLOP || Math.abs(tc.pageY - d.y) > TAP_SLOP)) {
+            touches.delete(String(tc.identifier));
+          }
+        }
+      }}
+      onTouchCancel={(e) => {
+        for (const tc of e.nativeEvent.changedTouches) touches.delete(String(tc.identifier));
+      }}
+      onTouchEnd={(e) => {
+        for (const tc of e.nativeEvent.changedTouches) {
+          const d = touches.get(String(tc.identifier));
+          touches.delete(String(tc.identifier));
+          if (!d || tapDisabled) continue;
+          if (d.ts - lastCommitTs.current < DOUBLE_TAP_GUARD_MS) continue;
+          lastCommitTs.current = d.ts;
+          onMultiTap(d.ts);
+        }
+      }}
+    />
+  );
+}
 export default function RunningView({ engine, onFinished, onReset, onPersist, ClockSlot }: Props) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const t = useT();
@@ -44,10 +101,15 @@ export default function RunningView({ engine, onFinished, onReset, onPersist, Cl
     [onFinished, onPersist, haptics],
   );
 
-  const commitFrom = useCallback(
-    (fn: (ts: number) => ReturnType<TimerEngine['lap']>) => (e: GestureResponderEvent) =>
-      applyCommit(fn(e.nativeEvent.timestamp)),
-    [applyCommit],
+  // LAP 버튼: 스크롤 영역 밖이라 finger-down 즉시 커밋(즉각 피드백).
+  // 여러 손가락이 한 제스처로 닿아도 1회만 — 새 손가락 배치가 곧 전체 활성
+  // 터치일 때(=제스처의 첫 배치)만 커밋한다.
+  const lapOnTouchStart = useCallback(
+    (e: GestureResponderEvent) => {
+      if (e.nativeEvent.touches.length > e.nativeEvent.changedTouches.length) return;
+      applyCommit(engine.lap(e.nativeEvent.timestamp));
+    },
+    [applyCommit, engine],
   );
 
   // 볼륨 키 LAP (Android, FR-T3c eyes-free): KeyEvent의 커널 캡처 시각을 그대로
@@ -82,9 +144,10 @@ export default function RunningView({ engine, onFinished, onReset, onPersist, Cl
           const done = s.status !== 'in_progress';
           const last = s.splits.slice(-3);
           return (
-            <Pressable
+            <MultiTapPressable
               key={s.idx}
-              onPressIn={commitFrom((ts) => engine.tapLane(s.idx, ts))}
+              onMultiTap={(ts) => applyCommit(engine.tapLane(s.idx, ts))}
+              tapDisabled={done}
               disabled={done}
               style={({ pressed }) => [
                 styles.lane,
@@ -126,7 +189,7 @@ export default function RunningView({ engine, onFinished, onReset, onPersist, Cl
                   )}
                 </View>
               </View>
-            </Pressable>
+            </MultiTapPressable>
           );
         })}
       </ScrollView>
@@ -142,7 +205,7 @@ export default function RunningView({ engine, onFinished, onReset, onPersist, Cl
 
       <Pressable
         style={({ pressed }) => [styles.lapBtn, pressed && styles.lapPressed]}
-        onPressIn={commitFrom((ts) => engine.lap(ts))}>
+        onTouchStart={lapOnTouchStart}>
         <Text style={styles.lapWord}>LAP</Text>
         <Text style={styles.lapNext}>{next ? t.lapNext(next.idx + 1) : t.lapDone}</Text>
       </Pressable>

@@ -137,3 +137,46 @@
   실제로 선수·기록이 DynamoDB Local에 저장되고 재조회된다.
 - 전 워크스페이스 테스트 87개 통과(timer-core 32·앱 29(client.ts 8 포함)·
   shared 5·standards 5·records 6·infra 3·local-api 7).
+
+## T-114 · T-115 · T-116 — 필드 피드백 배치 (동시 탭 · 표준 전체 · UI 재구성)
+
+사용자 피드백 4건을 한 배치로 처리.
+
+### T-114 동시 다중 레인 탭 + 동기화 float 수정
+- **Sync 400 수정**: 앱 타이머 타임스탬프가 소수(ms float)라 서버 zod
+  `int()` 검증에서 400. 3중 방어 — 저장 시 반올림(saveSession),
+  푸시 직전 반올림(recordsForPush, 기존 행 대응), 서버 스키마도
+  `transform(round)`로 수용(services/records/model.ts). 테스트 추가.
+- **멀티터치**: RN responder(onPressIn)는 한 번에 한 뷰만 → 두 레인 동시 탭
+  불가였음. 레인 행을 raw touch 이벤트 기반 `MultiTapPressable`로 교체 —
+  손가락마다 자기 finger-down timestamp로 커밋(1/100초 유지), move-slop·
+  touchCancel로 스크롤 오탭 방지, 같은 행 250ms 중복 가드. LAP 버튼은
+  touchStart 즉시 커밋(제스처당 1회 가드).
+
+### T-115 표준기록 전체 임포터
+- 이 세션 환경은 egress 정책으로 외부 웹 차단 → 값 하드코딩 대신
+  **tools/standards-import**: 공식 USA Swimming 2024-2028 PDF(연령그룹판)를
+  다운로드·파싱해 `common/standards/seed/usa-swimming-motivational.json` +
+  `apps/mobile/.../standards.data.ts`(온디바이스) 생성. 데이터를 지어내지
+  않기 위해 단조성 검증 + 검증된 앵커(여 11-12 SCY 50/100FR) 불일치 시
+  중단. 파서 테스트 21개. **Mac에서 1회 실행 필요**:
+  `npm run import -w tools/standards-import -- --write` 후 두 파일 커밋.
+- 앱 standards는 코스(SCY/SCM/LCM) 차원 추가 — 25y/25m/50m 기록이 각각
+  맞는 표준과 비교된다.
+
+### T-116 UI 재구성 (선수·코치·부모 사용성)
+- **탭 = 타이머 · 전체 종목 · 세부 종목**. Athletes는 자주 안 바뀌므로 탭에서
+  내리고 전체 종목 탭 Switch 모달의 '선수 관리'(스택 라우트)로 이동.
+- **전체 종목(신규)**: 선수 1명의 모든 종목 한눈에 — 베스트, 달성 레벨 배지,
+  다음 레벨까지 필요한 단축률(myswimio "% drop needed"). 행 탭 → 세부 종목.
+- **세부 종목(기존 Records 개선)**: 이벤트 드롭다운 메달 아이콘 제거.
+  차트를 myswimio 방식으로 재작성 — Y 도메인을 선수 기록이 아니라 **표준
+  레벨 컷 기준**으로(다음 레벨 컷·한 단계 느린 컷, 데이터에서 너무 멀면
+  확장 안 함), 컷은 레벨명+실제 시간 라벨의 가로선, 다음 레벨은 강조
+  대시+목표 존 셰이딩, 점 아래 실제 기록 라벨(많으면 처음·베스트·마지막만),
+  X축 날짜 시간축 + 좌우 8% 패딩, 떠 있는 PB 라벨 제거.
+  순수 계산은 chartMath.ts(테스트 9개)·progress.ts(테스트 3개)로 분리.
+- Expo web + Playwright로 3탭 스크린샷 검증(전체 종목 레벨 배지·세부 종목
+  컷 라인 차트·선수 관리 스택 라우트 정상).
+- 전 워크스페이스 테스트 121개 통과(timer-core 32·앱 41·shared 5·records 7·
+  standards 5·infra 3·local-api 7·standards-import 21).

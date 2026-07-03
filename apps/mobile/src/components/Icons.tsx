@@ -27,6 +27,18 @@ export function AthletesIcon({ color, size = 24 }: { color: string; size?: numbe
   );
 }
 
+/** 전체 종목(오버뷰) 탭 아이콘 — 리스트 요약. */
+export function ListIcon({ color, size = 24 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M8 6h13M8 12h13M8 18h13" />
+      <Circle cx={3.5} cy={6} r={1.4} fill={color} stroke="none" />
+      <Circle cx={3.5} cy={12} r={1.4} fill={color} stroke="none" />
+      <Circle cx={3.5} cy={18} r={1.4} fill={color} stroke="none" />
+    </Svg>
+  );
+}
+
 export function ChevronDown({ color, size = 20 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
