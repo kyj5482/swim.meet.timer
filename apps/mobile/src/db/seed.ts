@@ -49,9 +49,10 @@ const EVENTS: EventTemplate[] = [
 /** 6개 세션 날짜(2026년, 과거→현재). PWA의 05-10 … 06-17과 동일. */
 const SESSION_DATES = ['05-10', '05-20', '05-28', '06-05', '06-12', '06-17'];
 
-function dateMs(md: string): number {
+/** 데모 세션 시각 — 저녁 연습(18:30 + 종목별 소폭 오프셋)으로 시간까지 남긴다. */
+function dateMs(md: string, minuteOffset = 0): number {
   const [m, d] = md.split('-').map((x) => parseInt(x, 10));
-  return Date.UTC(BASE_YEAR, m! - 1, d!, 12, 0, 0);
+  return Date.UTC(BASE_YEAR, m! - 1, d!, 18, 30 + minuteOffset, 0);
 }
 
 /** 선수마다 ±~6% 편차 — 추천/랭킹이 의미 있도록. PWA hashF와 동일 개념. */
@@ -91,7 +92,7 @@ export function buildSeedRecords(): SeedRecord[] {
   const out: SeedRecord[] = [];
   for (const sw of SEED_SWIMMERS) {
     const f = swimmerFactor(sw.id);
-    for (const ev of EVENTS) {
+    EVENTS.forEach((ev, evIdx) => {
       const best = +(ev.base * f).toFixed(2);
       const segN = ev.distance / ev.splitInterval;
       SESSION_DATES.forEach((md, i) => {
@@ -108,7 +109,8 @@ export function buildSeedRecords(): SeedRecord[] {
           id: `seed-rec-${key}`,
           swimmerId: sw.id,
           sessionId: `seed-sess-${key}`,
-          date: dateMs(md),
+          date: dateMs(md, evIdx * 4), // 종목별 시각 소폭 차이
+
           stroke: ev.stroke,
           distance: ev.distance,
           course: '25y',
@@ -117,7 +119,7 @@ export function buildSeedRecords(): SeedRecord[] {
           splits,
         });
       });
-    }
+    });
   }
   return out;
 }

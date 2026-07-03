@@ -5,9 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import ActionMenu, { type MenuAction } from '@/components/ActionMenu';
 import Avatar from '@/components/Avatar';
-import { ChevronDown } from '@/components/Icons';
+import { ChevronDown, MoreVertical } from '@/components/Icons';
 import Select from '@/components/Select';
 import {
   ageOf, clearTarget, deleteRecord, getTarget, listRecords, listSwimmers, setTarget,
@@ -15,10 +17,10 @@ import {
 } from '@/db';
 import CompareChart from '@/features/records/CompareChart';
 import TrendChart from '@/features/records/TrendChart';
-import { eventKeyOf, eventLabel, recordsToCsv } from '@/features/records/csv';
+import { eventKeyOf, eventLabel, fmtDate, fmtTime, recordsToCsv } from '@/features/records/csv';
 import TargetCard from '@/features/targets/TargetCard';
 import { useT } from '@/store/settings';
-import { color, font, laneColor, radius, touch } from '@/theme';
+import { color, font, radius, touch } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
 
 /** Records 탭 (PWA records 페인 이식): 아바타 헤더 + Switch, 이벤트 드롭다운, 추세 차트, 세션. */
@@ -33,6 +35,9 @@ export default function RecordsScreen() {
   const [comparing, setComparing] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [savedTarget, setSavedTarget] = useState<Target | null>(null);
+  const [headerMenu, setHeaderMenu] = useState(false);
+  const [rowMenu, setRowMenu] = useState<TrainingRecord | null>(null);
+  const insets = useSafeAreaInsets();
   const t = useT();
 
   const loadRecords = useCallback((sid: string) => {
@@ -122,7 +127,7 @@ export default function RecordsScreen() {
 
   if (swimmers.length === 0) {
     return (
-      <View style={styles.emptyScreen}>
+      <View style={[styles.emptyScreen, { paddingTop: insets.top }]}>
         <Text style={styles.emptyIcon}>🏊</Text>
         <Text style={styles.emptyText}>{t.noSwimmers}</Text>
         <Text style={styles.emptySub}>{t.noSwimmersSub}</Text>
@@ -130,20 +135,29 @@ export default function RecordsScreen() {
     );
   }
 
+  const headerActions: MenuAction[] = [
+    { label: t.exportCsv, onPress: onExport },
+  ];
+
   return (
-    <View style={styles.screen}>
-      {/* 아바타 헤더 + Switch (PWA .rec-header) */}
-      <Pressable style={styles.recHeader} onPress={() => setSwitching(true)}>
-        <Avatar name={swimmer?.name ?? '?'} index={swimmerIdx} size={52} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.recName}>{swimmer?.name}</Text>
-          <Text style={styles.recMeta}>{swimmer ? metaLine(swimmer) : ''}</Text>
-        </View>
-        <View style={styles.switchWrap}>
-          <Text style={styles.switchText}>{t.switchLbl}</Text>
-          <ChevronDown color={color.accent} size={16} />
-        </View>
-      </Pressable>
+    <View style={[styles.screen, { paddingTop: insets.top + 4 }]}>
+      {/* 아바타 헤더 + Switch + ⋮ (PWA .rec-header) */}
+      <View style={styles.recHeader}>
+        <Pressable style={styles.recHeaderMain} onPress={() => setSwitching(true)}>
+          <Avatar name={swimmer?.name ?? '?'} index={swimmerIdx} size={52} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.recName}>{swimmer?.name}</Text>
+            <Text style={styles.recMeta}>{swimmer ? metaLine(swimmer) : ''}</Text>
+          </View>
+          <View style={styles.switchWrap}>
+            <Text style={styles.switchText}>{t.switchLbl}</Text>
+            <ChevronDown color={color.accent} size={16} />
+          </View>
+        </Pressable>
+        <Pressable style={styles.kebab} onPress={() => setHeaderMenu(true)} hitSlop={8}>
+          <MoreVertical color={color.textMuted} />
+        </Pressable>
+      </View>
 
       {/* 이벤트 드롭다운 (PB 인라인) */}
       {events.length > 0 && activeEvent && (
@@ -223,9 +237,9 @@ export default function RecordsScreen() {
                   </View>
                 )}
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.rowDate}>{new Date(item.date).toLocaleDateString()}</Text>
-                  <Text style={styles.rowMeta}>
-                    {eventLabel(item.target)}
+                  <Text style={styles.rowDate} numberOfLines={1}>{fmtDate(item.date)}</Text>
+                  <Text style={styles.rowMeta} numberOfLines={1}>
+                    {`${fmtTime(item.date)} · ${eventLabel(item.target)}`}
                     {isPB ? ` · ${t.bestWord}` : ''}
                   </Text>
                 </View>
@@ -237,6 +251,11 @@ export default function RecordsScreen() {
                 {isPB && <View style={styles.pbBadge}><Text style={styles.pbBadgeText}>{t.pbShort}</Text></View>}
                 {item.status === 'dnf' && <Text style={styles.dnf}>DNF</Text>}
                 <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
+                {!cmpMode && (
+                  <Pressable style={styles.rowKebab} onPress={() => setRowMenu(item)} hitSlop={6}>
+                    <MoreVertical color={color.textMuted} size={18} />
+                  </Pressable>
+                )}
               </Pressable>
 
               {expanded && !cmpMode && (
@@ -252,9 +271,6 @@ export default function RecordsScreen() {
                       </View>
                     ))}
                   </View>
-                  <Pressable style={styles.delMini} onPress={() => onDelete(item)}>
-                    <Text style={styles.delMiniText}>{t.delRec}</Text>
-                  </Pressable>
                 </View>
               )}
             </View>
@@ -262,8 +278,9 @@ export default function RecordsScreen() {
         }}
       />
 
-      <View style={styles.actions}>
-        {cmpMode ? (
+      {/* 비교 모드에서만 하단 액션(Compare). Export는 헤더 ⋮ 메뉴로 이동. */}
+      {cmpMode && (
+        <View style={styles.actions}>
           <Pressable
             style={[styles.compareBtn, selected.length < 2 && styles.btnDisabled]}
             disabled={selected.length < 2}
@@ -272,12 +289,17 @@ export default function RecordsScreen() {
               {selected.length < 2 ? t.selectMode : t.compareN(selected.length)}
             </Text>
           </Pressable>
-        ) : (
-          <Pressable style={[styles.exportBtn, records.length === 0 && styles.btnDisabled]} disabled={records.length === 0} onPress={onExport}>
-            <Text style={styles.exportText}>{t.exportCsv}</Text>
-          </Pressable>
-        )}
-      </View>
+        </View>
+      )}
+
+      {/* 헤더 ⋮ 메뉴 (Export 등) */}
+      <ActionMenu visible={headerMenu} onClose={() => setHeaderMenu(false)} actions={headerActions} />
+      {/* 세션 행 ⋮ 메뉴 (Delete) */}
+      <ActionMenu
+        visible={rowMenu != null}
+        onClose={() => setRowMenu(null)}
+        actions={rowMenu ? [{ label: t.delYes, destructive: true, onPress: () => onDelete(rowMenu) }] : []}
+      />
 
       {/* 선수 전환 모달 (Switch) */}
       <Modal visible={switching} transparent animationType="fade" onRequestClose={() => setSwitching(false)}>
@@ -354,12 +376,15 @@ export default function RecordsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 14, gap: 10 },
+  screen: { flex: 1, backgroundColor: color.bg, paddingHorizontal: 16, paddingBottom: 14, gap: 10 },
   emptyScreen: { flex: 1, backgroundColor: color.bg, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 32 },
   emptyIcon: { fontSize: 40, opacity: 0.7 },
   emptyText: { color: color.text, fontSize: 18, fontWeight: '700' },
   emptySub: { color: color.textMuted, fontSize: 13, textAlign: 'center' },
-  recHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
+  recHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
+  recHeaderMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  kebab: { padding: 6 },
+  rowKebab: { padding: 2, marginLeft: 2 },
   recName: { color: color.text, fontSize: 20, fontWeight: '700' },
   recMeta: { color: color.textMuted, fontSize: 12, marginTop: 2 },
   switchWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },

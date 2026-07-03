@@ -17,8 +17,11 @@ export function eventCode(stroke: string, distance: number): string {
   return `${distance}${STROKE_CODE[stroke] ?? stroke.toUpperCase()}`;
 }
 
+export const AGE_GROUPS = ['10U', '11-12', '13-14', '15-16', '17-18'] as const;
+export type AgeGroup = (typeof AGE_GROUPS)[number];
+
 /** 만 나이 → USA Swimming 연령 그룹. */
-export function ageGroup(age: number | null): string | null {
+export function ageGroup(age: number | null): AgeGroup | null {
   if (age == null) return null;
   if (age <= 10) return '10U';
   if (age <= 12) return '11-12';
@@ -43,13 +46,18 @@ const MOTIVATIONAL: Record<string, Record<string, Record<string, LevelTimes>>> =
   },
 };
 
+/** 연령그룹 문자열로 직접 조회(타겟 시트에서 사용자가 그룹을 고를 때). */
+export function standardLadderForGroup(gender: Gender, ag: AgeGroup, stroke: string, distance: number): LadderStep[] | null {
+  const times = MOTIVATIONAL[gender]?.[ag]?.[eventCode(stroke, distance)];
+  if (!times) return null;
+  return LEVELS.map((level) => ({ level, timeMs: times[level] }));
+}
+
 /** 이 조합에 표준 사다리가 있으면 LadderStep[](빠른→느린 정렬은 엔진이 처리), 없으면 null. */
 export function standardLadder(gender: Gender, age: number | null, stroke: string, distance: number): LadderStep[] | null {
   const ag = ageGroup(age);
   if (!ag) return null;
-  const times = MOTIVATIONAL[gender]?.[ag]?.[eventCode(stroke, distance)];
-  if (!times) return null;
-  return LEVELS.map((level) => ({ level, timeMs: times[level] }));
+  return standardLadderForGroup(gender, ag, stroke, distance);
 }
 
 /** 특정 레벨의 컷타임(ms) 또는 null. */

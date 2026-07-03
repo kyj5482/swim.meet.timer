@@ -1,28 +1,35 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+} from 'react-native';
 
 import type { Swimmer, Target, TrainingRecord } from '@/db';
 import { useT } from '@/store/settings';
 import { color, font, radius } from '@/theme';
 import {
-  fmtTotal, ladderPosition, parseTime, trajectory,
-  type LadderStep, type TrendPoint,
+  fmtTotal, ladderPosition, parseTime, trajectory, type TrendPoint,
 } from '@splitlane/timer-core';
-import { standardLadder, type Gender, type Level } from './standards';
+import {
+  AGE_GROUPS, ageGroup, standardLadder, standardLadderForGroup, type AgeGroup, type Gender, type Level,
+} from './standards';
 
 interface Props {
   swimmer: Swimmer;
-  target: TrainingRecord['target'];   // stroke/distance/course
+  target: TrainingRecord['target'];
   eventKey: string;
-  finished: TrainingRecord[];         // 이 종목의 완주 기록(정렬 무관)
+  finished: TrainingRecord[];
   saved: Target | null;
   onSave: (t: Target) => void;
   onRemove: () => void;
 }
 
 const NOW = () => Date.now();
+const fmtYMD = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+};
 
-/** 타겟 진행 카드 (제품 핵심): 달성률 게이지 + 궤적(순항/예상일/주간개선/가속) + 표준 사다리. */
 export default function TargetCard({ swimmer, target, eventKey, finished, saved, onSave, onRemove }: Props) {
   const t = useT();
   const [sheet, setSheet] = useState(false);
@@ -34,7 +41,6 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
     () => standardLadder(gender, age, target.stroke, target.distance),
     [gender, age, target.stroke, target.distance],
   );
-
   const points: TrendPoint[] = useMemo(
     () => finished.map((r) => ({ date: r.date, totalMs: r.totalMs })),
     [finished],
@@ -42,7 +48,6 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
 
   if (bestMs == null) return null;
 
-  // 타겟 미설정: 설정 유도
   if (!saved) {
     return (
       <>
@@ -55,8 +60,8 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
         </Pressable>
         {sheet && (
           <TargetSheet
-            visible onClose={() => setSheet(false)} ladder={ladder} bestMs={bestMs}
-            eventKey={eventKey} swimmerId={swimmer.id} onSave={(tg) => { onSave(tg); setSheet(false); }}
+            onClose={() => setSheet(false)} swimmer={swimmer} target={target} bestMs={bestMs}
+            eventKey={eventKey} onSave={(tg) => { onSave(tg); setSheet(false); }}
           />
         )}
       </>
@@ -67,10 +72,6 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
   const pct = Math.min(100, Math.max(0, tj.achievement.percent));
   const reached = tj.achievement.reached;
   const lp = ladder ? ladderPosition(bestMs, ladder) : null;
-  const dateStr = (ms: number) => {
-    const d = new Date(ms);
-    return `${d.getFullYear()}.${d.getMonth() + 1}`;
-  };
 
   return (
     <>
@@ -85,10 +86,9 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
         <View style={styles.goalRow}>
           <Text style={styles.goalLabel}>{saved.label}</Text>
           <Text style={styles.goalTime}>{fmtTotal(saved.targetMs)}</Text>
-          {saved.targetDate != null && <Text style={styles.goalDate}>{t.byDate(dateStr(saved.targetDate))}</Text>}
+          {saved.targetDate != null && <Text style={styles.goalDate}>{t.byDate(fmtYMD(saved.targetDate))}</Text>}
         </View>
 
-        {/* 달성률 게이지 */}
         <View style={styles.gaugeTrack}>
           <View style={[styles.gaugeFill, { width: `${pct}%`, backgroundColor: reached ? color.ok : color.accent }]} />
         </View>
@@ -101,7 +101,6 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
           )}
         </View>
 
-        {/* 궤적: 순항 여부 · 예상일 · 주간개선 · 가속 */}
         <View style={styles.trajRow}>
           {tj.onTrack != null && !reached && (
             <View style={[styles.chip, tj.onTrack ? styles.chipOk : styles.chipWarn]}>
@@ -112,7 +111,7 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
           )}
           {!reached && (
             <Text style={styles.trajText}>
-              {tj.projectedDate != null ? t.projected(dateStr(tj.projectedDate)) : t.noProjection}
+              {tj.projectedDate != null ? t.projected(fmtYMD(tj.projectedDate)) : t.noProjection}
             </Text>
           )}
           {tj.slopePerWeekMs != null && tj.slopePerWeekMs < 0 && (
@@ -125,10 +124,9 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
           </View>
         </View>
 
-        {/* 표준 사다리 (있을 때만) */}
         {lp && ladder && (
           <View style={styles.ladder}>
-            {[...ladder].map((s) => {
+            {ladder.map((s) => {
               const passed = bestMs <= s.timeMs;
               const isNext = lp.next?.level === s.level;
               return (
@@ -144,8 +142,8 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
 
       {sheet && (
         <TargetSheet
-          visible onClose={() => setSheet(false)} ladder={ladder} bestMs={bestMs}
-          eventKey={eventKey} swimmerId={swimmer.id} initial={saved}
+          onClose={() => setSheet(false)} swimmer={swimmer} target={target} bestMs={bestMs}
+          eventKey={eventKey} initial={saved}
           onSave={(tg) => { onSave(tg); setSheet(false); }}
           onRemove={() => { onRemove(); setSheet(false); }}
         />
@@ -154,23 +152,29 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
   );
 }
 
-/** 타겟 설정 바텀시트: 표준 레벨 / 직접 입력 + 목표 날짜(선택). */
-function TargetSheet({ visible, onClose, ladder, bestMs, eventKey, swimmerId, initial, onSave, onRemove }: {
-  visible: boolean;
+function TargetSheet({ onClose, swimmer, target, bestMs, eventKey, initial, onSave, onRemove }: {
   onClose: () => void;
-  ladder: LadderStep[] | null;
+  swimmer: Swimmer;
+  target: TrainingRecord['target'];
   bestMs: number;
   eventKey: string;
-  swimmerId: string;
   initial?: Target;
   onSave: (t: Target) => void;
   onRemove?: () => void;
 }) {
   const t = useT();
+  const [gender, setGender] = useState<Gender>(swimmer.gender === 'M' ? 'M' : 'F');
+  const swAge = swimmer.birthYear ? 2026 - swimmer.birthYear : null;
+  const [ag, setAg] = useState<AgeGroup>(ageGroup(swAge) ?? '11-12');
+  const ladder = useMemo(
+    () => standardLadderForGroup(gender, ag, target.stroke, target.distance),
+    [gender, ag, target.stroke, target.distance],
+  );
   const [mode, setMode] = useState<'level' | 'custom'>(ladder ? 'level' : 'custom');
   const [level, setLevel] = useState<Level | null>(null);
-  const [timeText, setTimeText] = useState(initial ? fmtTotal(initial.targetMs) : '');
-  const [when, setWhen] = useState<0 | 3 | 6>(0);
+  const [timeText, setTimeText] = useState(initial && !ladder ? fmtTotal(initial.targetMs) : '');
+  const [date, setDate] = useState<number | null>(initial?.targetDate ?? null);
+  const [showPicker, setShowPicker] = useState(false);
 
   function commit() {
     let targetMs: number | null = null;
@@ -183,78 +187,109 @@ function TargetSheet({ visible, onClose, ladder, bestMs, eventKey, swimmerId, in
       label = t.tCustom;
     }
     if (targetMs == null) return;
-    const targetDate = when === 0 ? null : Date.now() + when * 30 * 86_400_000;
-    onSave({ swimmerId, eventKey, targetMs, targetDate, label });
+    onSave({ swimmerId: swimmer.id, eventKey, targetMs, targetDate: date, label });
   }
-
   const canSave = mode === 'level' ? level != null : parseTime(timeText) != null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.sheetBack} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          <Text style={styles.sheetTitle}>{t.target}</Text>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Pressable style={styles.sheetBack} onPress={onClose}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            <Text style={styles.sheetTitle}>{t.target}</Text>
 
-          {/* 모드 토글 */}
-          <View style={styles.seg}>
-            {ladder && (
+            {/* 성별·연령그룹 (표준 조회용) */}
+            <View style={styles.rowSeg}>
+              {(['F', 'M'] as const).map((g) => (
+                <Pressable key={g} style={[styles.miniBtn, gender === g && styles.miniOn]} onPress={() => setGender(g)}>
+                  <Text style={[styles.miniText, gender === g && styles.miniTextOn]}>{g === 'F' ? t.female : t.male}</Text>
+                </Pressable>
+              ))}
+              <View style={styles.miniGap} />
+              {AGE_GROUPS.map((g) => (
+                <Pressable key={g} style={[styles.miniBtn, ag === g && styles.miniOn]} onPress={() => setAg(g)}>
+                  <Text style={[styles.miniText, ag === g && styles.miniTextOn]}>{g}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* 모드 토글 */}
+            <View style={styles.seg}>
               <Pressable style={[styles.segBtn, mode === 'level' && styles.segOn]} onPress={() => setMode('level')}>
                 <Text style={[styles.segText, mode === 'level' && styles.segTextOn]}>{t.tByLevel}</Text>
               </Pressable>
-            )}
-            <Pressable style={[styles.segBtn, mode === 'custom' && styles.segOn]} onPress={() => setMode('custom')}>
-              <Text style={[styles.segText, mode === 'custom' && styles.segTextOn]}>{t.tCustom}</Text>
-            </Pressable>
-          </View>
-
-          {mode === 'level' && ladder ? (
-            <ScrollView style={{ maxHeight: 220 }}>
-              {[...ladder].sort((a, b) => a.timeMs - b.timeMs).map((s) => {
-                const on = level === s.level;
-                const passed = bestMs <= s.timeMs;
-                return (
-                  <Pressable key={s.level} style={[styles.levelRow, on && styles.levelRowOn]} onPress={() => setLevel(s.level as Level)}>
-                    <Text style={[styles.levelName, passed && { color: color.ok }]}>{s.level}</Text>
-                    <Text style={styles.levelTime}>{fmtTotal(s.timeMs)}</Text>
-                    {passed && <Text style={styles.levelPassed}>✓</Text>}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          ) : mode === 'custom' ? (
-            <TextInput
-              style={styles.input}
-              value={timeText}
-              onChangeText={setTimeText}
-              placeholder={t.pickTime}
-              placeholderTextColor={color.textMuted}
-              keyboardType="numbers-and-punctuation"
-              autoFocus
-            />
-          ) : (
-            <Text style={styles.unavail}>{t.levelUnavailable}</Text>
-          )}
-
-          {/* 목표 날짜 */}
-          <Text style={styles.whenLabel}>{t.targetWhen}</Text>
-          <View style={styles.seg}>
-            {([[0, t.noDate], [3, t.in3mo], [6, t.in6mo]] as const).map(([v, lbl]) => (
-              <Pressable key={v} style={[styles.segBtn, when === v && styles.segOn]} onPress={() => setWhen(v as 0 | 3 | 6)}>
-                <Text style={[styles.segText, when === v && styles.segTextOn]}>{lbl}</Text>
+              <Pressable style={[styles.segBtn, mode === 'custom' && styles.segOn]} onPress={() => setMode('custom')}>
+                <Text style={[styles.segText, mode === 'custom' && styles.segTextOn]}>{t.tCustom}</Text>
               </Pressable>
-            ))}
-          </View>
+            </View>
 
-          <Pressable style={[styles.saveBtn, !canSave && styles.disabled]} disabled={!canSave} onPress={commit}>
-            <Text style={styles.saveText}>{t.save}</Text>
-          </Pressable>
-          {onRemove && (
-            <Pressable style={styles.removeBtn} onPress={onRemove}>
-              <Text style={styles.removeText}>{t.removeTarget}</Text>
+            {mode === 'level' ? (
+              ladder ? (
+                <ScrollView style={{ maxHeight: 200 }}>
+                  {[...ladder].sort((a, b) => a.timeMs - b.timeMs).map((s) => {
+                    const on = level === s.level;
+                    const passed = bestMs <= s.timeMs;
+                    return (
+                      <Pressable key={s.level} style={[styles.levelRow, on && styles.levelRowOn]} onPress={() => setLevel(s.level as Level)}>
+                        <Text style={[styles.levelName, passed && { color: color.ok }]}>{s.level}</Text>
+                        <Text style={styles.levelTime}>{fmtTotal(s.timeMs)}</Text>
+                        {passed && <Text style={styles.levelPassed}>✓</Text>}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <Text style={styles.unavail}>{t.levelUnavailable}</Text>
+              )
+            ) : (
+              <TextInput
+                style={styles.input}
+                value={timeText}
+                onChangeText={setTimeText}
+                placeholder={t.pickTime}
+                placeholderTextColor={color.textMuted}
+                keyboardType="numbers-and-punctuation"
+                autoFocus
+              />
+            )}
+
+            {/* 목표 날짜 — 캘린더 */}
+            <Text style={styles.whenLabel}>{t.targetWhen}</Text>
+            <View style={styles.dateRow}>
+              <Pressable style={styles.dateBtn} onPress={() => setShowPicker(true)}>
+                <Text style={styles.dateText}>{date != null ? fmtYMD(date) : t.noDate}</Text>
+              </Pressable>
+              {date != null && (
+                <Pressable style={styles.dateClear} onPress={() => setDate(null)}>
+                  <Text style={styles.dateClearText}>✕</Text>
+                </Pressable>
+              )}
+            </View>
+            {showPicker && (
+              <DateTimePicker
+                value={date != null ? new Date(date) : new Date()}
+                mode="date"
+                minimumDate={new Date()}
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                themeVariant="dark"
+                onChange={(e, d) => {
+                  if (Platform.OS !== 'ios') setShowPicker(false);
+                  if (e.type === 'set' && d) setDate(d.getTime());
+                }}
+              />
+            )}
+
+            <Pressable style={[styles.saveBtn, !canSave && styles.disabled]} disabled={!canSave} onPress={commit}>
+              <Text style={styles.saveText}>{t.save}</Text>
             </Pressable>
-          )}
+            {onRemove && (
+              <Pressable style={styles.removeBtn} onPress={onRemove}>
+                <Text style={styles.removeText}>{t.removeTarget}</Text>
+              </Pressable>
+            )}
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -268,10 +303,7 @@ const styles = StyleSheet.create({
   emptyTitle: { color: color.text, fontSize: 15, fontWeight: '700' },
   emptySub: { color: color.textMuted, fontSize: 12, marginTop: 2 },
   emptyPlus: { color: color.accent, fontSize: 26, fontWeight: '800' },
-  card: {
-    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-    borderRadius: 16, padding: 14, gap: 10,
-  },
+  card: { backgroundColor: color.surface, borderWidth: 1, borderColor: color.line, borderRadius: 16, padding: 14, gap: 10 },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { color: color.text, fontSize: 15, fontWeight: '700' },
   edit: { color: color.accent, fontSize: 13, fontWeight: '600' },
@@ -304,10 +336,15 @@ const styles = StyleSheet.create({
   rungLevel: { color: color.textMuted, fontSize: 11, fontWeight: '800' },
   rungLevelOn: { color: color.ok },
   rungTime: { color: color.textMuted, fontSize: 9, marginTop: 1, fontFamily: font.mono },
-  // sheet
   sheetBack: { flex: 1, backgroundColor: 'rgba(2,10,18,0.6)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: color.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: 1, borderColor: color.line, padding: 16, paddingBottom: 28, gap: 10 },
   sheetTitle: { color: color.text, fontSize: 17, fontWeight: '800' },
+  rowSeg: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
+  miniGap: { width: 6 },
+  miniBtn: { paddingHorizontal: 10, height: 32, borderRadius: 8, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface2, alignItems: 'center', justifyContent: 'center' },
+  miniOn: { backgroundColor: color.accent, borderColor: color.accent },
+  miniText: { color: color.text, fontSize: 12, fontWeight: '600' },
+  miniTextOn: { color: color.accentInk, fontWeight: '800' },
   seg: { flexDirection: 'row', gap: 6 },
   segBtn: { flex: 1, height: 42, borderRadius: 10, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface2, alignItems: 'center', justifyContent: 'center' },
   segOn: { backgroundColor: color.accent, borderColor: color.accent },
@@ -321,6 +358,11 @@ const styles = StyleSheet.create({
   input: { height: 50, borderRadius: 12, paddingHorizontal: 14, backgroundColor: color.surface2, color: color.text, fontSize: 18, fontFamily: font.mono, borderWidth: 1, borderColor: color.line },
   unavail: { color: color.textMuted, fontSize: 13 },
   whenLabel: { color: color.textMuted, fontSize: 12, marginTop: 2 },
+  dateRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  dateBtn: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface2, alignItems: 'center', justifyContent: 'center' },
+  dateText: { color: color.text, fontSize: 15, fontWeight: '600' },
+  dateClear: { width: 46, height: 46, borderRadius: 12, borderWidth: 1, borderColor: color.line, alignItems: 'center', justifyContent: 'center' },
+  dateClearText: { color: color.textMuted, fontSize: 16 },
   saveBtn: { height: 50, borderRadius: 14, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   disabled: { opacity: 0.4 },
   saveText: { color: color.accentInk, fontSize: 16, fontWeight: '800' },

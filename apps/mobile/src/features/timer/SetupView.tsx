@@ -5,7 +5,7 @@ import Select from '@/components/Select';
 import { useT } from '@/store/settings';
 import { color, font, touch } from '@/theme';
 import {
-  STROKES, courseName, courseUnit, distanceOptions, segmentCount, splitOptions, type TimerConfig,
+  STROKES, courseName, courseWord, distanceOptions, segmentCount, splitOptions, type TimerConfig,
 } from './config';
 
 interface Props {
@@ -18,7 +18,7 @@ interface Props {
 export default function SetupView({ config, onChange, onStart }: Props) {
   const t = useT();
   const router = useRouter();
-  const unit = courseUnit(config.course);
+  const word = courseWord(config.course); // 'Yard' | 'Meter' — 전체 표기
   const segs = segmentCount(config);
 
   function set<K extends keyof TimerConfig>(key: K, value: TimerConfig[K]) {
@@ -70,7 +70,7 @@ export default function SetupView({ config, onChange, onStart }: Props) {
               value={config.splitInterval}
               options={splitOptions(config.course, config.distance).map((d) => ({
                 value: d,
-                label: d === config.distance ? t.splitOnce : t.splitEvery(d, unit),
+                label: d === config.distance ? t.splitOnce : t.splitEvery(d, word),
               }))}
               onChange={(v) => set('splitInterval', v)}
               title={t.lSplit}
@@ -80,10 +80,10 @@ export default function SetupView({ config, onChange, onStart }: Props) {
 
         {segs != null ? (
           <Text style={styles.segInfo}>
-            {segs === 1 ? t.segOnce(config.distance, unit) : t.segInfo(segs, config.splitInterval, unit)}
+            {segs === 1 ? t.segOnce(config.distance, word) : t.segInfo(segs, config.splitInterval, word)}
           </Text>
         ) : (
-          <Text style={styles.segWarn}>{t.segWarn(config.distance, config.course)}</Text>
+          <Text style={styles.segWarn}>{t.segWarn(config.distance, courseName(config.course))}</Text>
         )}
 
         {/* 인원 스테퍼 (PWA .stepper) */}

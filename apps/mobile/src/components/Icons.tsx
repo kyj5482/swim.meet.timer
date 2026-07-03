@@ -43,6 +43,16 @@ export function ChevronRight({ color, size = 20 }: { color: string; size?: numbe
   );
 }
 
+export function MoreVertical({ color, size = 22 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+      <Circle cx={12} cy={5} r={1.8} />
+      <Circle cx={12} cy={12} r={1.8} />
+      <Circle cx={12} cy={19} r={1.8} />
+    </Svg>
+  );
+}
+
 export function GearIcon({ color, size = 22 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
