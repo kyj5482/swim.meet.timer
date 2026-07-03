@@ -2,9 +2,10 @@
  * 표준기록 데이터 소스(백엔드). 임포터가 이 데이터를 DynamoDB로 적재하고,
  * 앱은 API로 조회한다 = 사용자 요청의 "미리 읽어와서 업데이트".
  *
- * verified: 실제 확인값. USA Swimming 2024-2028 SCY Motivational (출처:
- * swimstandards.com / USA Swimming). 현재 여자 11-12 50/100 Free 확인.
- * 전체 종목/연령/성별은 공식 PDF 파싱으로 확장(importer의 TODO) — 구조는 동일.
+ * verified: 실제 확인값. USA Swimming 2024-2028 SCY Motivational — 공식 PDF
+ * (websitedevsa.blob.core.windows.net .../2028-motivational-standards-age-group.pdf)
+ * 원문 텍스트를 직접 대조해 확인(2026-07). 현재 여자 11-12 50/100 Free 확인.
+ * 전체 종목/연령/성별은 tools/standards-import로 확장(같은 PDF 전량 파싱).
  */
 export type Gender = 'F' | 'M';
 export type Level = 'B' | 'BB' | 'A' | 'AA' | 'AAA' | 'AAAA';
@@ -24,10 +25,10 @@ export interface StandardRow {
 
 const sec = (s: number) => Math.round(s * 1000);
 
-/** 확인된 시드(여자 11-12 SCY). */
+/** 확인된 시드(여자 11-12 SCY) — 공식 PDF 원문 대조값. */
 const F_11_12: Record<string, Record<Level, number>> = {
-  '50FR': { B: sec(31.79), BB: sec(29.49), A: sec(27.29), AA: sec(26.09), AAA: sec(24.99), AAAA: sec(23.89) },
-  '100FR': { B: sec(68.79), BB: sec(63.79), A: sec(58.89), AA: sec(56.49), AAA: sec(53.99), AAAA: sec(51.59) },
+  '50FR': { B: sec(33.99), BB: sec(31.69), A: sec(29.29), AA: sec(28.09), AAA: sec(26.99), AAAA: sec(25.79) },
+  '100FR': { B: sec(74.69), BB: sec(69.39), A: sec(63.99), AA: sec(61.39), AAA: sec(58.69), AAAA: sec(55.99) },
 };
 
 export function buildStandardRows(): StandardRow[] {

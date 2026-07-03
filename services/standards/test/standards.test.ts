@@ -16,7 +16,7 @@ describe('데이터 시드', () => {
     const rows = buildStandardRows();
     expect(rows).toHaveLength(12);
     const aa50 = rows.find((r) => r.event === '50FR' && r.level === 'AA');
-    expect(aa50?.timeMs).toBe(26_090);
+    expect(aa50?.timeMs).toBe(28_090);
     expect(rows.every((r) => r.verified)).toBe(true);
   });
   it('키 구성', () => {
