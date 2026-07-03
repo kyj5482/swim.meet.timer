@@ -7,7 +7,8 @@ import { color } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
 
 const H = 142;
-const PAD_L = 46, PAD_R = 14, PAD_T = 18, PAD_B = 24;
+// 상단 여백을 줄여 데이터가 패널 위쪽까지 채우도록(빈 밴드 제거).
+const PAD_L = 46, PAD_R = 14, PAD_T = 10, PAD_B = 22;
 
 /**
  * 종목 추세 라인 차트 — PWA renderTrend 포팅 (단일 시리즈, 낮을수록 좋음 →
@@ -27,7 +28,7 @@ export default function TrendChart({ records, title, sub }: {
   const yMin = Math.min(...tots);
   const yMax = Math.max(...tots);
   const rng = yMax - yMin || 1;
-  const m = rng * 0.18 || 400;
+  const m = rng * 0.1 || 300;
   const lo = yMin - m, hi = yMax + m, span = hi - lo;
 
   const W = Math.max(width, PAD_L + PAD_R + 10);
@@ -38,6 +39,10 @@ export default function TrendChart({ records, title, sub }: {
   const gy1 = Y(yMax), gy2 = Y(yMin);
   const pts = h.map((r, i) => `${X(i).toFixed(1)},${Y(r.totalMs).toFixed(1)}`).join(' ');
   const bestIdx = h.findIndex((r) => r.totalMs === yMin);
+  // PB 라벨은 실제 PB 도트 바로 위. 좌/우 끝 도트면 안쪽으로 정렬해 잘림 방지.
+  const pbAnchor: 'start' | 'middle' | 'end' =
+    bestIdx === 0 ? 'start' : bestIdx === h.length - 1 ? 'end' : 'middle';
+  const pbLabelX = X(bestIdx);
   const dateLbl = (ms: number) => {
     const d = new Date(ms);
     return `${d.getMonth() + 1}/${d.getDate()}`;
@@ -70,7 +75,7 @@ export default function TrendChart({ records, title, sub }: {
                 key={r.id}
                 cx={X(i)}
                 cy={Y(r.totalMs)}
-                r={4}
+                r={i === bestIdx ? 5 : 4}
                 fill={i === bestIdx ? color.ok : color.accent}
                 stroke={color.surface}
                 strokeWidth={2}
@@ -83,8 +88,15 @@ export default function TrendChart({ records, title, sub }: {
                 </SvgText>
               ) : null,
             )}
+            {/* PB는 기록된 그 지점에만 표시(오늘/고정 위치 아님). 라벨은 도트 위, 가장자리에서 잘리지 않게 정렬. */}
             {bestIdx >= 0 && (
-              <SvgText x={W - PAD_R} y={PAD_T + 9} fill={color.ok} fontSize={10.5} fontWeight="700" textAnchor="end">
+              <SvgText
+                x={pbLabelX}
+                y={Y(yMin) - 12}
+                fill={color.ok}
+                fontSize={10}
+                fontWeight="700"
+                textAnchor={pbAnchor}>
                 {`PB ${fmtTotal(yMin)}`}
               </SvgText>
             )}
