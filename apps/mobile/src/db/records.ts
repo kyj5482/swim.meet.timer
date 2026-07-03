@@ -72,3 +72,58 @@ export async function statsForEvent(swimmerIds: string[], target: Target): Promi
   );
   return computeStats(swimmerIds, rows);
 }
+
+/** 서버 동기화 페이로드(services/records/src/model.ts recordSchema와 동일 shape). */
+export interface SyncPayload {
+  id: string; swimmerId: string; sessionId: string; date: number;
+  stroke: string; distance: number; course: string; splitInterval: number;
+  totalMs: number; status: 'finished' | 'dnf'; slot: number;
+  splits: { segmentIndex: number; cumulativeMs: number; splitMs: number }[];
+  updatedAt: number; deleted: boolean;
+}
+
+/** 한 선수의 전체 기록(삭제 포함, tombstone 전파용) — 서버로 푸시할 페이로드. */
+export async function recordsForPush(swimmerId: string): Promise<SyncPayload[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<RecordRow>('SELECT * FROM records WHERE swimmerId = ?', [swimmerId]);
+  return rows.map((r) => ({
+    id: r.id, swimmerId: r.swimmerId, sessionId: r.sessionId, date: r.date,
+    stroke: r.stroke, distance: r.distance, course: r.course, splitInterval: r.splitInterval,
+    totalMs: r.totalMs, status: r.status as 'finished' | 'dnf', slot: r.slot,
+    splits: JSON.parse(r.splitsJson), updatedAt: r.updatedAt, deleted: r.deleted === 1,
+  }));
+}
+
+/**
+ * 서버에서 받은 기록을 로컬에 반영(last-write-wins by updatedAt).
+ * 서버가 더 최신이거나 로컬에 없으면 덮어쓴다. 반영된 개수 반환.
+ */
+export async function applyPulledRecords(records: SyncPayload[]): Promise<number> {
+  if (records.length === 0) return 0;
+  const db = await getDb();
+  let applied = 0;
+  await db.withTransactionAsync(async () => {
+    for (const r of records) {
+      const local = await db.getFirstAsync<{ updatedAt: number }>('SELECT updatedAt FROM records WHERE id = ?', [r.id]);
+      if (local && local.updatedAt >= r.updatedAt) continue; // 로컬이 더 최신
+      await db.runAsync(
+        `INSERT INTO records
+           (id, swimmerId, sessionId, date, stroke, distance, course, splitInterval,
+            totalMs, status, slot, splitsJson, updatedAt, deleted, seed)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)
+         ON CONFLICT(id) DO UPDATE SET
+           swimmerId=excluded.swimmerId, sessionId=excluded.sessionId, date=excluded.date,
+           stroke=excluded.stroke, distance=excluded.distance, course=excluded.course,
+           splitInterval=excluded.splitInterval, totalMs=excluded.totalMs, status=excluded.status,
+           slot=excluded.slot, splitsJson=excluded.splitsJson, updatedAt=excluded.updatedAt,
+           deleted=excluded.deleted`,
+        [
+          r.id, r.swimmerId, r.sessionId, r.date, r.stroke, r.distance, r.course, r.splitInterval,
+          r.totalMs, r.status, r.slot, JSON.stringify(r.splits), r.updatedAt, r.deleted ? 1 : 0,
+        ],
+      );
+      applied++;
+    }
+  });
+  return applied;
+}

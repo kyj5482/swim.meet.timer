@@ -112,3 +112,28 @@
 - 사용법: `tools/local-api/README.md`. 루트 스크립트 `npm run local:up/setup/api/down`.
 - 전 워크스페이스 테스트 79개 통과(timer-core 32·앱 21·shared 5·standards 5·
   records 6·infra 3·local-api 7).
+
+## 앱 ↔ 로컬 백엔드 동기화 연결
+사용자 질문: "Expo Go에서 실제 서버랑 통신 가능한가?" → 네트워크는 가능하지만
+앱에 API 호출 코드가 전혀 없었음(전량 로컬 SQLite) → "로컬 서버에 연결" 선택.
+
+- **apps/mobile/src/api/client.ts**: fetch 래퍼. 로컬 개발 인증은
+  `x-dev-user`/`x-dev-role` 헤더(tools/local-api와 동일 규약, AWS 배포본에서는
+  무시됨). common/api-spec.md 에러 포맷(`{error:{code,message,correlationId}}`)을
+  `ApiError`로 변환. `checkHealth()`로 서버 도달 확인. 테스트 8개(fetch 모킹).
+- **apps/mobile/src/api/sync.ts**: `syncAll()` — 선수별로 로컬 전체 레코드
+  푸시(멱등 업서트, tombstone 포함) → `since` 이후 서버 변경분 풀.
+- **apps/mobile/src/db/records.ts** 확장: `recordsForPush`(삭제 포함 전체 조회),
+  `applyPulledRecords`(id 기준 UPSERT, updatedAt 비교로 last-write-wins).
+- **설정 화면**: 서버 URL 입력 + Test Connection + Sync Now 버튼, 마지막 동기화
+  시각 표시, 결과/에러 메시지.
+- **검증**: 서버를 기동해 앱이 만드는 정확한 요청 형태로 curl 호출 —
+  `PUT /v1/records/batch`(zod 스키마 통과 확인, ECONNREFUSED로만 실패 =
+  DynamoDB Local 부재가 유일한 원인), `GET /v1/records?swimmerId=&since=`
+  (같은 결과), `swimmerId` 누락 시 400 VALIDATION 정상. 즉 앱-서버 계약이
+  정확히 맞음을 실제 HTTP 요청으로 확인(코드 리뷰 아님).
+  이 세션 환경엔 Docker 데몬이 없어 실제 저장까지는 못 봤지만, 사용자 Mac에서
+  `npm run local:up/setup/api` 후 앱에서 서버 URL 입력 → Sync Now 누르면
+  실제로 선수·기록이 DynamoDB Local에 저장되고 재조회된다.
+- 전 워크스페이스 테스트 87개 통과(timer-core 32·앱 29(client.ts 8 포함)·
+  shared 5·standards 5·records 6·infra 3·local-api 7).

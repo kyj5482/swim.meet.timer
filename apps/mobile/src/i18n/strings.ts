@@ -85,6 +85,13 @@ const en = {
   clearDemo: 'Clear demo data', clearDemoSub: 'Remove the 5 sample swimmers and their history',
   clearDemoConfirm: 'Sample swimmers and their demo records will be removed. Your own data is kept.',
   settingsTip: 'Settings are saved on this device.',
+
+  backend: 'Backend Sync', serverUrlPH: 'http://192.168.x.x:4000/v1',
+  testConnection: 'Test Connection', syncNow: 'Sync Now',
+  connOk: '✓ Server reachable', connFail: '✗ Could not reach server',
+  neverSynced: 'Never synced', lastSynced: (t: string) => `Last synced ${t}`,
+  syncOk: (sw: number, push: number, pull: number) => `✓ Synced ${sw} swimmer${sw === 1 ? '' : 's'} — pushed ${push}, pulled ${pull}`,
+  syncFail: (msg: string) => `✗ Sync failed: ${msg}`,
 };
 
 const ko: typeof en = {
@@ -161,6 +168,13 @@ const ko: typeof en = {
   clearDemo: '데모 데이터 지우기', clearDemoSub: '샘플 선수 5명과 데모 기록 삭제',
   clearDemoConfirm: '샘플 선수와 데모 기록이 삭제됩니다. 내가 만든 데이터는 유지됩니다.',
   settingsTip: '설정은 이 기기에 저장됩니다.',
+
+  backend: '백엔드 동기화', serverUrlPH: 'http://192.168.x.x:4000/v1',
+  testConnection: '연결 테스트', syncNow: '지금 동기화',
+  connOk: '✓ 서버 연결됨', connFail: '✗ 서버에 연결할 수 없음',
+  neverSynced: '동기화한 적 없음', lastSynced: (t) => `마지막 동기화 ${t}`,
+  syncOk: (sw, push, pull) => `✓ 선수 ${sw}명 동기화 — 전송 ${push}, 수신 ${pull}`,
+  syncFail: (msg) => `✗ 동기화 실패: ${msg}`,
 };
 
 export const STRINGS: Record<Lang, typeof en> = { en, ko };

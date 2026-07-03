@@ -29,7 +29,7 @@
 | --- | --- | --- |
 | T-201 | infra 부트스트랩: CDK 앱, dev/prod 스테이지, 로깅 베이스라인 | done(스캐폴드·synth) |
 | T-202 | auth 서비스: Cognito + 역할(선수/코치/부모) + JWT 검증 공용층 | 부분(Cognito+JWT authorizer+클레임 파싱; /auth API·초대는 T-206) |
-| T-203 | records 서비스: 기록 동기화 API + DynamoDB 설계 | done(핸들러·테스트; 앱 동기화 연결 잔여) |
+| T-203 | records 서비스: 기록 동기화 API + DynamoDB 설계 | done(핸들러·테스트·앱 동기화 클라이언트 연결 완료) |
 | T-204 | standards 서비스: 표준기록·클럽조건 데이터 임포트 + 조회 API | done(임포터·조회 API·테스트; 공식 전체 PDF 파싱 확장 잔여) |
 | T-205 | 앱: 로그인/타겟 선택/달성 % 표시 | 부분(온디바이스 타겟%는 T-112 완료; 로그인은 T-202 후) |
 | T-206 | 공유: 코치·부모 초대(선수 데이터 열람 권한) | todo |

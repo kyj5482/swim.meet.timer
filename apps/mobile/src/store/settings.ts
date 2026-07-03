@@ -10,10 +10,16 @@ export interface AppSettings {
   volumeLap: boolean;
   /** 다니는 풀의 코스 단위 — 앱 전역 기본값(PWA는 설정에서만 변경) */
   course: '25m' | '25y' | '50m';
+  /** 백엔드 API 베이스 URL (예: http://192.168.0.5:4000/v1). 비어있으면 동기화 비활성. */
+  apiBaseUrl: string;
+  /** 마지막 동기화 성공 시각(epoch ms). 0이면 아직 동기화한 적 없음. */
+  lastSyncAt: number;
 }
 
 const PREF_KEY = 'appSettings';
-const DEFAULTS: AppSettings = { lang: 'en', haptics: true, volumeLap: true, course: '25y' };
+const DEFAULTS: AppSettings = {
+  lang: 'en', haptics: true, volumeLap: true, course: '25y', apiBaseUrl: '', lastSyncAt: 0,
+};
 
 let state: AppSettings = DEFAULTS;
 let loaded = false;

@@ -1,20 +1,62 @@
 import { useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
+} from 'react-native';
 
+import { checkHealth } from '@/api/client';
+import { syncAll } from '@/api/sync';
 import { clearSeed, hasSeedData } from '@/db';
 import { courseName } from '@/features/timer/config';
 import { setSettings, useSettings, useT } from '@/store/settings';
 import { color, radius } from '@/theme';
 
 const COURSES = ['25y', '25m', '50m'] as const;
+type ConnState = 'idle' | 'checking' | 'ok' | 'fail';
 
-/** 설정 모달: 언어 · 코스 · 햅틱 · 볼륨 키 LAP(Android) · 데모 데이터. */
+/** 설정 모달: 언어 · 코스 · 햅틱 · 볼륨 키 LAP(Android) · 백엔드 동기화 · 데모 데이터. */
 export default function SettingsScreen() {
   const s = useSettings();
   const t = useT();
   const [seedLeft, setSeedLeft] = useState(false);
+  const [urlInput, setUrlInput] = useState(s.apiBaseUrl);
+  const [conn, setConn] = useState<ConnState>('idle');
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => { void hasSeedData().then(setSeedLeft); }, []);
+  useEffect(() => { setUrlInput(s.apiBaseUrl); }, [s.apiBaseUrl]);
+
+  function saveUrl() {
+    const trimmed = urlInput.trim().replace(/\/$/, '');
+    setSettings({ apiBaseUrl: trimmed });
+    setConn('idle');
+  }
+
+  async function onTestConnection() {
+    saveUrl();
+    const url = urlInput.trim().replace(/\/$/, '');
+    if (!url) return;
+    setConn('checking');
+    const ok = await checkHealth(url);
+    setConn(ok ? 'ok' : 'fail');
+  }
+
+  async function onSyncNow() {
+    saveUrl();
+    const url = urlInput.trim().replace(/\/$/, '');
+    if (!url) return;
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await syncAll({ baseUrl: url }, s.lastSyncAt);
+      setSettings({ lastSyncAt: Date.now() });
+      setSyncMsg({ text: t.syncOk(res.swimmers, res.pushed, res.pulled), ok: true });
+    } catch (e) {
+      setSyncMsg({ text: t.syncFail(e instanceof Error ? e.message : String(e)), ok: false });
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   function onClearDemo() {
     Alert.alert(t.clearDemo, t.clearDemoConfirm, [
@@ -85,6 +127,43 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* 백엔드 동기화 */}
+      <Text style={styles.label}>{t.backend}</Text>
+      <View style={styles.urlRow}>
+        <TextInput
+          style={styles.urlInput}
+          value={urlInput}
+          onChangeText={setUrlInput}
+          onEndEditing={saveUrl}
+          placeholder={t.serverUrlPH}
+          placeholderTextColor={color.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+        />
+      </View>
+      <View style={styles.backendActions}>
+        <Pressable style={styles.backendBtn} onPress={() => void onTestConnection()} disabled={conn === 'checking'}>
+          {conn === 'checking' ? <ActivityIndicator color={color.text} size="small" /> : (
+            <Text style={styles.backendBtnText}>{t.testConnection}</Text>
+          )}
+        </Pressable>
+        <Pressable
+          style={[styles.backendBtn, styles.backendBtnPrimary, syncing && styles.disabled]}
+          onPress={() => void onSyncNow()}
+          disabled={syncing}>
+          {syncing ? <ActivityIndicator color={color.accentInk} size="small" /> : (
+            <Text style={styles.backendBtnPrimaryText}>{t.syncNow}</Text>
+          )}
+        </Pressable>
+      </View>
+      {conn === 'ok' && <Text style={styles.connOk}>{t.connOk}</Text>}
+      {conn === 'fail' && <Text style={styles.connFail}>{t.connFail}</Text>}
+      {syncMsg && <Text style={syncMsg.ok ? styles.connOk : styles.connFail}>{syncMsg.text}</Text>}
+      <Text style={styles.rowSub}>
+        {s.lastSyncAt > 0 ? t.lastSynced(new Date(s.lastSyncAt).toLocaleTimeString()) : t.neverSynced}
+      </Text>
+
       {/* 데모 데이터 지우기 (시드가 남아 있을 때만) */}
       {seedLeft && (
         <Pressable style={styles.clearBtn} onPress={onClearDemo}>
@@ -124,4 +203,21 @@ const styles = StyleSheet.create({
   clearText: { color: color.stop, fontSize: 15, fontWeight: '700' },
   clearSub: { color: color.textMuted, fontSize: 12 },
   tip: { color: color.textMuted, fontSize: 12 },
+  urlRow: { flexDirection: 'row' },
+  urlInput: {
+    flex: 1, height: 46, borderRadius: 12, paddingHorizontal: 14,
+    backgroundColor: color.surface2, color: color.text, fontSize: 14,
+    borderWidth: 1, borderColor: color.line,
+  },
+  backendActions: { flexDirection: 'row', gap: 8 },
+  backendBtn: {
+    flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: color.line,
+    backgroundColor: color.surface2, alignItems: 'center', justifyContent: 'center',
+  },
+  backendBtnText: { color: color.text, fontSize: 14, fontWeight: '600' },
+  backendBtnPrimary: { backgroundColor: color.accent, borderColor: color.accent },
+  backendBtnPrimaryText: { color: color.accentInk, fontSize: 14, fontWeight: '800' },
+  disabled: { opacity: 0.6 },
+  connOk: { color: color.ok, fontSize: 12, fontWeight: '600' },
+  connFail: { color: color.stop, fontSize: 12, fontWeight: '600' },
 });
