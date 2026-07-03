@@ -73,18 +73,20 @@ async function main() {
   }
   console.log(`  총 레코드 ${records.length}개`);
 
+  // 레코드가 아예 없으면 앵커도 당연히 없다(증상일 뿐) — 진단 텍스트부터 보여준다.
+  if (records.length === 0) {
+    console.error('\n파싱된 레코드가 없습니다 — PDF 포맷이 예상과 다릅니다.');
+    console.error('추출된 텍스트 앞부분(진단용):\n---');
+    console.error(text.split(/\r?\n/).filter((l) => l.trim()).slice(0, 60).join('\n'));
+    console.error('---\n전체 텍스트는 --dump-text ./raw.txt 로 저장해 확인하세요.');
+    process.exit(1);
+  }
+
   const anchorFailures = checkAnchors(records);
   for (const f of anchorFailures) console.error(`✗ ${f}`);
 
   if (errors.length > 0 || anchorFailures.length > 0) {
     console.error('\n검증 실패 — 파일을 쓰지 않습니다. 위 오류를 확인하세요.');
-    process.exit(1);
-  }
-  if (records.length === 0) {
-    console.error('\n파싱된 레코드가 없습니다 — PDF 포맷이 예상과 다릅니다.');
-    console.error('추출된 텍스트 앞부분(진단용):\n---');
-    console.error(text.split(/\r?\n/).filter((l) => l.trim()).slice(0, 40).join('\n'));
-    console.error('---\n전체 텍스트는 --dump-text ./raw.txt 로 저장해 확인하세요.');
     process.exit(1);
   }
 
