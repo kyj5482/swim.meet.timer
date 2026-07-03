@@ -6,3 +6,4 @@ export { listSwimmers, addSwimmer, updateSwimmer, archiveSwimmer } from './swimm
 export { saveSession, deleteSession, deleteRecord, listRecords, statsForEvent } from './records';
 export { getPref, setPref } from './prefs';
 export { seedIfFirstRun, clearSeed, hasSeedData } from './seedDb';
+export { getTarget, setTarget, clearTarget, type Target } from './targets';

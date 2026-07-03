@@ -22,6 +22,7 @@ export default function AthletesScreen() {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [group, setGroup] = useState('');
+  const [gender, setGender] = useState<'F' | 'M' | null>(null);
   const t = useT();
 
   const reload = useCallback(() => {
@@ -30,7 +31,7 @@ export default function AthletesScreen() {
   useFocusEffect(reload);
 
   function openAdd() {
-    setName(''); setAge(''); setGroup('');
+    setName(''); setAge(''); setGroup(''); setGender(null);
     setEditing({ swimmer: null });
   }
   function openEdit(s: Swimmer) {
@@ -38,6 +39,7 @@ export default function AthletesScreen() {
     const a = ageOf(s);
     setAge(a != null ? String(a) : '');
     setGroup(s.group ?? '');
+    setGender(s.gender ?? null);
     setEditing({ swimmer: s });
   }
 
@@ -49,14 +51,14 @@ export default function AthletesScreen() {
     const grp = group.trim() || undefined;
     void (async () => {
       if (editing?.swimmer) {
-        await updateSwimmer(editing.swimmer.id, { name: trimmed, group: grp ?? null, birthYear: birthYear ?? null });
+        await updateSwimmer(editing.swimmer.id, { name: trimmed, group: grp ?? null, birthYear: birthYear ?? null, gender: gender ?? null });
       } else {
-        await addSwimmer(trimmed, grp, birthYear);
+        await addSwimmer(trimmed, grp, birthYear, gender ?? undefined);
       }
       setEditing(null);
       reload();
     })();
-  }, [name, age, group, editing, reload]);
+  }, [name, age, group, gender, editing, reload]);
 
   const onArchive = useCallback((s: Swimmer) => {
     Alert.alert(t.delSwTitle(s.name), t.delSwMsg, [
@@ -120,6 +122,17 @@ export default function AthletesScreen() {
                 />
               </View>
             </View>
+            <Text style={styles.fieldLabel}>{t.lGender}</Text>
+            <View style={styles.genderRow}>
+              {([['F', t.female], ['M', t.male]] as const).map(([g, lbl]) => (
+                <Pressable
+                  key={g}
+                  style={[styles.genderBtn, gender === g && styles.genderOn]}
+                  onPress={() => setGender(gender === g ? null : g)}>
+                  <Text style={[styles.genderText, gender === g && styles.genderTextOn]}>{lbl}</Text>
+                </Pressable>
+              ))}
+            </View>
             <Pressable style={[styles.saveBtn, !name.trim() && styles.btnDisabled]} disabled={!name.trim()} onPress={save}>
               <Text style={styles.saveText}>{t.save}</Text>
             </Pressable>
@@ -164,6 +177,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: color.line,
   },
   rowFields: { flexDirection: 'row', gap: 10 },
+  genderRow: { flexDirection: 'row', gap: 8 },
+  genderBtn: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface2, alignItems: 'center', justifyContent: 'center' },
+  genderOn: { backgroundColor: color.accent, borderColor: color.accent },
+  genderText: { color: color.text, fontSize: 15, fontWeight: '600' },
+  genderTextOn: { color: color.accentInk, fontWeight: '800' },
   saveBtn: { height: 50, borderRadius: 14, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   saveText: { color: color.accentInk, fontSize: 16, fontWeight: '800' },
   btnDisabled: { opacity: 0.4 },

@@ -1,7 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import { useFocusEffect } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
@@ -9,10 +9,14 @@ import {
 import Avatar from '@/components/Avatar';
 import { ChevronDown } from '@/components/Icons';
 import Select from '@/components/Select';
-import { ageOf, deleteRecord, listRecords, listSwimmers, type Swimmer, type TrainingRecord } from '@/db';
+import {
+  ageOf, clearTarget, deleteRecord, getTarget, listRecords, listSwimmers, setTarget,
+  type Swimmer, type Target, type TrainingRecord,
+} from '@/db';
 import CompareChart from '@/features/records/CompareChart';
 import TrendChart from '@/features/records/TrendChart';
 import { eventKeyOf, eventLabel, recordsToCsv } from '@/features/records/csv';
+import TargetCard from '@/features/targets/TargetCard';
 import { useT } from '@/store/settings';
 import { color, font, laneColor, radius, touch } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
@@ -28,6 +32,7 @@ export default function RecordsScreen() {
   const [cmpIds, setCmpIds] = useState<Set<string>>(new Set());
   const [comparing, setComparing] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [savedTarget, setSavedTarget] = useState<Target | null>(null);
   const t = useT();
 
   const loadRecords = useCallback((sid: string) => {
@@ -75,6 +80,14 @@ export default function RecordsScreen() {
   const bestMs = finished.length ? Math.min(...finished.map((r) => r.totalMs)) : null;
   const selected = filtered.filter((r) => cmpIds.has(r.id)).sort((a, b) => a.date - b.date);
   const unit = activeTarget?.course === '25y' ? 'y' : 'm';
+
+  // 현재 선수·종목의 타겟 로드
+  useEffect(() => {
+    if (!swimmerId || !activeEvent) { setSavedTarget(null); return; }
+    let alive = true;
+    void getTarget(swimmerId, activeEvent).then((tg) => { if (alive) setSavedTarget(tg); });
+    return () => { alive = false; };
+  }, [swimmerId, activeEvent]);
 
   const switchTo = useCallback((sid: string) => {
     setSwimmerId(sid); setCmpIds(new Set()); setCmpMode(false); setExpandedId(null); setSwitching(false);
@@ -154,6 +167,17 @@ export default function RecordsScreen() {
         contentContainerStyle={{ gap: 8, paddingBottom: 12 }}
         ListHeaderComponent={
           <View style={{ gap: 8 }}>
+            {swimmer && activeTarget && activeEvent && finished.length > 0 && (
+              <TargetCard
+                swimmer={swimmer}
+                target={activeTarget}
+                eventKey={activeEvent}
+                finished={finished}
+                saved={savedTarget}
+                onSave={(tg) => { void setTarget(tg).then(() => setSavedTarget(tg)); }}
+                onRemove={() => { void clearTarget(swimmer.id, activeEvent).then(() => setSavedTarget(null)); }}
+              />
+            )}
             {finished.length >= 2 && activeTarget && (
               <TrendChart
                 records={finished}

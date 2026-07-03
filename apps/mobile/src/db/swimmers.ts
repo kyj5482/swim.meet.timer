@@ -10,27 +10,31 @@ export async function listSwimmers(): Promise<Swimmer[]> {
   return rows.map(rowToSwimmer);
 }
 
-export async function addSwimmer(name: string, group?: string, birthYear?: number): Promise<Swimmer> {
+export async function addSwimmer(name: string, group?: string, birthYear?: number, gender?: 'F' | 'M'): Promise<Swimmer> {
   const db = await getDb();
   const now = Date.now();
   const id = newId(now);
   await db.runAsync(
-    'INSERT INTO swimmers (id, name, grp, birthYear, createdAt, updatedAt, archived) VALUES (?,?,?,?,?,?,0)',
-    [id, name.trim(), group ?? null, birthYear ?? null, now, now],
+    'INSERT INTO swimmers (id, name, grp, birthYear, gender, createdAt, updatedAt, archived) VALUES (?,?,?,?,?,?,?,0)',
+    [id, name.trim(), group ?? null, birthYear ?? null, gender ?? null, now, now],
   );
-  return { id, name: name.trim(), group, birthYear, createdAt: now, archived: false };
+  return { id, name: name.trim(), group, birthYear, gender, createdAt: now, archived: false };
 }
 
-export async function updateSwimmer(id: string, fields: { name?: string; group?: string | null; birthYear?: number | null }): Promise<void> {
+export async function updateSwimmer(
+  id: string,
+  fields: { name?: string; group?: string | null; birthYear?: number | null; gender?: 'F' | 'M' | null },
+): Promise<void> {
   const db = await getDb();
   const cur = await db.getFirstAsync<SwimmerRow>('SELECT * FROM swimmers WHERE id = ?', [id]);
   if (!cur) return;
   await db.runAsync(
-    'UPDATE swimmers SET name = ?, grp = ?, birthYear = ?, updatedAt = ? WHERE id = ?',
+    'UPDATE swimmers SET name = ?, grp = ?, birthYear = ?, gender = ?, updatedAt = ? WHERE id = ?',
     [
       fields.name ?? cur.name,
       fields.group === undefined ? cur.grp : fields.group,
       fields.birthYear === undefined ? cur.birthYear : fields.birthYear,
+      fields.gender === undefined ? cur.gender : fields.gender,
       Date.now(), id,
     ],
   );

@@ -6,6 +6,7 @@ export interface Swimmer {
   name: string;
   group?: string;
   birthYear?: number;
+  gender?: 'F' | 'M';
   createdAt: number;
   archived: boolean;
 }
@@ -29,7 +30,7 @@ export interface TrainingRecord {
 
 export interface SwimmerRow {
   id: string; name: string; grp: string | null; birthYear: number | null;
-  createdAt: number; updatedAt: number; archived: number;
+  gender: string | null; createdAt: number; updatedAt: number; archived: number;
 }
 
 export interface RecordRow {
@@ -42,7 +43,9 @@ export interface RecordRow {
 export function rowToSwimmer(r: SwimmerRow): Swimmer {
   return {
     id: r.id, name: r.name, group: r.grp ?? undefined,
-    birthYear: r.birthYear ?? undefined, createdAt: r.createdAt, archived: r.archived === 1,
+    birthYear: r.birthYear ?? undefined,
+    gender: (r.gender === 'F' || r.gender === 'M') ? r.gender : undefined,
+    createdAt: r.createdAt, archived: r.archived === 1,
   };
 }
 

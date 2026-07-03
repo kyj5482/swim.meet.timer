@@ -44,4 +44,17 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE swimmers ADD COLUMN seed INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE records ADD COLUMN seed INTEGER NOT NULL DEFAULT 0;
   `,
+  // v3: 선수 성별(표준기록 조회용) + 타겟 테이블(선수×종목 목표)
+  `
+  ALTER TABLE swimmers ADD COLUMN gender TEXT;
+  CREATE TABLE IF NOT EXISTS targets (
+    swimmerId TEXT NOT NULL,
+    eventKey TEXT NOT NULL,
+    targetMs INTEGER NOT NULL,
+    targetDate INTEGER,
+    label TEXT NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    PRIMARY KEY (swimmerId, eventKey)
+  );
+  `,
 ];

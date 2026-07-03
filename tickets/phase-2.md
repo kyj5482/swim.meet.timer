@@ -43,3 +43,24 @@
 ## T-206 공유(코치·부모)
 - 초대 코드/링크 → 열람 권한(REL 테이블: viewer↔swimmer). 부모=쓰기, 코치=읽기+메모.
 - 수용: 부모 계정이 선수 기록을 보고, 권한 해제 가능.
+
+## T-112 온디바이스 타겟·진행률 (제품 핵심 차별점 — myswimio 대비)
+- 백엔드 없이 앱에서 먼저 "타겟을 정하면 현재 %인지, 잘 가고 있는지"를 보여준다.
+  Phase 2 백엔드(로그인·동기화·공식 표준 임포트)는 이후 이 위에 얹는다.
+- **결과(done)**:
+  - `packages/timer-core/progress.ts`(순수·테스트 13개): achievement(달성%),
+    ladderPosition(표준 사다리 위치), improvementSlopePerDay(회귀 기울기),
+    acceleration(향상 가속도), projectTargetDate/trajectory(도달 예상일·on-track).
+    수치는 코드가 계산(LLM 아님 — 향후 AI 코치의 결정적 기반).
+  - `features/targets/standards.ts`: USA Swimming 2024-2028 SCY Motivational
+    **검증값**(여자 11-12: 50 Free/100 Free, 실제 값) + 구조상 확장 가능.
+    NOVA 클럽 그룹(Silver/Gold) 조건이 표준 레벨→실제 시간으로 해석됨.
+    전체 공식 임포트는 T-204(백엔드).
+  - `features/targets/TargetCard.tsx`: 달성률 게이지, 궤적 칩(순항/예상일/주간
+    개선/가속), 표준 사다리(B→AAAA, 현재 위치 강조). 설정 시트: 표준 레벨 /
+    직접 입력 + 목표 날짜(없음/3개월/6개월).
+  - DB v3: swimmers.gender 추가 + targets 테이블(선수×종목). Athletes 편집에
+    성별 토글. 시드 선수 전원 여자로 지정해 11-12 표준이 즉시 매칭.
+  - 검증: Records에서 도윤 50 Free에 AA(26.09) 타겟 → 110.1% 달성·▼0.20/주·
+    Accelerating·사다리 전부 통과 표시(스크린샷 확인). 테스트 timer-core 32개·
+    앱 21개·typecheck·android 번들 통과.

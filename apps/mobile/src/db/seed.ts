@@ -15,14 +15,16 @@ export interface SeedSwimmer {
   name: string;
   group: string;
   age: number;
+  gender: 'F' | 'M';
 }
 
+// 데모는 전원 여자로 두어 11-12 여자 표준기록(50/100 Free)이 곧바로 매칭되게 한다.
 export const SEED_SWIMMERS: SeedSwimmer[] = [
-  { id: 'seed-seoyeon', name: '서연', group: '엘리트반', age: 13 },
-  { id: 'seed-minjun', name: '민준', group: '엘리트반', age: 12 },
-  { id: 'seed-jiwoo', name: '지우', group: '엘리트반', age: 13 },
-  { id: 'seed-hajun', name: '하준', group: '일반반', age: 11 },
-  { id: 'seed-doyun', name: '도윤', group: '일반반', age: 12 },
+  { id: 'seed-seoyeon', name: '서연', group: '엘리트반', age: 13, gender: 'F' },
+  { id: 'seed-minjun', name: '민준', group: '엘리트반', age: 12, gender: 'F' },
+  { id: 'seed-jiwoo', name: '지우', group: '엘리트반', age: 13, gender: 'F' },
+  { id: 'seed-hajun', name: '하준', group: '일반반', age: 11, gender: 'F' },
+  { id: 'seed-doyun', name: '도윤', group: '일반반', age: 12, gender: 'F' },
 ];
 
 interface EventTemplate {

@@ -17,9 +17,9 @@ export async function seedIfFirstRun(): Promise<void> {
   await db.withTransactionAsync(async () => {
     for (const sw of SEED_SWIMMERS) {
       await db.runAsync(
-        `INSERT OR IGNORE INTO swimmers (id, name, grp, birthYear, createdAt, updatedAt, archived, seed)
-         VALUES (?,?,?,?,?,?,0,1)`,
-        [sw.id, sw.name, sw.group, birthYearFromAge(sw.age), now, now],
+        `INSERT OR IGNORE INTO swimmers (id, name, grp, birthYear, gender, createdAt, updatedAt, archived, seed)
+         VALUES (?,?,?,?,?,?,?,0,1)`,
+        [sw.id, sw.name, sw.group, birthYearFromAge(sw.age), sw.gender, now, now],
       );
     }
     for (const r of records) {
