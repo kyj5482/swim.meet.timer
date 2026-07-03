@@ -18,6 +18,11 @@ const en = {
   ovNoStdHint: 'Set age & gender in Manage athletes to see USA Swimming standards',
   ovEmpty: 'No records yet',
   ovEmptySub: 'Finish a timed session in the Timer tab and results appear here',
+  ovShortCourse: 'Short Course', ovLongCourse: 'Long Course',
+  ovPbAt: (d: string, days: number) => `PB ${d} · ${days === 0 ? 'today' : `${days}d ago`}`,
+  ovLastAt: (d: string) => `Last swim ${d}`,
+  ovTgDrop: (label: string, pct: number) => `🎯 ${label} needs −${pct}%`,
+  ovTgDone: (label: string) => `🎯 ${label} reached ✓`,
 
   // setup
   lCourse: 'Course', lStroke: 'Stroke', lDist: 'Distance', lSplit: 'Split',
@@ -117,6 +122,11 @@ const ko: typeof en = {
   ovNoStdHint: '선수 관리에서 나이·성별을 입력하면 USA Swimming 표준이 표시됩니다',
   ovEmpty: '아직 기록이 없습니다',
   ovEmptySub: '타이머 탭에서 측정을 마치면 여기에 종목별로 정리됩니다',
+  ovShortCourse: '쇼트 코스', ovLongCourse: '롱 코스',
+  ovPbAt: (d, days) => `PB ${d} · ${days === 0 ? '오늘' : `${days}일 전`}`,
+  ovLastAt: (d) => `최근 ${d}`,
+  ovTgDrop: (label, pct) => `🎯 ${label}까지 −${pct}%`,
+  ovTgDone: (label) => `🎯 ${label} 달성 ✓`,
 
   lCourse: '코스', lStroke: '종목', lDist: '거리', lSplit: '스플릿',
   changeInSettings: '설정에서 변경', courseUnit: '코스 단위',

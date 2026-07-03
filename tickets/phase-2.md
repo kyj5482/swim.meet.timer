@@ -180,3 +180,14 @@
   컷 라인 차트·선수 관리 스택 라우트 정상).
 - 전 워크스페이스 테스트 121개 통과(timer-core 32·앱 41·shared 5·records 7·
   standards 5·infra 3·local-api 7·standards-import 21).
+
+### T-117 전체 종목 확장 (코스 섹션 · 날짜 · 목표 진행률)
+- 사용자 피드백(myswimio Best Times 스냅샷): 쇼트/롱 코스 구분, PB 날짜와
+  마지막 수영 날짜, 설정한 목표 표준 대비 진행률.
+- SectionList로 **Short Course(25y·25m) / Long Course(50m)** 섹션 분리.
+- 행마다 **PB 날짜(며칠 전) + 최근 수영 날짜**(fmtDateShort — 올해면 연도
+  생략, 좁은 행 잘림 방지).
+- **목표 진행률**: 선수가 설정한 타겟(표준 레벨/커스텀)이 있으면 그 기준으로
+  "🎯 AA까지 −4.2%" 또는 "🎯 AA 달성 ✓"(액센트색), 없으면 기존 다음 레벨
+  기준. `listTargets()`(db/targets) + `targetDropPct()`(progress.ts, 테스트).
+- Expo web 스크린샷 검증. 전 워크스페이스 테스트 122개.

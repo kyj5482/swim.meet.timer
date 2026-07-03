@@ -15,6 +15,15 @@ export interface EventProgress {
   dropPct: number | null;
 }
 
+/**
+ * 설정한 타겟(표준 레벨/커스텀)까지 필요한 단축률 %(베스트 대비, 소수 1자리).
+ * 이미 달성했으면 null(달성 표시는 호출부에서).
+ */
+export function targetDropPct(bestMs: number, targetMs: number): number | null {
+  if (bestMs <= targetMs) return null;
+  return Math.round((1000 * (bestMs - targetMs)) / bestMs) / 10;
+}
+
 export function eventProgress(bestMs: number, ladder: LadderStep[]): EventProgress {
   const lp = ladderPosition(bestMs, ladder);
   const dropPct = lp.next != null && lp.toNextMs != null

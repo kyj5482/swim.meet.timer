@@ -9,4 +9,4 @@ export {
 } from './records';
 export { getPref, setPref } from './prefs';
 export { seedIfFirstRun, clearSeed, hasSeedData } from './seedDb';
-export { getTarget, setTarget, clearTarget, type Target } from './targets';
+export { getTarget, listTargets, setTarget, clearTarget, type Target } from './targets';

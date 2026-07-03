@@ -60,6 +60,14 @@ export function eventKeyOf(t: TrainingRecord['target']): string {
 export function fmtDate(ms: number): string {
   return new Date(ms).toLocaleDateString();
 }
+/** 압축 날짜 — 올해면 월/일만, 아니면 연도 포함(전체 종목 행처럼 좁은 곳용). */
+export function fmtDateShort(ms: number): string {
+  const d = new Date(ms);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(undefined, sameYear
+    ? { month: 'numeric', day: 'numeric' }
+    : { year: '2-digit', month: 'numeric', day: 'numeric' });
+}
 /** 세션 시각 HH:MM(로케일). 타이머 기록은 날짜만이 아니라 시각까지 남는다. */
 export function fmtTime(ms: number): string {
   return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

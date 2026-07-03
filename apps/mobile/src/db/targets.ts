@@ -21,6 +21,16 @@ export async function getTarget(swimmerId: string, eventKey: string): Promise<Ta
   return r ? { swimmerId: r.swimmerId, eventKey: r.eventKey, targetMs: r.targetMs, targetDate: r.targetDate, label: r.label } : null;
 }
 
+/** 한 선수의 모든 타겟(전체 종목 화면 — 종목별 목표 진행률 표시용). */
+export async function listTargets(swimmerId: string): Promise<Target[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<TargetRow>('SELECT * FROM targets WHERE swimmerId = ?', [swimmerId]);
+  return rows.map((r) => ({
+    swimmerId: r.swimmerId, eventKey: r.eventKey, targetMs: r.targetMs,
+    targetDate: r.targetDate, label: r.label,
+  }));
+}
+
 export async function setTarget(t: Target): Promise<void> {
   const db = await getDb();
   await db.runAsync(
