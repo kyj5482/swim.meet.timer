@@ -4,6 +4,8 @@
  *   npm run import -w tools/standards-import                  # 다운로드 + 파싱 + 요약(쓰기 없음)
  *   npm run import -w tools/standards-import -- --write       # 검증 통과 시 파일 생성
  *   npm run import -w tools/standards-import -- ./local.pdf --write   # 로컬 PDF 사용
+ *   npm run import -w tools/standards-import -- --dump-text ./raw.txt  # 파싱 없이 추출 텍스트만 저장
+ *                                                                       (파서가 PDF 레이아웃을 못 잡을 때 진단용)
  *
  * 생성 파일:
  *   common/standards/seed/usa-swimming-motivational.json   (계약 소스)
@@ -40,10 +42,19 @@ async function loadPdf(src: string): Promise<Buffer> {
 async function main() {
   const args = process.argv.slice(2);
   const write = args.includes('--write');
-  const src = args.find((a) => !a.startsWith('--')) ?? OFFICIAL_URL;
+  const dumpIdx = args.indexOf('--dump-text');
+  const dumpPath = dumpIdx >= 0 ? args[dumpIdx + 1] : null;
+  const src = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--dump-text') ?? OFFICIAL_URL;
 
   const buf = await loadPdf(src);
   const { text } = await pdfParse(buf);
+
+  if (dumpPath) {
+    await writeFile(dumpPath, text);
+    console.log(`추출 텍스트 저장: ${dumpPath} (${text.length}자)`);
+    return;
+  }
+
   const { records, errors, warnings } = parsePdfText(text);
 
   for (const w of warnings) console.warn(`⚠ ${w}`);
@@ -71,6 +82,9 @@ async function main() {
   }
   if (records.length === 0) {
     console.error('\n파싱된 레코드가 없습니다 — PDF 포맷이 예상과 다릅니다.');
+    console.error('추출된 텍스트 앞부분(진단용):\n---');
+    console.error(text.split(/\r?\n/).filter((l) => l.trim()).slice(0, 40).join('\n'));
+    console.error('---\n전체 텍스트는 --dump-text ./raw.txt 로 저장해 확인하세요.');
     process.exit(1);
   }
 
