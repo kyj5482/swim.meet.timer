@@ -88,3 +88,27 @@
   `cdk deploy`(T-201 문서 절차).
 - 잔여: 앱↔records 동기화 클라이언트, /auth API·초대(T-206), ai-coach(Phase 3),
   공식 표준 전량 임포트, 관측성 대시보드/알람(T-403).
+
+## Mac 로컬 백엔드 실행 (AWS 계정 불필요)
+사용자 요청: "Mac에서 백엔드를 실행할 수 있는 방법은?" → 완전 로컬 방식 선택.
+- **tools/local-api**: `services/records`·`services/standards`의 **실제 Lambda
+  핸들러**를 그대로 불러와 Express로 감싼 로컬 서버. 로직 이중 구현 없음 —
+  여기서 통과하면 AWS 배포본도 동일하게 동작.
+  - `adapter.ts`: Express req ↔ API Gateway v2 이벤트/응답 변환(순수 함수,
+    테스트 7개). 인증은 `x-dev-user`/`x-dev-role` 헤더로 Cognito JWT claims를
+    흉내(로컬 전용, AWS 미배포).
+  - `setup.ts`: DynamoDB Local에 테이블 생성(멱등) + 표준기록 임포터 실행.
+  - `server.ts`: 동적 import로 env(DYNAMODB_ENDPOINT/RECORDS_TABLE/
+    STANDARDS_TABLE) 확정 후 핸들러 로드 — 정적 import 호이스팅 문제 회피.
+  - `docker-compose.yml`: DynamoDB Local.
+- **services/_shared/table-schema.ts** 신설: 테이블 pk/sk/GSI 정의를 CDK
+  (`infra/lib/data-stack.ts`)와 로컬 세팅이 공유 — 로컬/AWS 스키마 불일치 방지.
+- **검증**: 이 세션 환경엔 Docker 데몬이 없어(사용자 Mac에서는 있음) 실제
+  DynamoDB Local 연동은 못 돌렸지만, 서버를 기동해 `/health`(200) 확인 +
+  `/v1/standards` 호출이 핸들러까지 정확히 도달해 `ECONNREFUSED
+  127.0.0.1:8000`(DynamoDB Local 부재)로 실패하는 것을 확인 — Express→어댑터→
+  동적 import→Lambda 핸들러→구조화 로거→DynamoDB 클라이언트 배선이 전부 정상.
+  어댑터 로직은 단위 테스트 7개로 커버.
+- 사용법: `tools/local-api/README.md`. 루트 스크립트 `npm run local:up/setup/api/down`.
+- 전 워크스페이스 테스트 79개 통과(timer-core 32·앱 21·shared 5·standards 5·
+  records 6·infra 3·local-api 7).

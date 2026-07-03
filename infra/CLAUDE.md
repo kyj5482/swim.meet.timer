@@ -12,3 +12,8 @@
   로그 보존(dev 7d/prod 30d), DLQ, 태그 project/stage.
 - GitHub Actions: OIDC role, PR=synth+test, main=dev 배포, v태그=prod(환경 승인).
 - 어떤 리소스도 콘솔 수동 생성 금지 — 전부 코드.
+- 테이블 정의(pk/sk/GSI)는 `services/_shared/src/table-schema.ts`가 단일
+  소스 — CDK와 `tools/local-api`(로컬 DynamoDB) 둘 다 여기서 읽는다.
+- **로컬 실행(AWS 계정 불필요)**: `tools/local-api` — Docker의 DynamoDB Local
+  + 실제 Lambda 핸들러를 Express로 감싼 서버. `npm run local:up && npm run
+  local:setup && npm run local:api`. 자세한 내용은 `tools/local-api/README.md`.

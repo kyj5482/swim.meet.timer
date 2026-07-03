@@ -5,9 +5,14 @@
     "packages/*",
     "apps/*",
     "services/*",
-    "infra"
+    "infra",
+    "tools/*"
   ],
   "scripts": {
-    "test": "npm test --workspaces --if-present"
+    "test": "npm test --workspaces --if-present",
+    "local:up": "cd tools/local-api && docker compose up -d",
+    "local:setup": "npm run setup -w @splitlane/local-api",
+    "local:api": "npm run dev -w @splitlane/local-api",
+    "local:down": "cd tools/local-api && docker compose down"
   }
 }

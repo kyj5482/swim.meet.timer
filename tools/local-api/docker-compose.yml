@@ -1,0 +1,13 @@
+# DynamoDB Local — `docker compose up -d` (tools/local-api 폴더에서 실행)
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: splitlane-dynamodb-local
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/data"]
+    volumes:
+      - dynamodb-data:/data
+
+volumes:
+  dynamodb-data:
