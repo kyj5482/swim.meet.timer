@@ -107,3 +107,21 @@
   4) 첫 dev client 빌드: `npx eas build --profile development --platform android`
      → 설치 후 볼륨키 LAP·SQLite 재시작 유지·햅틱·복구 실기기 수용 테스트
      (T-102/103/105/106의 실기기 검증 항목이 여기서 수행됨)
+
+## T-111 원본 PWA 화면 픽셀 일치 + 데모 시드 + 세션 증감
+- main 브랜치 PWA(docs/app/index.html)를 Playwright(모바일 뷰포트)로 렌더해
+  목표 화면 5종을 캡처하고, 네이티브 구현을 그에 맞춰 재작업.
+- **결과(done)**:
+  - 데모 시드(`src/db/seed.ts` + `seedDb.ts`, v2 마이그레이션 seed 컬럼):
+    첫 실행 시 선수 5명(서연/민준/지우/하준/도윤)과 6종목×6세션 히스토리를
+    결정적 생성 → PWA처럼 채워진 상태로 시작. 설정에서 '데모 지우기'.
+  - 공용 컴포넌트: TopBar / Avatar / Select(바텀시트) / SVG 탭 아이콘.
+  - Timer 설정: 헤더 이벤트 제목, Course 읽기전용+설정변경, 드롭다운 3종.
+  - Running: Reset 빨강, 레인 확대. Assign: 드롭다운+Rec, confbar 위치,
+    Save/Time Again 세로 스택, 현장 선수 추가.
+  - Records: 아바타 헤더+Switch, 이벤트 드롭다운(PB 인라인), 추세 라인 차트,
+    세션 행 직전 대비 증감(▼/▲) — 페르소나(선수·부모·코치) 공통 핵심 가치.
+  - Athletes: 아바타 카드+나이/그룹, 추가/편집 모달. Settings: 코스·데모 지우기.
+  - 검증: Playwright로 Setup/Records/Athletes가 PWA와 일치 확인(스크린샷 대조).
+    Running/Assign은 동일 스펙 구현(web static export의 onPressIn 경로는
+    Playwright 구동 불가 → 실기기에서 사용자 검증).

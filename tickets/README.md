@@ -21,6 +21,7 @@
 | T-106 | 앱 폴리시: wake lock, 햅틱, 크래시 복구 스냅샷 | done |
 | T-109 | i18n(en/ko) — PWA 문자열 전체 이식 + 설정 화면(언어·햅틱·볼륨키) | done |
 | T-110 | UI 디자인 폴리시(PWA 수준) + Records SVG 라인/비교 차트 | done |
+| T-111 | 화면을 원본 PWA와 픽셀 일치 + 데모 시드 + 세션 증감 표시 | done |
 | T-107 | EAS Build + 스토어 배포 파이프라인(GitHub Actions) | done (수동 1회 설정 필요) |
 
 ## Phase 2 — 계정·동기화·타겟 (`tickets/phase-2.md`)
