@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { CHAMP_LEVELS, CHAMPS } from './championships.data';
+import { MOTIVATIONAL } from './standards.data';
 import { championshipSteps, levelLabel, standardLadderForGroup } from './standards';
+
+const MOTIV = ['B', 'BB', 'A', 'AA', 'AAA', 'AAAA'];
 
 describe('챔피언십 사다리', () => {
   it('모티베이셔널 위에 챔피언십 컷이 이어 붙는다 (11-12 M 50 Free SCY)', () => {
@@ -14,11 +17,34 @@ describe('챔피언십 사다리', () => {
     expect(levels).toContain('D1A');
   });
 
-  it('모티베이셔널 데이터가 없는 종목도 챔피언십 컷만으로 사다리가 생긴다 (200 IM)', () => {
-    // 200 IM은 모티베이셔널 subset에 아직 없지만 레벨이 비는 일은 없어야 한다.
-    const ladder = standardLadderForGroup('SCY', 'M', '11-12', 'im', 200);
-    expect(ladder).not.toBeNull();
-    expect(ladder!.length).toBeGreaterThanOrEqual(CHAMP_LEVELS.length);
+  it('모든 종목이 B~AAAA 기본 + 챔피언십을 함께 갖는다 (200 IM, 100 Breast 등)', () => {
+    for (const [stroke, dist] of [['im', 200], ['breast', 100], ['back', 200], ['fly', 100]] as const) {
+      const ladder = standardLadderForGroup('SCY', 'M', '13-14', stroke, dist);
+      expect(ladder, `${dist}${stroke}`).not.toBeNull();
+      const levels = ladder!.map((s) => s.level);
+      for (const lv of MOTIV) expect(levels, `${dist}${stroke} ${lv}`).toContain(lv);
+      expect(levels).toContain('WZ'); // Far Western 등 챔피언십도 함께
+      expect(levels).toContain('D1A');
+    }
+  });
+
+  it('사다리 전체가 느린→빠른으로 단조(모티베이셔널 B가 가장 느리고 D1A가 가장 빠름)', () => {
+    const ladder = standardLadderForGroup('SCY', 'F', '15-16', 'free', 100)!;
+    const sorted = [...ladder].sort((a, b) => b.timeMs - a.timeMs);
+    expect(sorted[0]!.level).toBe('B');                        // 가장 느림
+    expect(sorted[sorted.length - 1]!.level).toBe('D1A');       // 가장 빠름
+    // AAAA(모티베이셔널 최상)가 WZ(챔피언십 최하)보다 느려 겹치지 않는다
+    const aaaa = ladder.find((s) => s.level === 'AAAA')!;
+    const wz = ladder.find((s) => s.level === 'WZ')!;
+    expect(aaaa.timeMs).toBeGreaterThan(wz.timeMs);
+  });
+
+  it('실측 subset이 있으면 파생값 대신 실측을 쓴다 (11-12 M 50FR SCY)', () => {
+    const real = MOTIVATIONAL.SCY!.M!['11-12']!['50FR']!;
+    const ladder = standardLadderForGroup('SCY', 'M', '11-12', 'free', 50)!;
+    for (const lv of MOTIV) {
+      expect(ladder.find((s) => s.level === lv)!.timeMs, lv).toBe(real[lv]);
+    }
   });
 
   it('챔피언십 컷은 레벨 순서대로 단조 감소(빨라진다)', () => {

@@ -1,6 +1,7 @@
 import type { LadderStep } from '@splitlane/timer-core';
 
 import { CHAMP_LABEL, CHAMP_LEVELS, CHAMPS, type ChampLevel } from './championships.data';
+import { derivedMotivational } from './motivational.derive';
 import { MOTIVATIONAL } from './standards.data';
 
 /**
@@ -45,8 +46,14 @@ export function ageGroup(age: number | null): AgeGroup | null {
   return '17-18';
 }
 
+/**
+ * 종목 모티베이셔널 레벨(B~AAAA) 컷 맵. 실측 subset(standards.data.ts)이 있으면
+ * 그것을 쓰고(verified), 없으면 챔피언십에서 파생한 시드로 채운다 — 모든 종목이
+ * 항상 B~AAAA 기본 사다리를 갖도록.
+ */
 function times(course: StdCourse, gender: Gender, ag: AgeGroup, stroke: string, distance: number) {
-  return MOTIVATIONAL[course]?.[gender]?.[ag]?.[eventCode(stroke, distance)] ?? null;
+  const code = eventCode(stroke, distance);
+  return MOTIVATIONAL[course]?.[gender]?.[ag]?.[code] ?? derivedMotivational(course, gender, ag, code);
 }
 
 /** 챔피언십 미트 컷(연령 무관 사다리 상단) — 없으면 빈 배열. */
