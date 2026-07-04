@@ -57,8 +57,8 @@ export default function TrendChart({ records, title, ladder }: {
           <Text style={[styles.accel, pace.state === 'improving' && { color: color.ok }, pace.state === 'regressing' && { color: color.warn }]}>
             {paceText}
           </Text>
-          <Pressable onPress={() => setFull(true)} hitSlop={8} style={styles.expandBtn}>
-            <ExpandIcon color={color.accent} size={24} />
+          <Pressable onPress={() => setFull(true)} hitSlop={12} style={styles.expandBtn}>
+            <ExpandIcon color={color.accent} size={18} />
           </Pressable>
         </View>
       </View>

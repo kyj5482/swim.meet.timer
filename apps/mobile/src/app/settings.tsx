@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
@@ -8,6 +9,7 @@ import { syncAll } from '@/api/sync';
 import { clearSeed, hasSeedData } from '@/db';
 import { courseName } from '@/features/timer/config';
 import { setSettings, useSettings, useT } from '@/store/settings';
+import { webBaseUrl } from '@/features/records/officialTimes';
 import { color, radius } from '@/theme';
 
 const COURSES = ['25y', '25m', '50m'] as const;
@@ -126,7 +128,9 @@ export default function SettingsScreen() {
         <View style={styles.rowCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.rowTitle}>{t.signedInAs(s.authEmail ?? '')}</Text>
-            <Text style={styles.rowSub}>{t.aiCoachHint}</Text>
+            <Pressable hitSlop={6} onPress={() => void Linking.openURL(webBaseUrl(s.apiBaseUrl))}>
+              <Text style={styles.link}>{t.openWebConsole}</Text>
+            </Pressable>
           </View>
           <Pressable style={styles.backendBtn} onPress={onSignOut}>
             <Text style={styles.backendBtnText}>{t.signOut}</Text>
@@ -163,45 +167,55 @@ export default function SettingsScreen() {
           </Pressable>
           {signInMsg && <Text style={styles.connFail}>{signInMsg}</Text>}
           <Text style={styles.rowSub}>{t.aiCoachHint}</Text>
+          {/* 계정 생성은 웹 서비스에서 — 앱은 로그인만 담당 */}
+          <Pressable hitSlop={6} onPress={() => void Linking.openURL(`${webBaseUrl(s.apiBaseUrl)}/signup`)}>
+            <Text style={styles.link}>{t.createAccount}</Text>
+          </Pressable>
         </>
       )}
 
-      {/* 백엔드 동기화 */}
-      <Text style={styles.label}>{t.backend}</Text>
-      <View style={styles.urlRow}>
-        <TextInput
-          style={styles.urlInput}
-          value={urlInput}
-          onChangeText={setUrlInput}
-          onEndEditing={saveUrl}
-          placeholder={t.serverUrlPH}
-          placeholderTextColor={color.textMuted}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-        />
-      </View>
-      <View style={styles.backendActions}>
-        <Pressable style={styles.backendBtn} onPress={() => void onTestConnection()} disabled={conn === 'checking'}>
-          {conn === 'checking' ? <ActivityIndicator color={color.text} size="small" /> : (
-            <Text style={styles.backendBtnText}>{t.testConnection}</Text>
-          )}
-        </Pressable>
-        <Pressable
-          style={[styles.backendBtn, styles.backendBtnPrimary, syncing && styles.disabled]}
-          onPress={() => void onSyncNow()}
-          disabled={syncing}>
-          {syncing ? <ActivityIndicator color={color.accentInk} size="small" /> : (
-            <Text style={styles.backendBtnPrimaryText}>{t.syncNow}</Text>
-          )}
-        </Pressable>
-      </View>
-      {conn === 'ok' && <Text style={styles.connOk}>{t.connOk}</Text>}
-      {conn === 'fail' && <Text style={styles.connFail}>{t.connFail}</Text>}
-      {syncMsg && <Text style={syncMsg.ok ? styles.connOk : styles.connFail}>{syncMsg.text}</Text>}
-      <Text style={styles.rowSub}>
-        {s.lastSyncAt > 0 ? t.lastSynced(new Date(s.lastSyncAt).toLocaleTimeString()) : t.neverSynced}
-      </Text>
+      {/* 백엔드 동기화 — AI 코치 계정 설정 안쪽, 개발 빌드에서만 노출.
+          프로덕션 앱은 로그인 계정으로 자동 동기화되므로 URL 입력이 필요 없다. */}
+      {__DEV__ && (
+        <View style={styles.devBox}>
+          <Text style={styles.rowTitle}>{t.devBackend}</Text>
+          <Text style={styles.rowSub}>{t.devBackendHint}</Text>
+          <View style={styles.urlRow}>
+            <TextInput
+              style={styles.urlInput}
+              value={urlInput}
+              onChangeText={setUrlInput}
+              onEndEditing={saveUrl}
+              placeholder={t.serverUrlPH}
+              placeholderTextColor={color.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+          </View>
+          <View style={styles.backendActions}>
+            <Pressable style={styles.backendBtn} onPress={() => void onTestConnection()} disabled={conn === 'checking'}>
+              {conn === 'checking' ? <ActivityIndicator color={color.text} size="small" /> : (
+                <Text style={styles.backendBtnText}>{t.testConnection}</Text>
+              )}
+            </Pressable>
+            <Pressable
+              style={[styles.backendBtn, styles.backendBtnPrimary, syncing && styles.disabled]}
+              onPress={() => void onSyncNow()}
+              disabled={syncing}>
+              {syncing ? <ActivityIndicator color={color.accentInk} size="small" /> : (
+                <Text style={styles.backendBtnPrimaryText}>{t.syncNow}</Text>
+              )}
+            </Pressable>
+          </View>
+          {conn === 'ok' && <Text style={styles.connOk}>{t.connOk}</Text>}
+          {conn === 'fail' && <Text style={styles.connFail}>{t.connFail}</Text>}
+          {syncMsg && <Text style={syncMsg.ok ? styles.connOk : styles.connFail}>{syncMsg.text}</Text>}
+          <Text style={styles.rowSub}>
+            {s.lastSyncAt > 0 ? t.lastSynced(new Date(s.lastSyncAt).toLocaleTimeString()) : t.neverSynced}
+          </Text>
+        </View>
+      )}
 
       {/* 데모 데이터 지우기 (시드가 남아 있을 때만) */}
       {seedLeft && (
@@ -235,6 +249,11 @@ const styles = StyleSheet.create({
   },
   rowTitle: { color: color.text, fontSize: 15, fontWeight: '600' },
   rowSub: { color: color.textMuted, fontSize: 12, marginTop: 2, lineHeight: 16 },
+  link: { color: color.accent, fontSize: 13, fontWeight: '600', marginTop: 4 },
+  devBox: {
+    borderWidth: 1, borderColor: color.line, borderRadius: radius.card,
+    padding: 14, gap: 8, borderStyle: 'dashed',
+  },
   clearBtn: {
     borderWidth: 1, borderColor: color.stop, borderRadius: radius.card,
     padding: 14, gap: 2, marginTop: 4,

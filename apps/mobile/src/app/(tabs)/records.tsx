@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MoreVertical } from '@/components/Icons';
 import Select from '@/components/Select';
 import SwimmerHeader from '@/components/SwimmerHeader';
 import SwimmerPicker from '@/components/SwimmerPicker';
@@ -31,7 +32,9 @@ export default function RecordsScreen() {
   const [records, setRecords] = useState<TrainingRecord[]>([]);
   const [eventKey, setEventKey] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [cmpMode, setCmpMode] = useState(false);
+  // 세션 선택 모드 — Compare(2개+ 비교) 또는 Delete(선택 삭제). ⋮ 메뉴로 진입.
+  const [mode, setMode] = useState<'compare' | 'delete' | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [cmpIds, setCmpIds] = useState<Set<string>>(new Set());
   const [comparing, setComparing] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -119,22 +122,30 @@ export default function RecordsScreen() {
   }, [swimmerId, activeEvent]);
 
   const switchTo = useCallback((sid: string) => {
-    setSwimmerId(sid); setCmpIds(new Set()); setCmpMode(false); setExpandedId(null); setSwitching(false);
+    setSwimmerId(sid); setCmpIds(new Set()); setMode(null); setExpandedId(null); setSwitching(false);
     void setSelectedSwimmerId(sid); // 전체 종목 탭에도 동일 적용
     loadRecords(sid);
   }, [loadRecords]);
 
-  const onDelete = useCallback((r: TrainingRecord) => {
-    Alert.alert(t.delConfirm, undefined, [
+  // 선택 삭제 — 확인 후 선택된 세션을 모두 제거.
+  const deleteSelected = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    Alert.alert(t.delSessionsConfirm(ids.length), undefined, [
       { text: t.cancel, style: 'cancel' },
-      { text: t.delYes, style: 'destructive', onPress: () => void deleteRecord(r.id).then(reload) },
+      {
+        text: t.delYes,
+        style: 'destructive',
+        onPress: () => void Promise.all(ids.map((id) => deleteRecord(id))).then(() => {
+          setMode(null); setCmpIds(new Set()); reload();
+        }),
+      },
     ]);
   }, [reload, t]);
 
-  // 비교 모달을 닫으면 비교 모드도 자동 해제(선택 초기화)
+  // 비교 모달을 닫으면 선택 모드도 해제(선택 초기화)
   const closeCompare = useCallback(() => {
     setComparing(false);
-    setCmpMode(false);
+    setMode(null);
     setCmpIds(new Set());
   }, []);
 
@@ -198,11 +209,15 @@ export default function RecordsScreen() {
             )}
             <View style={styles.histHead}>
               <Text style={styles.histTitle}>{t.sessions}</Text>
-              <Pressable onPress={() => { setCmpMode(!cmpMode); setCmpIds(new Set()); }}>
-                <Text style={[styles.cmpLink, cmpMode && styles.cmpLinkActive]}>
-                  {cmpMode ? t.cancel : t.compareSplits}
-                </Text>
-              </Pressable>
+              {mode ? (
+                <Pressable onPress={() => { setMode(null); setCmpIds(new Set()); }} hitSlop={8}>
+                  <Text style={styles.cmpLinkActive}>{t.cancel}</Text>
+                </Pressable>
+              ) : (
+                <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={styles.menuBtn}>
+                  <MoreVertical color={color.textMuted} size={20} />
+                </Pressable>
+              )}
             </View>
           </View>
         }
@@ -215,13 +230,14 @@ export default function RecordsScreen() {
           const prev = filtered[index + 1];
           const deltaMs = prev && item.status === 'finished' && prev.status === 'finished'
             ? item.totalMs - prev.totalMs : null;
-          // 이 세션에서 표준 레벨이 처음 올라갔으면 시간 아래 두 번째 줄로 배지 표시
+          // 이 세션에서 표준 레벨이 처음 올라갔으면 배지 표시 — PB·초단축과 같은 줄에 인라인.
           const milestone = milestones.get(item.id) ?? null;
+          const selecting = mode != null;
           return (
             <View>
               <Pressable
                 onPress={() => {
-                  if (cmpMode) {
+                  if (selecting) {
                     const next = new Set(cmpIds);
                     if (picked) next.delete(item.id); else next.add(item.id);
                     setCmpIds(next);
@@ -230,7 +246,7 @@ export default function RecordsScreen() {
                   }
                 }}
                 style={[styles.row, picked && styles.rowPicked, expanded && styles.rowOpen]}>
-                {cmpMode && (
+                {selecting && (
                   <View style={[styles.check, picked && styles.checkOn]}>
                     {picked && <Text style={styles.checkMark}>✓</Text>}
                   </View>
@@ -244,21 +260,17 @@ export default function RecordsScreen() {
                   </Text>
                 )}
                 {isPB && <View style={styles.pbBadge}><Text style={styles.pbBadgeText}>{t.pbShort}</Text></View>}
-                {item.status === 'dnf' && <Text style={styles.dnf}>DNF</Text>}
-                {milestone ? (
-                  // 레벨 승급 세션만 두 줄 — 시간 아래에 새로 달성한 레벨 배지
-                  <View style={styles.totalCol}>
-                    <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
-                    <View style={[styles.lvBadge, { borderColor: stdLevelColor(milestone) }]}>
-                      <Text style={[styles.lvBadgeText, { color: stdLevelColor(milestone) }]}>{milestone}</Text>
-                    </View>
+                {/* 레벨 승급 배지 — PB와 같은 위치(인라인). 초단축·PB·레벨이 함께 뜰 수 있다. */}
+                {milestone && (
+                  <View style={[styles.lvBadge, { borderColor: stdLevelColor(milestone) }]}>
+                    <Text style={[styles.lvBadgeText, { color: stdLevelColor(milestone) }]}>{milestone}</Text>
                   </View>
-                ) : (
-                  <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
                 )}
+                {item.status === 'dnf' && <Text style={styles.dnf}>DNF</Text>}
+                <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
               </Pressable>
 
-              {expanded && !cmpMode && (
+              {expanded && !selecting && (
                 <View style={styles.detail}>
                   <Text style={styles.detailLabel}>{t.segSplits}</Text>
                   <View style={styles.segGrid}>
@@ -271,10 +283,6 @@ export default function RecordsScreen() {
                       </View>
                     ))}
                   </View>
-                  {/* 삭제는 드물다 — 펼친 상세 안에서만, 확인 후 진행 */}
-                  <Pressable style={styles.delMini} onPress={() => onDelete(item)}>
-                    <Text style={styles.delMiniText}>{`🗑 ${t.delRec}`}</Text>
-                  </Pressable>
                 </View>
               )}
             </View>
@@ -282,8 +290,8 @@ export default function RecordsScreen() {
         }}
       />
 
-      {/* 비교 모드에서만 하단 액션(Compare) */}
-      {cmpMode && (
+      {/* 선택 모드 하단 액션 — Compare(2개+) 또는 Delete(1개+) */}
+      {mode === 'compare' && (
         <View style={styles.actions}>
           <Pressable
             style={[styles.compareBtn, selected.length < 2 && styles.btnDisabled]}
@@ -295,6 +303,37 @@ export default function RecordsScreen() {
           </Pressable>
         </View>
       )}
+      {mode === 'delete' && (
+        <View style={styles.actions}>
+          <Pressable
+            style={[styles.deleteBtn, cmpIds.size < 1 && styles.btnDisabled]}
+            disabled={cmpIds.size < 1}
+            onPress={() => deleteSelected([...cmpIds])}>
+            <Text style={styles.deleteText}>
+              {cmpIds.size < 1 ? t.selectDelete : t.deleteN(cmpIds.size)}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* ⋮ 메뉴 — Compare / Delete 진입 */}
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={styles.menuBack} onPress={() => setMenuOpen(false)}>
+          <View style={styles.menuCard}>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => { setMenuOpen(false); setMode('compare'); setCmpIds(new Set()); }}>
+              <Text style={styles.menuText}>{t.menuCompare}</Text>
+            </Pressable>
+            <View style={styles.menuSep} />
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => { setMenuOpen(false); setMode('delete'); setCmpIds(new Set()); }}>
+              <Text style={[styles.menuText, styles.menuDanger]}>{t.menuDelete}</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* 선수 전환 모달 (Switch) — 전체 종목 탭과 동일 화면 */}
       <SwimmerPicker
@@ -371,8 +410,8 @@ const styles = StyleSheet.create({
   eventLabel: { color: color.textMuted, fontSize: 12 },
   histHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 2, marginTop: 2 },
   histTitle: { color: color.text, fontSize: 15, fontWeight: '700' },
-  cmpLink: { color: color.accent, fontSize: 13, fontWeight: '600' },
-  cmpLinkActive: { color: color.warn },
+  menuBtn: { padding: 4 },
+  cmpLinkActive: { color: color.warn, fontSize: 13, fontWeight: '600' },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: touch.min + 6,
     backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
@@ -396,7 +435,6 @@ const styles = StyleSheet.create({
     color: color.text, fontSize: 20, fontWeight: '700',
     fontFamily: font.mono, fontVariant: ['tabular-nums'],
   },
-  totalCol: { alignItems: 'flex-end', gap: 3 },
   lvBadge: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 1, backgroundColor: color.surface2 },
   lvBadgeText: { fontSize: 10, fontWeight: '800' },
   detail: {
@@ -412,15 +450,25 @@ const styles = StyleSheet.create({
   },
   segChipLabel: { color: color.textMuted, fontSize: 9 },
   segChipVal: { color: color.text, fontSize: 13, marginTop: 2, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
-  delMini: { alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 2 },
-  delMiniText: { color: color.textMuted, fontSize: 12, fontWeight: '600' },
   actions: { flexDirection: 'row', gap: 10 },
   compareBtn: {
     flex: 1, height: 48, borderRadius: 14, backgroundColor: color.accent,
     alignItems: 'center', justifyContent: 'center',
   },
   compareText: { color: color.accentInk, fontSize: 15, fontWeight: '800' },
+  deleteBtn: {
+    flex: 1, height: 48, borderRadius: 14, backgroundColor: color.stop,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  deleteText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   btnDisabled: { opacity: 0.4 },
+  // ⋮ 세션 메뉴(Compare / Delete)
+  menuBack: { flex: 1, backgroundColor: 'rgba(4,12,20,0.5)', justifyContent: 'center', padding: 40 },
+  menuCard: { backgroundColor: color.surface, borderWidth: 1, borderColor: color.line, borderRadius: radius.card, overflow: 'hidden' },
+  menuItem: { paddingVertical: 15, paddingHorizontal: 18 },
+  menuText: { color: color.text, fontSize: 16, fontWeight: '600' },
+  menuDanger: { color: color.stop },
+  menuSep: { height: 1, backgroundColor: color.line },
   modalBack: { flex: 1, backgroundColor: 'rgba(4,12,20,0.72)', justifyContent: 'center', padding: 20 },
   modalCard: {
     backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,

@@ -8,12 +8,14 @@ import type { Swimmer, Target, TrainingRecord } from '@/db';
 import { useT } from '@/store/settings';
 import { color, font, radius } from '@/theme';
 import {
-  fmtTotal, ladderPosition, paceInsight, parseTime, trajectory, type TrendPoint,
+  fmtTotal, paceInsight, parseTime, trajectory, type TrendPoint,
 } from '@splitlane/timer-core';
+import { autoTargetStep, ladderWindow, type Rung } from './ladderView';
 import {
   AGE_GROUPS, ageGroup, levelLabel, standardLadder, standardLadderForGroup, stdCourse,
   type AgeGroup, type Gender,
 } from './standards';
+import { stdLevelColor } from '@/theme';
 
 interface Props {
   swimmer: Swimmer;
@@ -34,6 +36,7 @@ const fmtYMD = (ms: number) => {
 export default function TargetCard({ swimmer, target, eventKey, finished, saved, onSave, onRemove }: Props) {
   const t = useT();
   const [sheet, setSheet] = useState(false);
+  const [allOpen, setAllOpen] = useState(false);
 
   const bestMs = finished.length ? Math.min(...finished.map((r) => r.totalMs)) : null;
   const gender: Gender = swimmer.gender === 'M' ? 'M' : 'F';
@@ -49,7 +52,16 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
 
   if (bestMs == null) return null;
 
-  if (!saved) {
+  // 타겟은 무조건 표시한다. 수동 저장이 없으면 사다리에서 best 바로 위 레벨을
+  // 자동 타겟으로 쓴다(AAA 달성 → 다음이 자동 지정). 사다리가 아예 없을 때만
+  // 커스텀 타겟 입력을 안내한다.
+  const autoStep = ladder ? autoTargetStep(ladder, bestMs) : null;
+  const effTargetMs = saved?.targetMs ?? autoStep?.timeMs ?? null;
+  const effLabel = saved?.label ?? (autoStep ? levelLabel(autoStep.level) : null);
+  const effDate = saved?.targetDate ?? null;
+  const isAuto = !saved;
+
+  if (effTargetMs == null || effLabel == null) {
     return (
       <>
         <Pressable style={styles.emptyCard} onPress={() => setSheet(true)}>
@@ -69,26 +81,29 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
     );
   }
 
-  const tj = trajectory(bestMs, saved.targetMs, points, saved.targetDate, NOW());
+  const tj = trajectory(bestMs, effTargetMs, points, effDate, NOW());
   const pace = paceInsight(points);
   const pct = Math.min(100, Math.max(0, tj.achievement.percent));
   const reached = tj.achievement.reached;
-  const lp = ladder ? ladderPosition(bestMs, ladder) : null;
+  const window = ladder ? ladderWindow(ladder, bestMs, effTargetMs) : [];
 
   return (
     <>
       <View style={styles.card}>
         <View style={styles.head}>
-          <Text style={styles.title}>{t.target}</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>{t.target}</Text>
+            {isAuto && <View style={styles.autoTag}><Text style={styles.autoTagText}>{t.autoTarget}</Text></View>}
+          </View>
           <Pressable onPress={() => setSheet(true)} hitSlop={8}>
             <Text style={styles.edit}>{t.editTarget}</Text>
           </Pressable>
         </View>
 
         <View style={styles.goalRow}>
-          <Text style={styles.goalLabel}>{saved.label}</Text>
-          <Text style={styles.goalTime}>{fmtTotal(saved.targetMs)}</Text>
-          {saved.targetDate != null && <Text style={styles.goalDate}>{t.byDate(fmtYMD(saved.targetDate))}</Text>}
+          <Text style={styles.goalLabel}>{effLabel}</Text>
+          <Text style={styles.goalTime}>{fmtTotal(effTargetMs)}</Text>
+          {effDate != null && <Text style={styles.goalDate}>{t.byDate(fmtYMD(effDate))}</Text>}
         </View>
 
         <View style={styles.gaugeTrack}>
@@ -127,31 +142,68 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
           </View>
         </View>
 
-        {lp && ladder && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ladder}>
-            {[...ladder].sort((a, b) => b.timeMs - a.timeMs).map((s) => {
-              const passed = bestMs <= s.timeMs;
-              const isNext = lp.next?.level === s.level;
-              return (
-                <View key={s.level} style={[styles.rung, passed && styles.rungOn, isNext && styles.rungNext]}>
-                  <Text style={[styles.rungLevel, passed && styles.rungLevelOn]}>{s.level}</Text>
-                  <Text style={styles.rungTime}>{fmtTotal(s.timeMs)}</Text>
-                </View>
-              );
-            })}
-          </ScrollView>
+        {/* 3칸(달성·타겟·다음)만 — 전체는 More 팝업 */}
+        {window.length > 0 && (
+          <View style={styles.window}>
+            {window.map((r) => <RungRow key={r.level} rung={r} t={t} />)}
+            {ladder && ladder.length > window.length && (
+              <Pressable style={styles.moreBtn} onPress={() => setAllOpen(true)} hitSlop={6}>
+                <Text style={styles.moreText}>{t.moreLevels}</Text>
+              </Pressable>
+            )}
+          </View>
         )}
       </View>
+
+      {/* 전체 레벨 팝업 (B → NCAA D1 A) */}
+      <Modal visible={allOpen} transparent animationType="fade" onRequestClose={() => setAllOpen(false)}>
+        <Pressable style={styles.allBack} onPress={() => setAllOpen(false)}>
+          <Pressable style={styles.allCard} onPress={() => {}}>
+            <Text style={styles.allTitle}>{t.allLevels}</Text>
+            <ScrollView style={{ maxHeight: 420 }}>
+              {ladder && [...ladder].sort((a, b) => b.timeMs - a.timeMs).map((s) => {
+                const passed = bestMs <= s.timeMs;
+                const isTarget = s.timeMs === effTargetMs;
+                return (
+                  <View key={s.level} style={[styles.allRow, isTarget && styles.allRowTarget]}>
+                    <View style={[styles.allDot, { backgroundColor: passed ? stdLevelColor(s.level) : 'transparent', borderColor: stdLevelColor(s.level) }]} />
+                    <Text style={[styles.allLevel, passed && { color: color.text }]}>{levelLabel(s.level)}</Text>
+                    <Text style={styles.allTime}>{fmtTotal(s.timeMs)}</Text>
+                    {passed && <Text style={styles.allChk}>✓</Text>}
+                    {!passed && isTarget && <Text style={styles.allTargetTag}>◎</Text>}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {sheet && (
         <TargetSheet
           onClose={() => setSheet(false)} swimmer={swimmer} target={target} bestMs={bestMs}
-          eventKey={eventKey} initial={saved}
+          eventKey={eventKey} initial={saved ?? undefined}
           onSave={(tg) => { onSave(tg); setSheet(false); }}
-          onRemove={() => { onRemove(); setSheet(false); }}
+          onRemove={saved ? () => { onRemove(); setSheet(false); } : undefined}
         />
       )}
     </>
+  );
+}
+
+/** 3칸 창의 한 줄 — 역할(달성/타겟/다음)에 따라 강조. */
+function RungRow({ rung, t }: { rung: Rung; t: ReturnType<typeof useT> }) {
+  const lc = stdLevelColor(rung.level);
+  const passed = rung.role === 'reached';
+  return (
+    <View style={[styles.wRow, rung.role === 'target' && styles.wRowTarget]}>
+      <View style={[styles.wDot, { backgroundColor: passed ? lc : 'transparent', borderColor: lc }]} />
+      <Text style={[styles.wLevel, passed && { color: color.text }]}>{levelLabel(rung.level)}</Text>
+      <Text style={styles.wTime}>{fmtTotal(rung.timeMs)}</Text>
+      {rung.role === 'reached' && <Text style={styles.wTagOk}>{t.reachedTag}</Text>}
+      {rung.role === 'target' && <Text style={styles.wTagTarget}>{t.target}</Text>}
+      {rung.role === 'next' && <Text style={styles.wTagNext}>{t.nextTarget}</Text>}
+    </View>
   );
 }
 
@@ -308,7 +360,10 @@ const styles = StyleSheet.create({
   emptyPlus: { color: color.accent, fontSize: 26, fontWeight: '800' },
   card: { backgroundColor: color.surface, borderWidth: 1, borderColor: color.line, borderRadius: 16, padding: 14, gap: 10 },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { color: color.text, fontSize: 15, fontWeight: '700' },
+  autoTag: { borderWidth: 1, borderColor: color.line, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 1 },
+  autoTagText: { color: color.textMuted, fontSize: 10, fontWeight: '800' },
   edit: { color: color.accent, fontSize: 13, fontWeight: '600' },
   goalRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
   goalLabel: {
@@ -332,18 +387,31 @@ const styles = StyleSheet.create({
   trajGood: { color: color.ok, fontSize: 12, fontWeight: '700', fontFamily: font.mono },
   accelChip: { marginLeft: 'auto', backgroundColor: color.surface2, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
   accelText: { color: color.text, fontSize: 11, fontWeight: '700' },
-  ladder: { flexDirection: 'row', gap: 4, marginTop: 2 },
-  // 레벨 배지와 컷타임을 **나란히**(가로) — 배지가 시간 아래로 내려가지 않는다
-  rung: {
-    flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8,
-    backgroundColor: color.surface2, borderRadius: 8, paddingVertical: 6,
-    borderWidth: 1, borderColor: 'transparent',
+  // 3칸 창(달성·타겟·다음) — 세로 리스트, 각 줄에 컬러 도트+레벨명+컷타임+역할 태그
+  window: { gap: 4, marginTop: 2 },
+  wRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8,
+    backgroundColor: color.surface2, borderRadius: 10, borderWidth: 1, borderColor: 'transparent',
   },
-  rungOn: { backgroundColor: 'rgba(91,229,132,0.18)' },
-  rungNext: { borderColor: color.accent },
-  rungLevel: { color: color.textMuted, fontSize: 11, fontWeight: '800' },
-  rungLevelOn: { color: color.ok },
-  rungTime: { color: color.textMuted, fontSize: 10, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
+  wRowTarget: { borderColor: color.accent },
+  wDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5 },
+  wLevel: { color: color.textMuted, fontSize: 13, fontWeight: '800', flex: 1 },
+  wTime: { color: color.text, fontSize: 13, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
+  wTagOk: { color: color.ok, fontSize: 10, fontWeight: '800', minWidth: 52, textAlign: 'right' },
+  wTagTarget: { color: color.accent, fontSize: 10, fontWeight: '800', minWidth: 52, textAlign: 'right' },
+  wTagNext: { color: color.textMuted, fontSize: 10, fontWeight: '700', minWidth: 52, textAlign: 'right' },
+  moreBtn: { alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12 },
+  moreText: { color: color.accent, fontSize: 12, fontWeight: '700' },
+  allBack: { flex: 1, backgroundColor: 'rgba(4,12,20,0.72)', justifyContent: 'center', padding: 20 },
+  allCard: { backgroundColor: color.surface, borderWidth: 1, borderColor: color.line, borderRadius: radius.card, padding: 16, gap: 6, maxHeight: '82%' },
+  allTitle: { color: color.text, fontSize: 17, fontWeight: '800', marginBottom: 4 },
+  allRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: color.line },
+  allRowTarget: { backgroundColor: 'rgba(61,143,201,0.12)', borderRadius: 8, paddingHorizontal: 8 },
+  allDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5 },
+  allLevel: { color: color.textMuted, fontSize: 14, fontWeight: '700', flex: 1 },
+  allTime: { color: color.text, fontSize: 13, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
+  allChk: { color: color.ok, fontSize: 14, fontWeight: '900', width: 18, textAlign: 'center' },
+  allTargetTag: { color: color.accent, fontSize: 14, fontWeight: '900', width: 18, textAlign: 'center' },
   sheetBack: { flex: 1, backgroundColor: 'rgba(2,10,18,0.6)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: color.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: 1, borderColor: color.line, padding: 16, paddingBottom: 28, gap: 10 },
   sheetTitle: { color: color.text, fontSize: 17, fontWeight: '800' },

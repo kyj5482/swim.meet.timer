@@ -59,6 +59,9 @@ export const strings = {
 
   // records
   sessions: 'Sessions', compareSplits: 'Compare Splits',
+  menuCompare: 'Compare splits', menuDelete: 'Delete sessions',
+  selectDelete: 'Select sessions to delete', deleteN: (n: number) => `Delete ${n}`,
+  delSessionsConfirm: (n: number) => `Delete ${n} session${n === 1 ? '' : 's'}? This can't be undone.`,
   selectMode: 'Select 2+ sessions', compareN: (n: number) => `Compare ${n} sessions`,
   splitCmp: 'Split Comparison', segSplits: 'Segment Splits',
   delRec: 'Delete record', delConfirm: 'Delete this record?', delYes: 'Delete',
@@ -98,6 +101,8 @@ export const strings = {
   paceChipImproving: 'Improving', paceChipPlateau: 'Plateau — normal', paceChipRegressing: 'Off PB pace',
   tByLevel: 'Standard level', tByClub: 'Club group', tCustom: 'Custom time',
   ageGroupLbl: 'Age group',
+  autoTarget: 'Auto', nextTarget: 'Next target', allLevels: 'All levels', moreLevels: 'More ▾',
+  reachedTag: 'Reached',
   pickLevel: 'Pick a level (USA Swimming)', pickTime: 'Target time (e.g. 58.50)',
   targetWhen: 'Target date (optional)', noDate: 'No date', in3mo: '3 months', in6mo: '6 months',
   ladderReached: (l: string) => `Reached ${l}`, ladderNext: (l: string, v: string) => `${v} to ${l}`,
@@ -115,6 +120,9 @@ export const strings = {
   signIn: 'Sign In', signOut: 'Sign Out',
   signedInAs: (email: string) => `Signed in as ${email}`,
   signInFail: (msg: string) => `✗ Sign in failed: ${msg}`,
+  createAccount: 'Create an account ↗', openWebConsole: 'Open web console ↗',
+  devBackend: 'Developer · Backend Sync',
+  devBackendHint: 'Dev builds only — point the app at a local API server.',
 
   backend: 'Backend Sync', serverUrlPH: 'http://192.168.x.x:4000/v1',
   testConnection: 'Test Connection', syncNow: 'Sync Now',
