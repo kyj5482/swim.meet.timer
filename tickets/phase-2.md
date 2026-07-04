@@ -263,3 +263,45 @@
   200 IM처럼 모티베이셔널 데이터가 빈 종목도 챔피언십 컷으로 레벨이 뜬다
   (모티베이셔널 전체 데이터는 여전히 Mac에서 임포터 실행 필요).
 - 전 워크스페이스 테스트 통과(신규: standards.test.ts 5개, csv.test.ts 개편).
+
+## T-119 UX 피드백 라운드 2 + AI 코치 로그인·웹 뷰어 [done]
+사용자 실기기 피드백 2차 반영 + 백엔드 확장의 관문(계정 로그인) 착수.
+
+- **내비게이션**: 선수 관리 뒤로가기 라벨이 **들어온 탭**(All Events / Event
+  Detail)을 표시(`/athletes?from=`), SwimmerPicker·빈 화면 진입 모두 적용.
+- **선수 헤더 공용화(SwimmerHeader)**: 이름 아래 **한 줄** —
+  "12 yo · Elite · Official times ↗" (공인 기록 링크를 그룹명 옆 인라인으로,
+  Event Detail에도 추가). 선수 관리 목록도 동일 인라인.
+- **선택 선수 탭 간 공유**: prefs `selectedSwimmerId` — 어느 탭에서 바꿔도
+  다른 탭에 그대로 반영.
+- **Target**: ① SCM/LCM 챔피언십 컷을 SCY에서 환산 파생(×1.11, 롱코스
+  ×1.025, 500y→400m ×0.893 — **시드, 공식 표준 확보 시 교체**)해 모든
+  코스·종목에 사다리 생성. ② 날짜 선택 시 달력 즉시 닫힘(Save 혼동 방지).
+  ③ 사다리 칩 레벨·컷타임 가로 배치. ④ 🎯/🏅 이모지 전부 제거.
+- **Trend**: ① 시간 라벨을 기울기 반대편(위/아래)에 배치해 선과 겹침 원천
+  차단(chartMath.labelSides + 테스트). ② 페이스 문구 재설계 —
+  timer-core `paceInsight`: Theil-Sen 로버스트 기울기(최근 120일 창),
+  베스트 대비 %-임계로 improving/plateau/regressing 판정, 비현실적 기울기
+  (월 10% 초과)는 숫자 숨김. "10:45.10/wk" 같은 표기 제거,
+  Projected도 같은 클램프 적용(불가하면 'Keep training to project').
+  plateau는 "Holding steady — plateaus are normal"로 계단식 향상 맥락 전달.
+  ③ 확대 아이콘 SVG 24px로 확대, 제목·닫기가 세이프 에어리어(상태바)를
+  침범하지 않게 회전 기준 패딩, Done → ✕.
+- **Sessions**: 표준 레벨이 **처음 올라간** 세션에만 레벨 배지
+  (시간 아래 두 번째 줄, milestones.ts + 테스트).
+- **Timer 배정**: Prev → 화살표 색 명시(muted) — 검정 화살표 안 보이던 버그.
+- **AI Coach Account(Settings)**: 이메일/비밀번호 로그인(`POST /auth/login`,
+  common/api-spec.md 갱신) → 토큰 저장, 동기화 요청에 Bearer 부착.
+  로그인 없이 기본 기능 전부 동작.
+- **웹 기록 뷰어**: tools/local-api `GET /web` — 앱이 Sync Now로 올린 기록을
+  브라우저에서 선수별로 확인(SplitLane Cloud 프리뷰), 렌더러 순수 함수 +
+  테스트. `/v1/auth/login` dev 토큰 발급, adapter가 Bearer dev 토큰 →
+  userId 파생.
+
+## T-207 SplitLane Cloud 웹 포털 (역할 기반) [todo]
+서버 배포 웹 서비스에서 동기화된 기록 열람 — 부모/선수/코치/어드민 역할.
+- 부모·선수: 자기(연결된) 선수 기록·추세 열람, 코치에게 리뷰 요청 전송
+  (기록 패키지 + 촬영 영상 첨부 — T-401 패키지 포맷 공유).
+- 코치: 접수함(리뷰 요청 목록), 리뷰 작성. 어드민: 계정·연결 관리.
+- 앱: 코치 계정으로 로그인 시 리뷰 접수 공지 수신 → 탭하면 해당 웹페이지로
+  이동(딥링크). 수용: 로그인 → 역할별 화면 → 리뷰 요청/응답 왕복 1회 e2e.

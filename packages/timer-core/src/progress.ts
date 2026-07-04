@@ -80,6 +80,77 @@ export function improvementSlopePerDay(points: TrendPoint[]): number | null {
   return num / den;
 }
 
+/**
+ * 로버스트 개선 기울기(ms/일) — Theil-Sen(쌍별 기울기의 중앙값).
+ * 수영 훈련 기록은 그날 컨디션에 따라 1~2% 출렁이는 게 정상이라
+ * 최소제곱(OLS)은 이상치 하나에 기울기가 크게 왜곡된다(스포츠 과학에서
+ * 시즌 진행 분석에 중앙값 기반 추정을 쓰는 이유). 점이 2개 미만이면 null.
+ */
+export function robustSlopePerDay(points: TrendPoint[]): number | null {
+  if (points.length < 2) return null;
+  const day = 86_400_000;
+  const slopes: number[] = [];
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      const dx = (points[j]!.date - points[i]!.date) / day;
+      if (dx === 0) continue;
+      slopes.push((points[j]!.totalMs - points[i]!.totalMs) / dx);
+    }
+  }
+  if (slopes.length === 0) return null;
+  slopes.sort((a, b) => a - b);
+  const mid = Math.floor(slopes.length / 2);
+  return slopes.length % 2 ? slopes[mid]! : (slopes[mid - 1]! + slopes[mid]!) / 2;
+}
+
+export type PaceState = 'improving' | 'plateau' | 'regressing';
+
+export interface PaceInsight {
+  state: PaceState;
+  /** 30일당 로버스트 변화량(ms). 음수 = 빨라지는 중. 판정 불가면 null. */
+  perMonthMs: number | null;
+  /**
+   * 표시해도 되는 수치인지. 점이 적고 몰려 있으면 기울기가 수 분/주 같은
+   * 비현실적 값이 되는데(예: '10:45.10/wk'), 그런 값은 숫자 없이 상태만 보여준다.
+   */
+  plausible: boolean;
+}
+
+/** 상태 판정 임계 — 베스트 대비 월 0.15% 이상 움직여야 유의미한 변화로 본다. */
+const MEANINGFUL_FRAC_PER_MONTH = 0.0015;
+/** 표시 가능 상한 — 월 10% 초과 단축 기울기는 실제 향상이 아니라 점이 몰려
+ * 생긴 수치(데이터 부족)로 본다. 초보 급성장(월 ~5%)은 통과시킨다. */
+const PLAUSIBLE_FRAC_PER_MONTH = 0.10;
+/** 최근성 창 — 어린 선수 시즌 진행 분석 관행에 맞춰 최근 ~4개월만 본다. */
+const WINDOW_DAYS = 120;
+
+/**
+ * 부모·선수용 페이스 요약. 장기 기록은 계단식(정체 → 돌파)이 정상이므로
+ * 'steady pace' 같은 모호한 말 대신 세 상태로 판정한다:
+ * - improving: 최근 창에서 베스트 대비 유의미하게 빨라지는 중
+ * - plateau:   변화가 컨디션 노이즈 범위 — 돌파 전 정체는 정상
+ * - regressing: 특정 종목을 안 쓰다 보면 PB 대비 지속적으로 밀리는 상태
+ */
+export function paceInsight(points: TrendPoint[], now?: number): PaceInsight {
+  if (points.length < 2) return { state: 'plateau', perMonthMs: null, plausible: false };
+  const sorted = [...points].sort((a, b) => a.date - b.date);
+  const latest = now ?? sorted[sorted.length - 1]!.date;
+  let recent = sorted.filter((p) => latest - p.date <= WINDOW_DAYS * 86_400_000);
+  if (recent.length < 3) recent = sorted; // 창 안에 점이 적으면 전체 이력으로 판정
+  const bestMs = Math.min(...sorted.map((p) => p.totalMs));
+
+  const slope = robustSlopePerDay(recent);
+  if (slope == null) return { state: 'plateau', perMonthMs: null, plausible: false };
+  const perMonthMs = slope * 30;
+  const meaningful = bestMs * MEANINGFUL_FRAC_PER_MONTH;
+  const plausible = Math.abs(perMonthMs) <= bestMs * PLAUSIBLE_FRAC_PER_MONTH;
+
+  let state: PaceState = 'plateau';
+  if (perMonthMs <= -meaningful) state = 'improving';
+  else if (perMonthMs >= meaningful) state = 'regressing';
+  return { state, perMonthMs, plausible };
+}
+
 export type Accel = 'improving' | 'steady' | 'slowing';
 
 /**
@@ -128,7 +199,10 @@ export interface Trajectory {
 export function trajectory(
   bestMs: number, targetMs: number, points: TrendPoint[], targetDate: number | null, now: number,
 ): Trajectory {
-  const slope = improvementSlopePerDay(points);
+  // 로버스트 기울기 + 비현실적 기울기 차단: 점이 몰려 있을 때 OLS가 만드는
+  // '주당 10분' 같은 예측을 사용자에게 보여주지 않는다(예측 불가로 처리).
+  let slope = robustSlopePerDay(points);
+  if (slope != null && Math.abs(slope * 30) > bestMs * PLAUSIBLE_FRAC_PER_MONTH) slope = null;
   const projectedDate = projectTargetDate(bestMs, targetMs, slope, now);
   let onTrack: boolean | null = null;
   if (targetDate != null) {

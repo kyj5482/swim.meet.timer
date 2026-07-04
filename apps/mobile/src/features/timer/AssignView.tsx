@@ -108,7 +108,8 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
                       <>
                         <Text style={styles.prevNow}>
                           <Text style={styles.mutedMono}>{`${t.prev} ${st!.lastMs != null ? fmtTotal(st!.lastMs) : '—'}`}</Text>
-                          {'  →  '}
+                          {/* 화살표에 명시적 색 — 부모 기본색(검정)이 어두운 배경에 묻히는 문제 */}
+                          <Text style={styles.arrow}>{'  →  '}</Text>
                           <Text style={styles.nowVal}>{fmtTotal(s.lastCumMs)}</Text>
                         </Text>
                         <Text style={imp.kind === 'improved' ? styles.imp : styles.reg}>
@@ -190,6 +191,7 @@ const styles = StyleSheet.create({
   recTagText: { color: color.accent, fontSize: 11, fontWeight: '700' },
   delta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   prevNow: { fontSize: 13 },
+  arrow: { color: color.textMuted },
   mutedMono: { color: color.textMuted, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
   nowVal: { color: color.text, fontSize: 15, fontWeight: '700', fontFamily: font.mono, fontVariant: ['tabular-nums'] },
   imp: { color: color.ok, fontWeight: '700', fontSize: 13 },

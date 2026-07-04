@@ -5,9 +5,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Avatar from '@/components/Avatar';
-import { ChevronDown } from '@/components/Icons';
 import Select from '@/components/Select';
+import SwimmerHeader from '@/components/SwimmerHeader';
 import SwimmerPicker from '@/components/SwimmerPicker';
 import {
   ageOf, clearTarget, deleteRecord, getTarget, listRecords, listSwimmers, setTarget,
@@ -16,10 +15,12 @@ import {
 import CompareChart from '@/features/records/CompareChart';
 import TrendChart from '@/features/records/TrendChart';
 import { eventKeyOf, eventName, fmtDateTime } from '@/features/records/csv';
+import { levelMilestones } from '@/features/records/milestones';
 import TargetCard from '@/features/targets/TargetCard';
 import { standardLadder, stdCourse } from '@/features/targets/standards';
 import { useT } from '@/store/settings';
-import { color, font, radius, touch } from '@/theme';
+import { getSelectedSwimmerId, setSelectedSwimmerId } from '@/store/swimmerSelection';
+import { color, font, radius, stdLevelColor, touch } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
 
 /** 세부 종목 탭: 아바타 헤더 + Switch, 이벤트 드롭다운, 추세 차트(확대 지원), 세션. */
@@ -46,7 +47,12 @@ export default function RecordsScreen() {
     void (async () => {
       const sw = await listSwimmers();
       setSwimmers(sw);
-      const sid = swimmerId && sw.some((s) => s.id === swimmerId) ? swimmerId : sw[0]?.id ?? null;
+      // 탭 간 공유되는 선택 선수(전체 종목에서 바꾸면 여기도 반영) → 없으면 첫 선수
+      const shared = await getSelectedSwimmerId();
+      const sid =
+        (shared && sw.some((s) => s.id === shared) ? shared : null)
+        ?? (swimmerId && sw.some((s) => s.id === swimmerId) ? swimmerId : null)
+        ?? sw[0]?.id ?? null;
       setSwimmerId(sid);
       setRecords(sid ? await listRecords(sid) : []);
     })();
@@ -98,6 +104,12 @@ export default function RecordsScreen() {
     );
   }, [swimmer, activeTarget]);
 
+  // 레벨 승급 세션 배지 — 표준 레벨이 처음 올라간 세션에만 표시
+  const milestones = useMemo(
+    () => levelMilestones(filtered.filter((r) => r.status === 'finished'), chartLadder),
+    [filtered, chartLadder],
+  );
+
   // 현재 선수·종목의 타겟 로드
   useEffect(() => {
     if (!swimmerId || !activeEvent) { setSavedTarget(null); return; }
@@ -108,6 +120,7 @@ export default function RecordsScreen() {
 
   const switchTo = useCallback((sid: string) => {
     setSwimmerId(sid); setCmpIds(new Set()); setCmpMode(false); setExpandedId(null); setSwitching(false);
+    void setSelectedSwimmerId(sid); // 전체 종목 탭에도 동일 적용
     loadRecords(sid);
   }, [loadRecords]);
 
@@ -125,18 +138,13 @@ export default function RecordsScreen() {
     setCmpIds(new Set());
   }, []);
 
-  function metaLine(s: Swimmer): string {
-    const age = ageOf(s);
-    return [age != null ? t.yo(age) : null, s.group ?? null].filter(Boolean).join(' · ') || t.noGroup;
-  }
-
   if (swimmers.length === 0) {
     return (
       <View style={[styles.emptyScreen, { paddingTop: insets.top }]}>
         <Text style={styles.emptyIcon}>🏊</Text>
         <Text style={styles.emptyText}>{t.noSwimmers}</Text>
         <Text style={styles.emptySub}>{t.noSwimmersSub}</Text>
-        <Pressable style={styles.manageBtn} onPress={() => router.push('/athletes')}>
+        <Pressable style={styles.manageBtn} onPress={() => router.push({ pathname: '/athletes', params: { from: 'records' } })}>
           <Text style={styles.manageBtnText}>{t.manageAthletes}</Text>
         </Pressable>
       </View>
@@ -145,18 +153,8 @@ export default function RecordsScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 4 }]}>
-      {/* 아바타 헤더 + Switch (PWA .rec-header) */}
-      <Pressable style={styles.recHeader} onPress={() => setSwitching(true)}>
-        <Avatar name={swimmer?.name ?? '?'} index={swimmerIdx} size={52} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.recName}>{swimmer?.name}</Text>
-          <Text style={styles.recMeta}>{swimmer ? metaLine(swimmer) : ''}</Text>
-        </View>
-        <View style={styles.switchWrap}>
-          <Text style={styles.switchText}>{t.switchLbl}</Text>
-          <ChevronDown color={color.accent} size={16} />
-        </View>
-      </Pressable>
+      {/* 아바타 헤더 + Switch — 전체 종목 탭과 공용 컴포넌트(공인 기록 링크 포함) */}
+      <SwimmerHeader swimmer={swimmer} index={swimmerIdx} onSwitch={() => setSwitching(true)} />
 
       {/* 이벤트 드롭다운 (PB 인라인) */}
       {events.length > 0 && activeEvent && (
@@ -217,6 +215,8 @@ export default function RecordsScreen() {
           const prev = filtered[index + 1];
           const deltaMs = prev && item.status === 'finished' && prev.status === 'finished'
             ? item.totalMs - prev.totalMs : null;
+          // 이 세션에서 표준 레벨이 처음 올라갔으면 시간 아래 두 번째 줄로 배지 표시
+          const milestone = milestones.get(item.id) ?? null;
           return (
             <View>
               <Pressable
@@ -245,7 +245,17 @@ export default function RecordsScreen() {
                 )}
                 {isPB && <View style={styles.pbBadge}><Text style={styles.pbBadgeText}>{t.pbShort}</Text></View>}
                 {item.status === 'dnf' && <Text style={styles.dnf}>DNF</Text>}
-                <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
+                {milestone ? (
+                  // 레벨 승급 세션만 두 줄 — 시간 아래에 새로 달성한 레벨 배지
+                  <View style={styles.totalCol}>
+                    <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
+                    <View style={[styles.lvBadge, { borderColor: stdLevelColor(milestone) }]}>
+                      <Text style={[styles.lvBadgeText, { color: stdLevelColor(milestone) }]}>{milestone}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
+                )}
               </Pressable>
 
               {expanded && !cmpMode && (
@@ -291,6 +301,7 @@ export default function RecordsScreen() {
         visible={switching}
         swimmers={swimmers}
         currentId={swimmerId}
+        from="records"
         onPick={switchTo}
         onClose={() => setSwitching(false)}
       />
@@ -356,11 +367,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: color.accent, alignItems: 'center', justifyContent: 'center',
   },
   manageBtnText: { color: color.accent, fontSize: 14, fontWeight: '700' },
-  recHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  recName: { color: color.text, fontSize: 20, fontWeight: '700' },
-  recMeta: { color: color.textMuted, fontSize: 12, marginTop: 2 },
-  switchWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  switchText: { color: color.accent, fontSize: 13, fontWeight: '600' },
   eventBlock: { gap: 6 },
   eventLabel: { color: color.textMuted, fontSize: 12 },
   histHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 2, marginTop: 2 },
@@ -390,6 +396,9 @@ const styles = StyleSheet.create({
     color: color.text, fontSize: 20, fontWeight: '700',
     fontFamily: font.mono, fontVariant: ['tabular-nums'],
   },
+  totalCol: { alignItems: 'flex-end', gap: 3 },
+  lvBadge: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 1, backgroundColor: color.surface2 },
+  lvBadgeText: { fontSize: 10, fontWeight: '800' },
   detail: {
     backgroundColor: color.surface, borderWidth: 1, borderTopWidth: 0, borderColor: color.line,
     borderBottomLeftRadius: radius.card, borderBottomRightRadius: radius.card,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { labelIndices, trendDomain, xScale } from './chartMath';
+import { labelIndices, labelSides, trendDomain, xScale } from './chartMath';
 
 const LADDER = [
   { level: 'B', timeMs: 31790 },
@@ -51,6 +51,26 @@ describe('xScale', () => {
   });
   it('단일 날짜는 중앙', () => {
     expect(xScale([1000])(1000)).toBe(0.5);
+  });
+});
+
+describe('labelSides — 기울기 반대편 라벨 배치', () => {
+  it('다음 점이 느려지면(선이 위로) 라벨은 아래, 빨라지면 위', () => {
+    // 30.0 → 31.0(올라감) → 29.5(내려감) → 마지막
+    const sides = labelSides([30000, 31000, 29500]);
+    expect(sides[0]).toBe('below'); // 다음이 올라감 → 아래
+    expect(sides[1]).toBe('above'); // 다음이 내려감 → 위
+    expect(sides[2]).toBe('below'); // 마지막: 직전보다 내려옴 → 아래
+  });
+  it('마지막 점이 직전보다 올라갔으면(느려짐) 위에 표기', () => {
+    const sides = labelSides([30000, 29000, 29800]);
+    expect(sides[2]).toBe('above');
+  });
+  it('점 1개는 위', () => {
+    expect(labelSides([30000])).toEqual(['above']);
+  });
+  it('같은 값이 이어지면 위(선과 나란 — 겹침 없음)', () => {
+    expect(labelSides([30000, 30000])).toEqual(['above', 'above']);
   });
 });
 

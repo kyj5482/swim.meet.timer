@@ -7,8 +7,12 @@
  * ⚠️ 시드 데이터 주의: 아래 값은 공개된 각 대회 타임 스탠더드를 근거로 한
  * 시드값이며, 이 저장소 빌드 환경에서는 원문 PDF 검증을 하지 못했다.
  * 실사용 전 각 대회의 최신 공식 Time Standards와 대조·갱신할 것
- * (tools/standards-import에 champs 소스 추가 예정). 값이 없는 조합은
- * UI에서 자동으로 숨겨진다. 현재 SCY만 수록(SCM/LCM은 임포터로 채운다).
+ * (tools/standards-import에 champs 소스 추가 예정).
+ *
+ * SCM/LCM은 SCY에서 표준 코스 환산 계수로 **파생**한다(모든 종목이 코스와
+ * 무관하게 사다리를 갖게 하기 위한 시드 — 공식 표준이 확보되면 교체):
+ * - SCY→SCM: ×1.11 (야드→미터 표준 계수), 500FR→400FR·1000FR→800FR ×0.893
+ * - SCM→LCM: ×1.025 (롱코스 턴 감소 페널티 근사)
  *
  * CHAMPS[course][gender][eventCode][levelCode] = 컷타임(ms)
  */
@@ -61,6 +65,7 @@ export const CHAMPS: Record<string, Record<'F' | 'M', Record<string, EventCuts>>
       '200FL': cuts({ WZ: '1:58.49', FW: '1:56.99', SECT: '1:53.49', NCSA: '1:51.99', FUT: '1:50.49', TYR: '1:48.99', WJR: '1:47.49', JNAT: '1:45.49', NAT: '1:44.49', D1A: '1:40.20' }),
       '200IM': cuts({ WZ: '2:00.49', FW: '1:58.99', SECT: '1:55.49', NCSA: '1:53.99', FUT: '1:52.49', TYR: '1:50.99', WJR: '1:49.49', JNAT: '1:47.49', NAT: '1:46.49', D1A: '1:41.32' }),
       '400IM': cuts({ WZ: '4:17.99', FW: '4:14.99', SECT: '4:08.99', NCSA: '4:05.99', FUT: '4:02.99', TYR: '3:59.99', WJR: '3:56.99', JNAT: '3:52.99', NAT: '3:50.99', D1A: '3:39.16' }),
+      '1000FR': cuts({ WZ: '10:19.99', FW: '10:11.99', SECT: '9:54.99', NCSA: '9:47.99', FUT: '9:39.99', TYR: '9:31.99', WJR: '9:24.99', JNAT: '9:14.99', NAT: '9:09.99', D1A: '8:54.00' }),
     },
     F: {
       '50FR': cuts({ WZ: '24.79', FW: '24.49', SECT: '23.89', NCSA: '23.59', FUT: '23.39', TYR: '23.09', WJR: '22.89', JNAT: '22.59', NAT: '22.39', D1A: '21.66' }),
@@ -75,6 +80,35 @@ export const CHAMPS: Record<string, Record<'F' | 'M', Record<string, EventCuts>>
       '200FL': cuts({ WZ: '2:11.49', FW: '2:09.99', SECT: '2:06.49', NCSA: '2:04.99', FUT: '2:03.49', TYR: '2:01.99', WJR: '2:00.49', JNAT: '1:58.49', NAT: '1:57.49', D1A: '1:53.36' }),
       '200IM': cuts({ WZ: '2:12.49', FW: '2:10.99', SECT: '2:07.49', NCSA: '2:05.99', FUT: '2:04.49', TYR: '2:02.99', WJR: '2:01.49', JNAT: '1:59.49', NAT: '1:58.49', D1A: '1:54.71' }),
       '400IM': cuts({ WZ: '4:41.99', FW: '4:38.99', SECT: '4:32.99', NCSA: '4:29.99', FUT: '4:26.99', TYR: '4:23.99', WJR: '4:20.99', JNAT: '4:16.99', NAT: '4:14.99', D1A: '4:03.62' }),
+      '1000FR': cuts({ WZ: '10:54.99', FW: '10:47.99', SECT: '10:29.99', NCSA: '10:21.99', FUT: '10:14.99', TYR: '10:06.99', WJR: '9:59.99', JNAT: '9:49.99', NAT: '9:44.99', D1A: '9:30.00' }),
     },
   },
 };
+
+/** 코스 파생 계수(시드): 야드→미터 ×1.11, 거리 치환 종목(500y↔400m 등) ×0.893. */
+const YD_TO_M = 1.11;
+const LCM_TURN_PENALTY = 1.025;
+/** SCY 종목 → SCM/LCM에서의 종목 코드·거리 환산 계수. 없으면 동일 코드 ×1. */
+const DIST_SWAP: Record<string, { code: string; factor: number }> = {
+  '500FR': { code: '400FR', factor: 0.893 },
+  '1000FR': { code: '800FR', factor: 0.893 },
+};
+
+function deriveCourse(base: Record<'F' | 'M', Record<string, EventCuts>>, totalFactor: number) {
+  const out: Record<'F' | 'M', Record<string, EventCuts>> = { F: {}, M: {} };
+  for (const g of ['F', 'M'] as const) {
+    for (const [code, byLevel] of Object.entries(base[g])) {
+      const swap = DIST_SWAP[code];
+      const eventCuts: EventCuts = {};
+      for (const [lv, ms] of Object.entries(byLevel)) {
+        // 1/100초로 반올림해 표기 일관성 유지
+        eventCuts[lv as ChampLevel] = Math.round((ms * (swap?.factor ?? 1) * totalFactor) / 10) * 10;
+      }
+      out[g][swap?.code ?? code] = eventCuts;
+    }
+  }
+  return out;
+}
+
+CHAMPS.SCM = deriveCourse(CHAMPS.SCY!, YD_TO_M);
+CHAMPS.LCM = deriveCourse(CHAMPS.SCY!, YD_TO_M * LCM_TURN_PENALTY);

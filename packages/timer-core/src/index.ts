@@ -6,9 +6,10 @@ export {
 export type { CandidateStats, Improvement } from './assign';
 export { fmtClock, fmtSplit, fmtTotal, parseTime } from './format';
 export {
-  achievement, ladderPosition, improvementSlopePerDay, acceleration,
-  projectTargetDate, trajectory,
+  achievement, ladderPosition, improvementSlopePerDay, robustSlopePerDay,
+  acceleration, paceInsight, projectTargetDate, trajectory,
 } from './progress';
 export type {
   Achievement, LadderStep, LadderPosition, TrendPoint, Accel, Trajectory,
+  PaceState, PaceInsight,
 } from './progress';

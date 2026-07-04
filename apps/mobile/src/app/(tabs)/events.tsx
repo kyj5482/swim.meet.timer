@@ -1,21 +1,20 @@
 import { router, useFocusEffect } from 'expo-router';
-import * as Linking from 'expo-linking';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Avatar from '@/components/Avatar';
-import { ChevronDown, ChevronRight } from '@/components/Icons';
+import { ChevronRight } from '@/components/Icons';
+import SwimmerHeader from '@/components/SwimmerHeader';
 import SwimmerPicker from '@/components/SwimmerPicker';
 import {
   ageOf, listRecords, listSwimmers, listTargets,
   type Swimmer, type Target, type TrainingRecord,
 } from '@/db';
 import { eventKeyOf, eventName, fmtDateShort } from '@/features/records/csv';
-import { officialTimesUrl } from '@/features/records/officialTimes';
 import { eventProgress, targetDropPct, type EventProgress } from '@/features/targets/progress';
 import { standardLadder, stdCourse } from '@/features/targets/standards';
 import { useT } from '@/store/settings';
+import { getSelectedSwimmerId, setSelectedSwimmerId } from '@/store/swimmerSelection';
 import { color, font, radius, stdLevelColor } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
 
@@ -59,7 +58,12 @@ export default function EventsOverviewScreen() {
     void (async () => {
       const sw = await listSwimmers();
       setSwimmers(sw);
-      const sid = swimmerId && sw.some((s) => s.id === swimmerId) ? swimmerId : sw[0]?.id ?? null;
+      // 탭 간 공유되는 선택 선수(세부 종목에서 바꿔도 여기 반영) → 없으면 첫 선수
+      const shared = await getSelectedSwimmerId();
+      const sid =
+        (shared && sw.some((s) => s.id === shared) ? shared : null)
+        ?? (swimmerId && sw.some((s) => s.id === swimmerId) ? swimmerId : null)
+        ?? sw[0]?.id ?? null;
       setSwimmerId(sid);
       if (sid) await loadFor(sid);
       else { setRecords([]); setGoals([]); }
@@ -113,11 +117,6 @@ export default function EventsOverviewScreen() {
     ];
   }, [records, goals, swimmer, t]);
 
-  function metaLine(s: Swimmer): string {
-    const age = ageOf(s);
-    return [age != null ? t.yo(age) : null, s.group ?? null].filter(Boolean).join(' · ') || t.noGroup;
-  }
-
   /** 진행률 문구: 설정한 목표가 있으면 목표 기준, 없으면 다음 표준 레벨 기준. */
   function progressText(row: EventRow): { text: string | null; goalSet: boolean } {
     if (row.goal) {
@@ -146,7 +145,7 @@ export default function EventsOverviewScreen() {
         <Text style={styles.emptyIcon}>🏊</Text>
         <Text style={styles.emptyText}>{t.noSwimmers}</Text>
         <Text style={styles.emptySub}>{t.noSwimmersSub}</Text>
-        <Pressable style={styles.manageBtn} onPress={() => router.push('/athletes')}>
+        <Pressable style={styles.manageBtn} onPress={() => router.push({ pathname: '/athletes', params: { from: 'events' } })}>
           <Text style={styles.manageBtnText}>{t.manageAthletes}</Text>
         </Pressable>
       </View>
@@ -155,23 +154,8 @@ export default function EventsOverviewScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 4 }]}>
-      {/* 선수 헤더 + Switch */}
-      <Pressable style={styles.recHeader} onPress={() => setSwitching(true)}>
-        <Avatar name={swimmer?.name ?? '?'} index={swimmerIdx} size={52} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.recName}>{swimmer?.name}</Text>
-          <Text style={styles.recMeta}>{swimmer ? metaLine(swimmer) : ''}</Text>
-          {swimmer?.usaId && (
-            <Pressable hitSlop={6} onPress={() => void Linking.openURL(officialTimesUrl(swimmer.usaId!))}>
-              <Text style={styles.official}>{`${t.officialTimes} ↗`}</Text>
-            </Pressable>
-          )}
-        </View>
-        <View style={styles.switchWrap}>
-          <Text style={styles.switchText}>{t.switchLbl}</Text>
-          <ChevronDown color={color.accent} size={16} />
-        </View>
-      </Pressable>
+      {/* 선수 헤더 + Switch — 세부 종목 탭과 공용 컴포넌트 */}
+      <SwimmerHeader swimmer={swimmer} index={swimmerIdx} onSwitch={() => setSwitching(true)} />
 
       <SectionList
         sections={sections}
@@ -239,7 +223,12 @@ export default function EventsOverviewScreen() {
         visible={switching}
         swimmers={swimmers}
         currentId={swimmerId}
-        onPick={(sid) => { setSwimmerId(sid); setSwitching(false); void loadFor(sid); }}
+        from="events"
+        onPick={(sid) => {
+          setSwimmerId(sid); setSwitching(false);
+          void setSelectedSwimmerId(sid); // 세부 종목 탭에도 동일 적용
+          void loadFor(sid);
+        }}
         onClose={() => setSwitching(false)}
       />
     </View>
@@ -258,12 +247,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: color.accent, alignItems: 'center', justifyContent: 'center',
   },
   manageBtnText: { color: color.accent, fontSize: 14, fontWeight: '700' },
-  recHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  recName: { color: color.text, fontSize: 20, fontWeight: '700' },
-  recMeta: { color: color.textMuted, fontSize: 12, marginTop: 2 },
-  official: { color: color.accent, fontSize: 12, fontWeight: '600', marginTop: 3 },
-  switchWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  switchText: { color: color.accent, fontSize: 13, fontWeight: '600' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   sectionTitle: { color: color.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   sectionLine: { flex: 1, height: 1, backgroundColor: color.line },

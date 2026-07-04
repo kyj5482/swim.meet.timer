@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 
+import { CloseIcon, ExpandIcon } from '@/components/Icons';
 import type { TrainingRecord } from '@/db';
 import { levelLabel } from '@/features/targets/standards';
 import { useT } from '@/store/settings';
-import { color, font, stdLevelColor } from '@/theme';
-import {
-  acceleration, fmtTotal, improvementSlopePerDay, type LadderStep, type TrendPoint,
-} from '@splitlane/timer-core';
+import { color, stdLevelColor } from '@/theme';
+import { fmtTotal, paceInsight, type LadderStep, type TrendPoint } from '@splitlane/timer-core';
 
-import { labelIndices, trendDomain, xScale } from './chartMath';
+import { labelIndices, labelSides, trendDomain, xScale } from './chartMath';
 
 const H = 180;
 
@@ -38,25 +38,27 @@ export default function TrendChart({ records, title, ladder }: {
   const h = [...records].sort((a, b) => a.date - b.date);
   const points: TrendPoint[] = h.map((r) => ({ date: r.date, totalMs: r.totalMs }));
 
-  // 향상 가속도 요약 — Y축 대신 "지금 어떻게 변하고 있는지"를 헤더에 표시
-  const accel = acceleration(points);
-  const slopeWk = (() => {
-    const s = improvementSlopePerDay(points);
-    return s != null && s < 0 ? -s * 7 : null;
-  })();
-  const accelText =
-    accel === 'improving' ? t.accelImprovingSub : accel === 'slowing' ? t.accelSlowingSub : t.accelSteadySub;
+  // 페이스 요약 — 로버스트 판정(timer-core paceInsight). 정체(plateau)는
+  // 계단식 향상의 정상 구간이라는 걸 문장으로 알려주고, 비현실적 기울기
+  // (점이 몰려 생긴 수치)는 숫자 없이 상태만 보여준다.
+  const pace = paceInsight(points);
+  const paceText =
+    pace.state === 'improving'
+      ? pace.plausible && pace.perMonthMs != null
+        ? t.paceImprovingMo((-pace.perMonthMs / 1000).toFixed(1))
+        : t.paceImproving
+      : pace.state === 'regressing' ? t.paceRegressing : t.pacePlateau;
 
   return (
     <View style={styles.panel}>
       <View style={styles.head}>
         <Text style={styles.title}>{title}</Text>
         <View style={styles.headRight}>
-          <Text style={[styles.accel, accel === 'improving' && { color: color.ok }, accel === 'slowing' && { color: color.warn }]}>
-            {slopeWk != null ? `${accelText} · ${t.perWeekSub((slopeWk / 1000).toFixed(2))}` : accelText}
+          <Text style={[styles.accel, pace.state === 'improving' && { color: color.ok }, pace.state === 'regressing' && { color: color.warn }]}>
+            {paceText}
           </Text>
-          <Pressable onPress={() => setFull(true)} hitSlop={10} style={styles.expandBtn}>
-            <Text style={styles.expandIcon}>⤢</Text>
+          <Pressable onPress={() => setFull(true)} hitSlop={8} style={styles.expandBtn}>
+            <ExpandIcon color={color.accent} size={24} />
           </Pressable>
         </View>
       </View>
@@ -81,12 +83,16 @@ function FullScreenChart({ records, title, ladder, onClose }: {
   ladder?: LadderStep[] | null;
   onClose: () => void;
 }) {
-  const t = useT();
+  const insets = useSafeAreaInsets();
   const win = Dimensions.get('window');
   const landW = Math.max(win.width, win.height);
   const landH = Math.min(win.width, win.height);
-  const chartW = landW - 24;
-  const chartH = landH - 76;
+  // 90° 회전 상태에서는 가로(좌우) 가장자리가 기기의 상태바/홈 인디케이터와
+  // 겹친다 — 제목·X 버튼이 배터리 표시를 침범하지 않게 세이프 에어리어만큼 민다.
+  const padH = Math.max(insets.top, insets.bottom, 16);
+  const padV = Math.max(insets.left, insets.right, 10);
+  const chartW = landW - padH * 2;
+  const chartH = landH - padV - 64;
 
   return (
     <View style={styles.fullBack}>
@@ -96,10 +102,11 @@ function FullScreenChart({ records, title, ladder, onClose }: {
           transform: win.height >= win.width ? [{ rotate: '90deg' }] : undefined,
           alignItems: 'center', justifyContent: 'center',
         }}>
-        <View style={styles.fullHead}>
+        <View style={[styles.fullHead, { paddingHorizontal: padH, paddingTop: padV }]}>
           <Text style={styles.fullTitle} numberOfLines={1}>{title}</Text>
+          {/* 잠깐 보는 확대 화면 — Done 대신 ✕ 로 닫는다 */}
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
-            <Text style={styles.closeText}>{t.done}</Text>
+            <CloseIcon color={color.text} size={20} />
           </Pressable>
         </View>
         <ChartBody records={records} w={chartW} h={chartH} ladder={ladder ?? null} showBands />
@@ -138,6 +145,8 @@ function ChartBody({ records, w, h, ladder, showBands }: {
   const pts = records.map((r) => `${X(r.date).toFixed(1)},${Y(r.totalMs).toFixed(1)}`).join(' ');
   const bestIdx = records.findIndex((r) => r.totalMs === yMin);
   const labeled = labelIndices(records.length, bestIdx);
+  // 라벨은 선이 지나가지 않는 쪽(기울기 반대편)에 — 겹침 원천 차단
+  const sides = labelSides(records.map((r) => r.totalMs));
 
   const dateLbl = (ms: number) => {
     const d = new Date(ms);
@@ -208,14 +217,17 @@ function ChartBody({ records, w, h, ladder, showBands }: {
         />
       ))}
 
-      {/* 점 위 실제 기록 시간(선택적 라벨 — 점·선과 겹치지 않게 위쪽 고정) */}
+      {/* 기록 시간 라벨 — 기울기 반대편(위/아래)에 붙여 선·점과 겹치지 않는다 */}
       {records.map((r, i) => {
         if (!labeled.has(i)) return null;
         const x = X(r.date);
+        const y = sides[i] === 'above'
+          ? Math.max(Y(r.totalMs) - 10, 10)
+          : Math.min(Y(r.totalMs) + 18, h - PAD_B + 8);
         return (
           <SvgText
             key={`v${r.id}`}
-            x={x} y={Math.max(Y(r.totalMs) - 10, 10)}
+            x={x} y={y}
             fill={i === bestIdx ? color.ok : color.textMuted}
             fontSize={10} fontWeight={i === bestIdx ? '800' : '400'}
             textAnchor={anchorFor(x)}>
@@ -247,17 +259,15 @@ const styles = StyleSheet.create({
   headRight: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
   title: { color: color.text, fontSize: 14, fontWeight: '700' },
   accel: { color: color.textMuted, fontSize: 11, fontVariant: ['tabular-nums'], flexShrink: 1 },
-  expandBtn: { padding: 2 },
-  expandIcon: { color: color.accent, fontSize: 18, fontWeight: '800' },
+  expandBtn: { padding: 4 },
   fullBack: { flex: 1, backgroundColor: color.bg, alignItems: 'center', justifyContent: 'center' },
   fullHead: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    alignSelf: 'stretch', paddingHorizontal: 16, paddingTop: 10,
+    alignSelf: 'stretch', gap: 12,
   },
   fullTitle: { color: color.text, fontSize: 16, fontWeight: '800', flexShrink: 1 },
   closeBtn: {
-    paddingHorizontal: 16, height: 36, borderRadius: 10,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: color.surface2, alignItems: 'center', justifyContent: 'center',
   },
-  closeText: { color: color.text, fontSize: 14, fontWeight: '700', fontFamily: font.mono },
 });

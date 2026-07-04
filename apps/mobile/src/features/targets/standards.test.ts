@@ -40,7 +40,24 @@ describe('챔피언십 사다리', () => {
     expect(levelLabel('D1A')).toBe('NCAA D1 A');
   });
 
-  it('없는 조합(LCM 등)은 빈 배열/null로 UI에서 숨겨진다', () => {
-    expect(championshipSteps('LCM', 'M', 'free', 50)).toEqual([]);
+  it('SCM/LCM은 SCY에서 파생돼 모든 코스가 사다리를 갖는다', () => {
+    const scy = championshipSteps('SCY', 'M', 'free', 50);
+    const scm = championshipSteps('SCM', 'M', 'free', 50);
+    const lcm = championshipSteps('LCM', 'M', 'free', 50);
+    expect(scm.length).toBe(scy.length);
+    expect(lcm.length).toBe(scy.length);
+    // 미터 환산은 야드보다 느리고, 롱코스는 쇼트미터보다 더 느리다
+    expect(scm[0]!.timeMs).toBeGreaterThan(scy[0]!.timeMs);
+    expect(lcm[0]!.timeMs).toBeGreaterThan(scm[0]!.timeMs);
+  });
+
+  it('500y는 미터 코스에서 400FR로 치환된다 (800FR도 1000y에서 파생)', () => {
+    expect(championshipSteps('LCM', 'M', 'free', 400).length).toBeGreaterThan(0);
+    expect(championshipSteps('LCM', 'F', 'free', 800).length).toBeGreaterThan(0);
+    expect(championshipSteps('SCM', 'M', 'free', 500)).toEqual([]); // 미터 풀에 500 없음
+  });
+
+  it('진짜 없는 조합(25FR 등)은 빈 배열로 UI에서 숨겨진다', () => {
+    expect(championshipSteps('SCY', 'M', 'free', 25)).toEqual([]);
   });
 });

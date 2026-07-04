@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  achievement, acceleration, improvementSlopePerDay, ladderPosition,
-  projectTargetDate, trajectory, type LadderStep, type TrendPoint,
+  achievement, acceleration, improvementSlopePerDay, ladderPosition, paceInsight,
+  projectTargetDate, robustSlopePerDay, trajectory, type LadderStep, type TrendPoint,
 } from '../src/progress';
 
 const DAY = 86_400_000;
@@ -84,6 +84,88 @@ describe('acceleration — 향상 가속도', () => {
       { date: 40 * DAY, totalMs: 57_700 },
     ];
     expect(acceleration(pts)).toBe('slowing');
+  });
+});
+
+describe('robustSlopePerDay — Theil-Sen(이상치 저항)', () => {
+  it('꾸준한 개선의 기울기를 OLS와 동일하게 잡는다', () => {
+    const pts: TrendPoint[] = [
+      { date: 0, totalMs: 60_000 },
+      { date: 10 * DAY, totalMs: 59_000 },
+      { date: 20 * DAY, totalMs: 58_000 },
+    ];
+    expect(robustSlopePerDay(pts)).toBeCloseTo(-100, 0);
+  });
+  it('컨디션 난조 이상치 하나에 흔들리지 않는다', () => {
+    const pts: TrendPoint[] = [
+      { date: 0, totalMs: 60_000 },
+      { date: 10 * DAY, totalMs: 59_000 },
+      { date: 20 * DAY, totalMs: 64_000 }, // 아픈 날 — OLS라면 기울기가 양수로 뒤집힌다
+      { date: 30 * DAY, totalMs: 57_000 },
+      { date: 40 * DAY, totalMs: 56_000 },
+    ];
+    const s = robustSlopePerDay(pts)!;
+    expect(s).toBeCloseTo(-100, 0); // 이상치를 무시하고 기저 추세(-100ms/일)를 유지
+  });
+  it('점 1개면 null', () => {
+    expect(robustSlopePerDay([{ date: 0, totalMs: 1 }])).toBeNull();
+  });
+});
+
+describe('paceInsight — 부모·선수용 페이스 요약', () => {
+  it('유의미한 월간 단축이면 improving + 수치 표시 가능', () => {
+    const pts: TrendPoint[] = [
+      { date: 0, totalMs: 60_000 },
+      { date: 15 * DAY, totalMs: 59_600 },
+      { date: 30 * DAY, totalMs: 59_100 },
+      { date: 45 * DAY, totalMs: 58_800 },
+    ];
+    const p = paceInsight(pts);
+    expect(p.state).toBe('improving');
+    expect(p.perMonthMs).toBeLessThan(0);
+    expect(p.plausible).toBe(true);
+  });
+  it('노이즈 범위의 등락은 plateau(계단식 정체는 정상)', () => {
+    const pts: TrendPoint[] = [
+      { date: 0, totalMs: 58_000 },
+      { date: 15 * DAY, totalMs: 58_040 },
+      { date: 30 * DAY, totalMs: 57_990 },
+      { date: 45 * DAY, totalMs: 58_020 },
+    ];
+    expect(paceInsight(pts).state).toBe('plateau');
+  });
+  it('PB 대비 지속적으로 밀리면 regressing', () => {
+    const pts: TrendPoint[] = [
+      { date: 0, totalMs: 56_000 },
+      { date: 20 * DAY, totalMs: 56_900 },
+      { date: 40 * DAY, totalMs: 57_600 },
+      { date: 60 * DAY, totalMs: 58_400 },
+    ];
+    expect(paceInsight(pts).state).toBe('regressing');
+  });
+  it('점이 몰려 만들어진 초대형 기울기는 plausible=false(숫자 숨김)', () => {
+    const pts: TrendPoint[] = [
+      { date: 0, totalMs: 40_000 },
+      { date: 1 * DAY, totalMs: 30_000 }, // 하루 10초 = 월 300초 — 비현실
+      { date: 2 * DAY, totalMs: 20_000 },
+    ];
+    const p = paceInsight(pts);
+    expect(p.plausible).toBe(false);
+  });
+  it('최근 120일 창 밖의 옛 기록은 판정에서 제외', () => {
+    const pts: TrendPoint[] = [
+      { date: 0, totalMs: 70_000 },        // 1년 전 — 무시돼야 함
+      { date: 300 * DAY, totalMs: 58_000 },
+      { date: 320 * DAY, totalMs: 58_020 },
+      { date: 340 * DAY, totalMs: 57_990 },
+    ];
+    // 옛 점까지 넣으면 improving처럼 보이지만, 최근 창만 보면 plateau가 맞다
+    expect(paceInsight(pts).state).toBe('plateau');
+  });
+  it('점 2개 미만은 판정 불가 → plateau/null', () => {
+    const p = paceInsight([{ date: 0, totalMs: 60_000 }]);
+    expect(p.state).toBe('plateau');
+    expect(p.perMonthMs).toBeNull();
   });
 });
 

@@ -65,6 +65,27 @@ export function MoreVertical({ color, size = 22 }: { color: string; size?: numbe
   );
 }
 
+/** 차트 확대(전체 화면) — 모서리 밖으로 나가는 두 화살표. */
+export function ExpandIcon({ color, size = 24 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M15 3h6v6" />
+      <Path d="M21 3l-7 7" />
+      <Path d="M9 21H3v-6" />
+      <Path d="M3 21l7-7" />
+    </Svg>
+  );
+}
+
+/** 닫기 ✕ — 잠시 확대류 화면의 우상단 버튼. */
+export function CloseIcon({ color, size = 20 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round">
+      <Path d="M6 6l12 12M18 6L6 18" />
+    </Svg>
+  );
+}
+
 export function GearIcon({ color, size = 22 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

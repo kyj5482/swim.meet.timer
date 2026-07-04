@@ -11,11 +11,15 @@ export interface AppSettings {
   apiBaseUrl: string;
   /** 마지막 동기화 성공 시각(epoch ms). 0이면 아직 동기화한 적 없음. */
   lastSyncAt: number;
+  /** AI 코치 계정 토큰(SplitLane Cloud 공유 계정). null이면 미로그인 — 기본 기능은 그대로. */
+  authToken: string | null;
+  /** 로그인한 계정 이메일(표시용). */
+  authEmail: string | null;
 }
 
 const PREF_KEY = 'appSettings';
 const DEFAULTS: AppSettings = {
-  haptics: true, course: '25y', apiBaseUrl: '', lastSyncAt: 0,
+  haptics: true, course: '25y', apiBaseUrl: '', lastSyncAt: 0, authToken: null, authEmail: null,
 };
 
 let state: AppSettings = DEFAULTS;
@@ -38,6 +42,8 @@ export async function loadSettings(): Promise<void> {
       ...(saved.course !== undefined && { course: saved.course }),
       ...(saved.apiBaseUrl !== undefined && { apiBaseUrl: saved.apiBaseUrl }),
       ...(saved.lastSyncAt !== undefined && { lastSyncAt: saved.lastSyncAt }),
+      ...(saved.authToken !== undefined && { authToken: saved.authToken }),
+      ...(saved.authEmail !== undefined && { authEmail: saved.authEmail }),
     };
     notify();
   }

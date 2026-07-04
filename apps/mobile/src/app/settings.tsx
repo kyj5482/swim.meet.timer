@@ -3,7 +3,7 @@ import {
   ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
 
-import { checkHealth } from '@/api/client';
+import { checkHealth, login } from '@/api/client';
 import { syncAll } from '@/api/sync';
 import { clearSeed, hasSeedData } from '@/db';
 import { courseName } from '@/features/timer/config';
@@ -22,6 +22,10 @@ export default function SettingsScreen() {
   const [conn, setConn] = useState<ConnState>('idle');
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+  const [signInMsg, setSignInMsg] = useState<string | null>(null);
 
   useEffect(() => { void hasSeedData().then(setSeedLeft); }, []);
   useEffect(() => { setUrlInput(s.apiBaseUrl); }, [s.apiBaseUrl]);
@@ -48,7 +52,7 @@ export default function SettingsScreen() {
     setSyncing(true);
     setSyncMsg(null);
     try {
-      const res = await syncAll({ baseUrl: url }, s.lastSyncAt);
+      const res = await syncAll({ baseUrl: url, token: s.authToken }, s.lastSyncAt);
       setSettings({ lastSyncAt: Date.now() });
       setSyncMsg({ text: t.syncOk(res.swimmers, res.pushed, res.pulled), ok: true });
     } catch (e) {
@@ -56,6 +60,27 @@ export default function SettingsScreen() {
     } finally {
       setSyncing(false);
     }
+  }
+
+  async function onSignIn() {
+    saveUrl();
+    const url = urlInput.trim().replace(/\/$/, '');
+    if (!url || !email.trim() || !password) return;
+    setSigningIn(true);
+    setSignInMsg(null);
+    try {
+      const res = await login({ baseUrl: url }, email.trim(), password);
+      setSettings({ authToken: res.token, authEmail: email.trim() });
+      setPassword('');
+    } catch (e) {
+      setSignInMsg(t.signInFail(e instanceof Error ? e.message : String(e)));
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  function onSignOut() {
+    setSettings({ authToken: null, authEmail: null });
   }
 
   function onClearDemo() {
@@ -93,6 +118,53 @@ export default function SettingsScreen() {
           thumbColor="#fff"
         />
       </View>
+
+      {/* AI 코치 계정 — 웹 서비스(SplitLane Cloud) 공유·코치 리뷰의 관문.
+          로그인 없이도 타이머·기록은 전부 동작한다(확장 기능 전용). */}
+      <Text style={styles.label}>{t.aiCoach}</Text>
+      {s.authToken ? (
+        <View style={styles.rowCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>{t.signedInAs(s.authEmail ?? '')}</Text>
+            <Text style={styles.rowSub}>{t.aiCoachHint}</Text>
+          </View>
+          <Pressable style={styles.backendBtn} onPress={onSignOut}>
+            <Text style={styles.backendBtnText}>{t.signOut}</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          <TextInput
+            style={styles.fieldInput}
+            value={email}
+            onChangeText={setEmail}
+            placeholder={t.emailPH}
+            placeholderTextColor={color.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+          />
+          <TextInput
+            style={styles.fieldInput}
+            value={password}
+            onChangeText={setPassword}
+            placeholder={t.passwordPH}
+            placeholderTextColor={color.textMuted}
+            autoCapitalize="none"
+            secureTextEntry
+          />
+          <Pressable
+            style={[styles.backendBtn, styles.backendBtnPrimary, (signingIn || !email.trim() || !password) && styles.disabled]}
+            onPress={() => void onSignIn()}
+            disabled={signingIn || !email.trim() || !password}>
+            {signingIn ? <ActivityIndicator color={color.accentInk} size="small" /> : (
+              <Text style={styles.backendBtnPrimaryText}>{t.signIn}</Text>
+            )}
+          </Pressable>
+          {signInMsg && <Text style={styles.connFail}>{signInMsg}</Text>}
+          <Text style={styles.rowSub}>{t.aiCoachHint}</Text>
+        </>
+      )}
 
       {/* 백엔드 동기화 */}
       <Text style={styles.label}>{t.backend}</Text>
@@ -173,6 +245,11 @@ const styles = StyleSheet.create({
   urlRow: { flexDirection: 'row' },
   urlInput: {
     flex: 1, height: 46, borderRadius: 12, paddingHorizontal: 14,
+    backgroundColor: color.surface2, color: color.text, fontSize: 14,
+    borderWidth: 1, borderColor: color.line,
+  },
+  fieldInput: {
+    height: 46, borderRadius: 12, paddingHorizontal: 14,
     backgroundColor: color.surface2, color: color.text, fontSize: 14,
     borderWidth: 1, borderColor: color.line,
   },

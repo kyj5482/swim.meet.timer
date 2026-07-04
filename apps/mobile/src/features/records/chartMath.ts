@@ -71,3 +71,19 @@ export function labelIndices(n: number, bestIdx: number): Set<number> {
   if (n <= 6) return new Set(Array.from({ length: n }, (_, i) => i));
   return new Set([0, bestIdx, n - 1]);
 }
+
+/**
+ * 시간 라벨을 점의 위/아래 어느 쪽에 둘지 — 선이 지나가지 않는 쪽에 붙여
+ * 라벨과 추세선이 절대 겹치지 않게 한다(차트 위 = 느림 = 큰 ms):
+ * - 중간 점: 다음 점이 올라가면(느려지면) 아래, 내려가면(빨라지면) 위.
+ * - 마지막 점: 직전에서 내려왔으면 아래, 올라왔으면 위(들어오는 선 반대편).
+ * - 점 1개면 위.
+ */
+export function labelSides(totalsMs: number[]): ('above' | 'below')[] {
+  const n = totalsMs.length;
+  return totalsMs.map((v, i) => {
+    if (n === 1) return 'above';
+    if (i < n - 1) return totalsMs[i + 1]! > v ? 'below' : 'above';
+    return v < totalsMs[i - 1]! ? 'below' : 'above';
+  });
+}

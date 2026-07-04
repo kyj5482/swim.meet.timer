@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { sendLambdaResult, toApiGatewayEvent } from '../src/adapter.js';
+import { devTokenUser, sendLambdaResult, toApiGatewayEvent } from '../src/adapter.js';
 
 function mockReq(over: Record<string, unknown> = {}) {
   return {
@@ -28,6 +28,18 @@ describe('toApiGatewayEvent — Express req → API GW v2 이벤트', () => {
       .authorizer.jwt.claims;
     expect(claims.sub).toBe('u9');
     expect(claims['custom:role']).toBe('parent');
+  });
+
+  it('Authorization dev 토큰으로 userId 파생(x-dev-user 없을 때)', () => {
+    const token = `dev.${Buffer.from('coach@example.com').toString('base64url')}`;
+    expect(devTokenUser(`Bearer ${token}`)).toBe('coach@example.com');
+    expect(devTokenUser('Bearer not-a-dev-token')).toBeNull();
+    expect(devTokenUser(undefined)).toBeNull();
+
+    const e = toApiGatewayEvent(mockReq({ headers: { authorization: `Bearer ${token}` } }));
+    const claims = (e.requestContext as unknown as { authorizer: { jwt: { claims: Record<string, string> } } })
+      .authorizer.jwt.claims;
+    expect(claims.sub).toBe('coach@example.com');
   });
 
   it('쿼리스트링·path 파라미터 전달', () => {

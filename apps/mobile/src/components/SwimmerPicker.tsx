@@ -9,13 +9,15 @@ import { color, radius } from '@/theme';
 /**
  * 선수 전환(Switch) 모달 — 전체 종목·세부 종목 탭이 동일한 화면을 공유한다.
  * 목록 아래에 '선수 관리' 버튼(아이콘 없는 버튼 스타일)이 항상 붙는다.
+ * from은 선수 관리 화면의 뒤로가기 라벨용 출발 탭('events' | 'records').
  */
-export default function SwimmerPicker({ visible, swimmers, currentId, onPick, onClose }: {
+export default function SwimmerPicker({ visible, swimmers, currentId, onPick, onClose, from }: {
   visible: boolean;
   swimmers: Swimmer[];
   currentId: string | null;
   onPick: (id: string) => void;
   onClose: () => void;
+  from: 'events' | 'records';
 }) {
   const t = useT();
 
@@ -46,7 +48,7 @@ export default function SwimmerPicker({ visible, swimmers, currentId, onPick, on
           </ScrollView>
           <Pressable
             style={styles.manageBtn}
-            onPress={() => { onClose(); router.push('/athletes'); }}>
+            onPress={() => { onClose(); router.push({ pathname: '/athletes', params: { from } }); }}>
             <Text style={styles.manageText}>{t.manageAthletes}</Text>
           </Pressable>
         </View>

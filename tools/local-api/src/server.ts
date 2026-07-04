@@ -49,6 +49,44 @@ app.get('/v1/standards/clubs/:clubId/groups', (req, res) => void invoke(standard
 app.put('/v1/records/batch', (req, res) => void invoke(recordsHandler, req, res));
 app.get('/v1/records', (req, res) => void invoke(recordsHandler, req, res));
 
+// AI 코치 계정 로그인(로컬 대체) — 어떤 이메일/비밀번호든 받아 dev 토큰 발급.
+// 프로덕션은 Cognito 기반 /auth/login(T-206)이 같은 응답 모양으로 대체한다.
+app.post('/v1/auth/login', (req, res) => {
+  const { email, password } = (req.body ?? {}) as { email?: string; password?: string };
+  if (!email || !password) {
+    res.status(400).json({ error: { code: 'VALIDATION', message: 'email and password required' } });
+    return;
+  }
+  res.json({
+    token: `dev.${Buffer.from(email).toString('base64url')}`,
+    displayName: email.split('@')[0],
+    role: 'coach',
+  });
+});
+
+// 웹 기록 뷰어 — 앱이 Sync Now로 올린 기록을 브라우저에서 확인(SplitLane Cloud 프리뷰).
+app.get('/web', (_req, res) => {
+  void (async () => {
+    try {
+      const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
+      const { docClient } = await import('@splitlane/svc-shared');
+      const { renderRecordsPage } = await import('./web.js');
+      const items: Record<string, unknown>[] = [];
+      let lastKey: Record<string, unknown> | undefined;
+      do {
+        const page = await docClient().send(new ScanCommand({
+          TableName: tables.records, ExclusiveStartKey: lastKey,
+        }));
+        items.push(...(page.Items ?? []));
+        lastKey = page.LastEvaluatedKey;
+      } while (lastKey);
+      res.type('html').send(renderRecordsPage(items as never));
+    } catch (e) {
+      res.status(500).type('text').send(`web viewer error: ${e instanceof Error ? e.message : e}`);
+    }
+  })();
+});
+
 app.listen(PORT, () => {
   console.log(`splitlane local-api listening on http://localhost:${PORT}`);
   console.log(`  DynamoDB Local: ${endpoint}`);

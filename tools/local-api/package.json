@@ -15,6 +15,7 @@
     "@splitlane/svc-standards": "0.1.0",
     "@splitlane/svc-records": "0.1.0",
     "@aws-sdk/client-dynamodb": "^3.670.0",
+    "@aws-sdk/lib-dynamodb": "^3.670.0",
     "express": "^4.21.0"
   },
   "devDependencies": {

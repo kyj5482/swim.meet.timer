@@ -12,6 +12,11 @@
 - 버저닝: 경로 `/v1`. 하위호환 깨는 변경은 새 버전.
 
 ## auth (`/auth`)
+- `POST /auth/login` body `{ email, password }` → `{ token, displayName, role }`
+  — 앱 Settings의 **AI Coach Account** 로그인. 이후 요청은
+  `Authorization: Bearer <token>`. 로컬(tools/local-api)은 검증 없는 dev 토큰
+  (`dev.<base64url(email)>`)을 발급하고, 프로덕션은 Cognito가 같은 응답 모양으로
+  대체한다(T-206). 로그인 없이도 타이머·로컬 기록은 전부 동작한다.
 - `GET /auth/me` → `{ userId, role, displayName, swimmers[] }` (부모/코치는 연결된 선수 목록)
 - `PUT /auth/profile` → 프로필 갱신
 - `POST /auth/invites` (부모/코치가 선수 열람 초대 생성) → `{ code }`

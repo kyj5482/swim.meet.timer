@@ -8,7 +8,7 @@ import type { Swimmer, Target, TrainingRecord } from '@/db';
 import { useT } from '@/store/settings';
 import { color, font, radius } from '@/theme';
 import {
-  fmtTotal, ladderPosition, parseTime, trajectory, type TrendPoint,
+  fmtTotal, ladderPosition, paceInsight, parseTime, trajectory, type TrendPoint,
 } from '@splitlane/timer-core';
 import {
   AGE_GROUPS, ageGroup, levelLabel, standardLadder, standardLadderForGroup, stdCourse,
@@ -54,7 +54,7 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
       <>
         <Pressable style={styles.emptyCard} onPress={() => setSheet(true)}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.emptyTitle}>🎯 {t.setTarget}</Text>
+            <Text style={styles.emptyTitle}>{t.setTarget}</Text>
             <Text style={styles.emptySub}>{t.targetHint}</Text>
           </View>
           <Text style={styles.emptyPlus}>＋</Text>
@@ -70,6 +70,7 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
   }
 
   const tj = trajectory(bestMs, saved.targetMs, points, saved.targetDate, NOW());
+  const pace = paceInsight(points);
   const pct = Math.min(100, Math.max(0, tj.achievement.percent));
   const reached = tj.achievement.reached;
   const lp = ladder ? ladderPosition(bestMs, ladder) : null;
@@ -78,7 +79,7 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
     <>
       <View style={styles.card}>
         <View style={styles.head}>
-          <Text style={styles.title}>🎯 {t.target}</Text>
+          <Text style={styles.title}>{t.target}</Text>
           <Pressable onPress={() => setSheet(true)} hitSlop={8}>
             <Text style={styles.edit}>{t.editTarget}</Text>
           </Pressable>
@@ -120,7 +121,8 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
           )}
           <View style={styles.accelChip}>
             <Text style={styles.accelText}>
-              {tj.accel === 'improving' ? t.accelImproving : tj.accel === 'slowing' ? t.accelSlowing : t.accelSteady}
+              {pace.state === 'improving' ? t.paceChipImproving
+                : pace.state === 'regressing' ? t.paceChipRegressing : t.paceChipPlateau}
             </Text>
           </View>
         </View>
@@ -273,7 +275,8 @@ function TargetSheet({ onClose, swimmer, target, bestMs, eventKey, initial, onSa
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 themeVariant="dark"
                 onChange={(e, d) => {
-                  if (Platform.OS !== 'ios') setShowPicker(false);
+                  // 날짜를 고르면 달력을 바로 닫는다 — 달력 아래 Save 버튼과 혼동 방지
+                  setShowPicker(false);
                   if (e.type === 'set' && d) setDate(d.getTime());
                 }}
               />
@@ -330,12 +333,17 @@ const styles = StyleSheet.create({
   accelChip: { marginLeft: 'auto', backgroundColor: color.surface2, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
   accelText: { color: color.text, fontSize: 11, fontWeight: '700' },
   ladder: { flexDirection: 'row', gap: 4, marginTop: 2 },
-  rung: { minWidth: 56, paddingHorizontal: 6, alignItems: 'center', backgroundColor: color.surface2, borderRadius: 8, paddingVertical: 6, borderWidth: 1, borderColor: 'transparent' },
+  // 레벨 배지와 컷타임을 **나란히**(가로) — 배지가 시간 아래로 내려가지 않는다
+  rung: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8,
+    backgroundColor: color.surface2, borderRadius: 8, paddingVertical: 6,
+    borderWidth: 1, borderColor: 'transparent',
+  },
   rungOn: { backgroundColor: 'rgba(91,229,132,0.18)' },
   rungNext: { borderColor: color.accent },
   rungLevel: { color: color.textMuted, fontSize: 11, fontWeight: '800' },
   rungLevelOn: { color: color.ok },
-  rungTime: { color: color.textMuted, fontSize: 9, marginTop: 1, fontFamily: font.mono },
+  rungTime: { color: color.textMuted, fontSize: 10, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
   sheetBack: { flex: 1, backgroundColor: 'rgba(2,10,18,0.6)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: color.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: 1, borderColor: color.line, padding: 16, paddingBottom: 28, gap: 10 },
   sheetTitle: { color: color.text, fontSize: 17, fontWeight: '800' },

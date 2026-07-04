@@ -12,6 +12,8 @@ export class ApiError extends Error {
 
 export interface ApiConfig {
   baseUrl: string;
+  /** AI 코치 계정 토큰 — 있으면 Authorization 헤더로 전송(웹 서비스 공유 계정). */
+  token?: string | null;
   devUser?: string;
   devRole?: 'swimmer' | 'coach' | 'parent';
 }
@@ -24,6 +26,7 @@ async function request<T>(cfg: ApiConfig, path: string, init?: RequestInit): Pro
       'content-type': 'application/json',
       'x-dev-user': cfg.devUser ?? 'mobile-app',
       'x-dev-role': cfg.devRole ?? 'coach',
+      ...(cfg.token ? { authorization: `Bearer ${cfg.token}` } : {}),
       ...init?.headers,
     },
   });
@@ -41,6 +44,25 @@ export function apiGet<T>(cfg: ApiConfig, path: string): Promise<T> {
 
 export function apiPut<T>(cfg: ApiConfig, path: string, body: unknown): Promise<T> {
   return request<T>(cfg, path, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+export function apiPost<T>(cfg: ApiConfig, path: string, body: unknown): Promise<T> {
+  return request<T>(cfg, path, { method: 'POST', body: JSON.stringify(body) });
+}
+
+export interface LoginResult {
+  token: string;
+  displayName: string;
+  role: 'swimmer' | 'coach' | 'parent' | 'admin';
+}
+
+/**
+ * AI 코치 계정 로그인 — SplitLane Cloud(웹 서비스)와 같은 계정.
+ * 로컬 개발은 tools/local-api의 /auth/login, 프로덕션은 Cognito 기반
+ * /auth/login(T-206)이 같은 응답 모양으로 답한다.
+ */
+export function login(cfg: ApiConfig, email: string, password: string): Promise<LoginResult> {
+  return apiPost<LoginResult>(cfg, '/auth/login', { email, password });
 }
 
 /** 서버 도달 확인 — 헬스체크는 /health(v1 프리픽스 밖)에 있다. */

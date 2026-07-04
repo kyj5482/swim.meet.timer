@@ -8,11 +8,26 @@ import type { Request, Response } from 'express';
  * 그래서 서비스 핸들러 코드는 로컬/AWS에서 완전히 동일하게 동작한다.
  *
  * 로컬 인증 규약: `x-dev-user`(기본 local-dev-user), `x-dev-role`
- * (swimmer|coach|parent, 기본 coach) 헤더. 실제 토큰 검증은 하지 않는다
- * (로컬 전용 — 프로덕션에는 배포되지 않는 코드).
+ * (swimmer|coach|parent, 기본 coach) 헤더. `Authorization: Bearer dev.<b64u>`
+ * (POST /v1/auth/login 발급 토큰)이 오면 이메일을 userId로 쓴다.
+ * 실제 토큰 검증은 하지 않는다(로컬 전용 — 프로덕션에는 배포되지 않는 코드).
  */
+
+/** 'dev.<base64url(email)>' 로컬 토큰 → 이메일(userId). 아니면 null. */
+export function devTokenUser(authorization: string | undefined): string | null {
+  const m = authorization?.match(/^Bearer dev\.([A-Za-z0-9_-]+)$/);
+  if (!m) return null;
+  try {
+    return Buffer.from(m[1]!, 'base64url').toString('utf8') || null;
+  } catch {
+    return null;
+  }
+}
+
 export function toApiGatewayEvent(req: Request): APIGatewayProxyEventV2 {
-  const userId = String(req.header('x-dev-user') ?? 'local-dev-user');
+  const userId = String(
+    req.header('x-dev-user') ?? devTokenUser(req.header('authorization')) ?? 'local-dev-user',
+  );
   const role = String(req.header('x-dev-role') ?? 'coach');
   const requestId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
