@@ -27,7 +27,11 @@ export default function RootLayout() {
         }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ presentation: 'modal', title: t.settings }} />
-        <Stack.Screen name="athletes" options={{ title: t.manageAthletes }} />
+        {/* 뒤로 가기 라벨이 라우트명 "(tabs)"로 노출되지 않도록 명시 — 실제로는 전체 종목 탭으로 돌아간다 */}
+        <Stack.Screen
+          name="athletes"
+          options={{ title: t.manageAthletes, headerBackTitle: t.tabAll }}
+        />
       </Stack>
     </SafeAreaProvider>
   );

@@ -57,4 +57,8 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (swimmerId, eventKey)
   );
   `,
+  // v4: USA Swimming 회원 ID(SWIMS) — 공인 기록(myswimio best times) 열람 링크용
+  `
+  ALTER TABLE swimmers ADD COLUMN usaId TEXT;
+  `,
 ];

@@ -1,28 +1,27 @@
 /**
- * en/ko 문자열 — PWA(docs/app/index.html의 S 객체) 이식.
- * 값이 함수인 키는 t('key', ...args)로 호출된다.
+ * 앱 문자열 — 영어 단일 언어(제품 결정: 한국어 제거, Settings에서 언어 항목 삭제).
+ * 값이 함수인 키는 t.key(...args)로 호출된다.
  */
-export type Lang = 'en' | 'ko';
 
-const en = {
+export const strings = {
   tabTimer: 'Timer', tabRec: 'Event Detail', tabAth: 'Athletes', tabAll: 'All Events',
-  settings: 'Settings', done: 'Done', cancel: 'Cancel', add: 'Add',
-  lang: 'Language',
+  settings: 'Settings', done: 'Done', cancel: 'Cancel', add: 'Add', back: 'Back',
 
   // all-events overview
   manageAthletes: 'Manage athletes',
   ovBest: 'Best', ovLevel: 'Std', ovNext: 'Next level',
-  ovDrop: (level: string, pct: number) => `${level} needs −${pct}%`,
-  ovTopLevel: 'Top level ✓',
+  ovDrop: (level: string, pct: number) => `−${pct}% to ${level}`,
+  ovTopLevel: 'Top level',
   ovNoStd: 'No standard',
   ovNoStdHint: 'Set age & gender in Manage athletes to see USA Swimming standards',
   ovEmpty: 'No records yet',
   ovEmptySub: 'Finish a timed session in the Timer tab and results appear here',
   ovShortCourse: 'Short Course', ovLongCourse: 'Long Course',
-  ovPbAt: (d: string, days: number) => `PB ${d} · ${days === 0 ? 'today' : `${days}d ago`}`,
+  ovPbAgo: (days: number) => (days === 0 ? 'PB today' : days === 1 ? 'PB 1 day ago' : `PB ${days} days ago`),
   ovLastAt: (d: string) => `Last swim ${d}`,
-  ovTgDrop: (label: string, pct: number) => `🎯 ${label} needs −${pct}%`,
-  ovTgDone: (label: string) => `🎯 ${label} reached ✓`,
+  ovTgDrop: (label: string, pct: number) => `🎯 −${pct}% to ${label}`,
+  ovTgDone: (label: string) => `🎯 ${label} ✓`,
+  officialTimes: 'Official times',
 
   // setup
   lCourse: 'Course', lStroke: 'Stroke', lDist: 'Distance', lSplit: 'Split',
@@ -49,24 +48,27 @@ const en = {
   // assign
   aTitle: 'Done — Assign Swimmers',
   aLead: 'Match each slot to a swimmer. Pre-filled by pace history.',
-  impCount: (n: number) => `improved`, rec: 'Rec', firstRec: 'First record',
-  prev: 'Prev', pb: '🏅 PB', pbShort: 'PB', totalWord: 'total', improvedWord: 'improved',
+  rec: 'Rec', firstRec: 'First record',
+  prev: 'Prev', pb: '🏅 PB', pbShort: 'PB',
   swapBtn: '↔ Swap',
   nearWarn: (n: number, g: string) => `⚠ ${g}s gap with lane ${n} — confirm`,
   saveRec: 'Save Records', again: 'Time Again', pickTitle: 'Select Swimmer', addSw: 'Add Swimmer',
-  savedToast: (n: number) => `✓ ${n} ${n === 1 ? 'record' : 'records'} saved`,
-  undoBtn: 'Undo',
+  savedToast: (n: number) => `${n} ${n === 1 ? 'record' : 'records'} saved`,
+  undoBtn: 'Undo', okBtn: 'OK',
+  undone: 'Save undone',
 
   // records
   sessions: 'Sessions', compareSplits: 'Compare Splits',
   selectMode: 'Select 2+ sessions', compareN: (n: number) => `Compare ${n} sessions`,
   splitCmp: 'Split Comparison', segSplits: 'Segment Splits',
-  delRec: '🗑 Delete', delConfirm: 'Delete this record?', delYes: 'Delete',
-  trendSub: (n: number) => `${n} sessions · lower is better`,
+  delRec: 'Delete record', delConfirm: 'Delete this record?', delYes: 'Delete',
   trend: 'Trend', seg: 'Seg', total2: 'Total', bestWord: 'Best',
+  accelImprovingSub: 'improving faster', accelSteadySub: 'steady pace', accelSlowingSub: 'gains slowing',
+  perWeekSub: (v: string) => `▼${v}/wk`,
+  expandChart: 'Expand',
+  fullChartTitle: (ev: string) => `${ev} — Standards position`,
   switchLbl: 'Switch', event: 'Event', yo: (n: number) => `${n} yo`, noGroup: 'No group',
   cmpAxisNote: 'segment split (s) · lower is better',
-  exportCsv: 'Export CSV', exportFail: 'Export failed',
   noRecords: 'No records yet. Time a session and save it.',
   noSwimmers: 'No swimmers yet',
   noSwimmersSub: 'Add swimmers in Manage athletes, then time a session.',
@@ -78,6 +80,9 @@ const en = {
   delSwMsg: 'Saved records are kept.',
   editSw: 'Edit Swimmer', lName: 'Name', lAge: 'Age', lGroup: 'Group', lGender: 'Gender',
   female: 'Female', male: 'Male',
+  lUsaId: 'USA Swimming ID',
+  usaIdPH: 'e.g. 1045380 (optional)',
+  usaIdHint: 'Links this swimmer to official meet results (SWIMS best times).',
   deleteSw: 'Delete Swimmer', save: 'Save', groupPH: 'e.g. Elite (optional)',
 
   // targets
@@ -88,15 +93,14 @@ const en = {
   projected: (d: string) => `Projected ${d}`, byDate: (d: string) => `by ${d}`,
   perWeek: (v: string) => `${v}/wk`, accelImproving: 'Accelerating', accelSteady: 'Steady', accelSlowing: 'Slowing',
   tByLevel: 'Standard level', tByClub: 'Club group', tCustom: 'Custom time',
+  ageGroupLbl: 'Age group',
   pickLevel: 'Pick a level (USA Swimming)', pickTime: 'Target time (e.g. 58.50)',
   targetWhen: 'Target date (optional)', noDate: 'No date', in3mo: '3 months', in6mo: '6 months',
   ladderReached: (l: string) => `Reached ${l}`, ladderNext: (l: string, v: string) => `${v} to ${l}`,
   levelUnavailable: 'Standards for this event/age coming soon — use a custom time.',
 
   // settings
-  haptics: 'Haptics', hapticsSub: 'Vibrate on every lap',
-  volumeLap: 'Volume-key LAP', volumeLapSub: 'Press volume buttons to lap (Android)',
-  volumeLapIos: 'Not available on iOS (App Store policy). Use the on-screen LAP button.',
+  haptics: 'Haptics', hapticsSub: 'Strong vibration on every lap tap',
   clearDemo: 'Clear demo data', clearDemoSub: 'Remove the 5 sample swimmers and their history',
   clearDemoConfirm: 'Sample swimmers and their demo records will be removed. Your own data is kept.',
   settingsTip: 'Settings are saved on this device.',
@@ -109,101 +113,4 @@ const en = {
   syncFail: (msg: string) => `✗ Sync failed: ${msg}`,
 };
 
-const ko: typeof en = {
-  tabTimer: '타이머', tabRec: '세부 종목', tabAth: '선수', tabAll: '전체 종목',
-  settings: '설정', done: '완료', cancel: '취소', add: '추가',
-  lang: '언어',
-
-  manageAthletes: '선수 관리',
-  ovBest: '베스트', ovLevel: '표준', ovNext: '다음 레벨',
-  ovDrop: (level, pct) => `${level}까지 −${pct}%`,
-  ovTopLevel: '최고 레벨 ✓',
-  ovNoStd: '표준 없음',
-  ovNoStdHint: '선수 관리에서 나이·성별을 입력하면 USA Swimming 표준이 표시됩니다',
-  ovEmpty: '아직 기록이 없습니다',
-  ovEmptySub: '타이머 탭에서 측정을 마치면 여기에 종목별로 정리됩니다',
-  ovShortCourse: '쇼트 코스', ovLongCourse: '롱 코스',
-  ovPbAt: (d, days) => `PB ${d} · ${days === 0 ? '오늘' : `${days}일 전`}`,
-  ovLastAt: (d) => `최근 ${d}`,
-  ovTgDrop: (label, pct) => `🎯 ${label}까지 −${pct}%`,
-  ovTgDone: (label) => `🎯 ${label} 달성 ✓`,
-
-  lCourse: '코스', lStroke: '종목', lDist: '거리', lSplit: '스플릿',
-  changeInSettings: '설정에서 변경', courseUnit: '코스 단위',
-  splitEvery: (d, u) => `${d} ${u}마다`,
-  lSwimmers: '인원', lSwimmersSub: '익명 측정 후 선수 배정',
-  steptip: '익명 슬롯으로 측정하고, 끝난 뒤 선수를 배정합니다.',
-  segInfo: (n, iv, u) => `구간 ${n}개 · ${iv} ${u}마다 LAP`,
-  segOnce: (d, u) => `결과 1회 · ${d} ${u} 한 번에 기록`,
-  segWarn: (d, p) => `${d}는 ${p} 풀에서 잴 수 없습니다`,
-  splitOnce: '전체 1회',
-  strokes: { free: '자유형', back: '배영', breast: '평영', fly: '접영', im: '혼영' },
-
-  hintStart: '벽을 찍은 레인을 탭하거나, 예측이 맞으면 LAP을 누르세요',
-  hintRun: (d, tot, r) => `랩 ${d}/${tot} · 남은 ${r}명`,
-  lapNext: (n) => `다음 예측 ▸ ${n}번`, lapDone: '완료',
-  laneN: (n) => `${n}번 레인`, waiting: '출발 대기', next: '다음',
-  undo: '↶ 실행취소', reset: '⟲ 리셋',
-  resetTitle: '타이머를 리셋할까요?', resetMsg: '현재 측정 내용이 사라집니다.',
-  resumeTitle: '측정을 이어서 할까요?', resumeMsg: '측정 중에 앱이 종료되었습니다.',
-  resume: '이어서', discard: '버리기',
-
-  aTitle: '기록 완료 — 선수 배정',
-  aLead: '기록을 보고 선수를 배정하세요. 기존 기록 기준으로 추천했습니다.',
-  impCount: () => '향상', rec: '추천', firstRec: '첫 기록',
-  prev: '이전', pb: '🏅 PB', pbShort: 'PB', totalWord: '총', improvedWord: '향상',
-  swapBtn: '↔ 맞바꾸기',
-  nearWarn: (n, g) => `⚠ ${n}번과 ${g}초 차 — 선수 확인`,
-  saveRec: '기록 저장', again: '다시 측정', pickTitle: '선수 선택', addSw: '선수 추가',
-  savedToast: (n) => `✓ ${n}명 기록 저장됨`,
-  undoBtn: '되돌리기',
-
-  sessions: '세션 기록', compareSplits: '구간 비교',
-  selectMode: '2개 이상 선택', compareN: (n) => `${n}개 세션 비교`,
-  splitCmp: '구간별 스플릿 비교', segSplits: '구간별 스플릿',
-  delRec: '🗑 삭제', delConfirm: '이 기록을 삭제할까요?', delYes: '삭제',
-  trendSub: (n) => `최근 ${n}회 · 낮을수록 좋음`,
-  trend: '추세', seg: '구간', total2: '합계', bestWord: '베스트',
-  switchLbl: '변경', event: '종목', yo: (n) => `만 ${n}세`, noGroup: '그룹 없음',
-  cmpAxisNote: '구간 스플릿(초) · 낮을수록 좋음',
-  exportCsv: 'CSV 내보내기', exportFail: '내보내기 실패',
-  noRecords: '아직 기록이 없습니다. 측정 후 저장하면 표시됩니다.',
-  noSwimmers: '선수가 없습니다',
-  noSwimmersSub: '선수 관리에서 선수를 추가하고 측정해 보세요.',
-
-  namePH: '예: 민준',
-  athEmpty: '아직 선수가 없습니다. 측정 후 배정하려면 선수를 추가하세요.',
-  delSwTitle: (name) => `${name} 선수를 삭제할까요?`,
-  delSwMsg: '저장된 기록은 유지됩니다.',
-  editSw: '선수 정보 수정', lName: '이름', lAge: '나이', lGroup: '그룹', lGender: '성별',
-  female: '여자', male: '남자',
-  deleteSw: '선수 삭제', save: '저장', groupPH: '예: 엘리트반 (선택)',
-
-  target: '타겟', setTarget: '타겟 설정', editTarget: '타겟 수정', removeTarget: '삭제',
-  targetHint: '목표 기록을 정하고 얼마나 가까운지 확인하세요.',
-  achievedTag: '✓ 달성', toGo: (v) => `${v} 남음`,
-  onTrack: '순항 중', behind: '더뎌요', noProjection: '더 기록하면 예측이 나와요',
-  projected: (d) => `예상 ${d}`, byDate: (d) => `${d}까지`,
-  perWeek: (v) => `주 ${v}`, accelImproving: '가속 중', accelSteady: '유지', accelSlowing: '둔화',
-  tByLevel: '표준 레벨', tByClub: '클럽 조건', tCustom: '직접 입력',
-  pickLevel: '레벨 선택 (USA Swimming)', pickTime: '목표 기록 (예: 58.50)',
-  targetWhen: '목표 날짜 (선택)', noDate: '없음', in3mo: '3개월', in6mo: '6개월',
-  ladderReached: (l) => `${l} 도달`, ladderNext: (l, v) => `${l}까지 ${v}`,
-  levelUnavailable: '이 종목/연령 표준은 준비 중 — 직접 입력을 사용하세요.',
-
-  haptics: '햅틱', hapticsSub: '랩마다 진동 피드백',
-  volumeLap: '볼륨 키 LAP', volumeLapSub: '볼륨 버튼으로 랩 기록 (Android)',
-  volumeLapIos: 'iOS는 정책상 지원되지 않습니다. 화면의 LAP 버튼을 사용하세요.',
-  clearDemo: '데모 데이터 지우기', clearDemoSub: '샘플 선수 5명과 데모 기록 삭제',
-  clearDemoConfirm: '샘플 선수와 데모 기록이 삭제됩니다. 내가 만든 데이터는 유지됩니다.',
-  settingsTip: '설정은 이 기기에 저장됩니다.',
-
-  backend: '백엔드 동기화', serverUrlPH: 'http://192.168.x.x:4000/v1',
-  testConnection: '연결 테스트', syncNow: '지금 동기화',
-  connOk: '✓ 서버 연결됨', connFail: '✗ 서버에 연결할 수 없음',
-  neverSynced: '동기화한 적 없음', lastSynced: (t) => `마지막 동기화 ${t}`,
-  syncOk: (sw, push, pull) => `✓ 선수 ${sw}명 동기화 — 전송 ${push}, 수신 ${pull}`,
-  syncFail: (msg) => `✗ 동기화 실패: ${msg}`,
-};
-
-export const STRINGS: Record<Lang, typeof en> = { en, ko };
+export type Strings = typeof strings;

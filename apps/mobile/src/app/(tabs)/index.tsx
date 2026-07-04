@@ -10,6 +10,7 @@ import {
 import AssignView from '@/features/timer/AssignView';
 import Clock from '@/features/timer/Clock';
 import RunningView from '@/features/timer/RunningView';
+import SaveOverlay from '@/features/timer/SaveOverlay';
 import SetupView from '@/features/timer/SetupView';
 import {
   DEFAULT_CONFIG, clockBase, courseUnit, eventTitle, restoredClockBase, segmentCount,
@@ -30,6 +31,8 @@ export default function TimerScreen() {
   const [view, setView] = useState<ViewState>('setup');
   const [config, setConfig] = useState<TimerConfig>(DEFAULT_CONFIG);
   const [assignData, setAssignData] = useState<{ swimmers: Swimmer[]; stats: CandidateStats[] } | null>(null);
+  /** 저장 직후 확인 단계 — Undo/OK가 결정될 때까지 배정 화면을 유지한다. */
+  const [justSaved, setJustSaved] = useState<{ sessionId: string; count: number } | null>(null);
   const engineRef = useRef<TimerEngine | null>(null);
   const baseRef = useRef<ReturnType<typeof clockBase> | null>(null);
   const t = useT();
@@ -122,19 +125,34 @@ export default function TimerScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, clearSnapshot]);
 
+  // 저장 → 화면 전환 없이 Undo/OK 확인 오버레이. OK(수동 또는 2초 자동)일 때만
+  // 타이머 초기 화면으로 돌아가고, Undo면 저장을 취소하고 배정 화면 그대로.
+  const savingRef = useRef(false);
   const onSave = useCallback(() => {
     const engine = engineRef.current;
-    if (!engine) return;
+    if (!engine || savingRef.current) return; // 더블 탭 중복 저장 방지
+    savingRef.current = true;
     void (async () => {
-      const { sessionId, count } = await saveSession(engine.state, target);
-      setView('setup');
-      Alert.alert(t.savedToast(count), undefined, [
-        { text: t.undoBtn, style: 'destructive', onPress: () => void deleteSession(sessionId) },
-        { text: 'OK' },
-      ]);
+      try {
+        const { sessionId, count } = await saveSession(engine.state, target);
+        setJustSaved({ sessionId, count });
+      } finally {
+        savingRef.current = false;
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config]);
+
+  const onUndoSave = useCallback(() => {
+    const saved = justSaved;
+    setJustSaved(null);
+    if (saved) void deleteSession(saved.sessionId);
+  }, [justSaved]);
+
+  const onConfirmSave = useCallback(() => {
+    setJustSaved(null);
+    setView('setup');
+  }, []);
 
   const title = eventTitle(config, t.strokes[config.stroke]!);
 
@@ -168,8 +186,8 @@ export default function TimerScreen() {
         unit={courseUnit(config.course)}
         onAgain={() => setView('setup')}
         onSave={onSave}
-        onAddSwimmer={async (name) => {
-          const sw = await addSwimmer(name);
+        onAddSwimmer={async (fields) => {
+          const sw = await addSwimmer(fields);
           setAssignData((d) => (d ? { ...d, swimmers: [...d.swimmers, sw] } : d));
           return sw.id;
         }}
@@ -183,6 +201,9 @@ export default function TimerScreen() {
     <View style={styles.screen}>
       <TopBar title={title} />
       {body}
+      {justSaved && (
+        <SaveOverlay count={justSaved.count} onUndo={onUndoSave} onOk={onConfirmSave} />
+      )}
     </View>
   );
 }

@@ -11,8 +11,8 @@ import {
   fmtTotal, ladderPosition, parseTime, trajectory, type TrendPoint,
 } from '@splitlane/timer-core';
 import {
-  AGE_GROUPS, ageGroup, standardLadder, standardLadderForGroup, stdCourse,
-  type AgeGroup, type Gender, type Level,
+  AGE_GROUPS, ageGroup, levelLabel, standardLadder, standardLadderForGroup, stdCourse,
+  type AgeGroup, type Gender,
 } from './standards';
 
 interface Props {
@@ -126,8 +126,8 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
         </View>
 
         {lp && ladder && (
-          <View style={styles.ladder}>
-            {ladder.map((s) => {
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ladder}>
+            {[...ladder].sort((a, b) => b.timeMs - a.timeMs).map((s) => {
               const passed = bestMs <= s.timeMs;
               const isNext = lp.next?.level === s.level;
               return (
@@ -137,7 +137,7 @@ export default function TargetCard({ swimmer, target, eventKey, finished, saved,
                 </View>
               );
             })}
-          </View>
+          </ScrollView>
         )}
       </View>
 
@@ -164,15 +164,16 @@ function TargetSheet({ onClose, swimmer, target, bestMs, eventKey, initial, onSa
   onRemove?: () => void;
 }) {
   const t = useT();
-  const [gender, setGender] = useState<Gender>(swimmer.gender === 'M' ? 'M' : 'F');
-  const swAge = swimmer.birthYear ? 2026 - swimmer.birthYear : null;
+  // 성별은 선수 정보에서 이미 알고 있으므로 여기서 다시 묻지 않는다 — 연령그룹만 선택.
+  const gender: Gender = swimmer.gender === 'M' ? 'M' : 'F';
+  const swAge = swimmer.birthYear ? new Date().getFullYear() - swimmer.birthYear : null;
   const [ag, setAg] = useState<AgeGroup>(ageGroup(swAge) ?? '11-12');
   const ladder = useMemo(
     () => standardLadderForGroup(stdCourse(target.course), gender, ag, target.stroke, target.distance),
     [gender, ag, target.stroke, target.distance, target.course],
   );
   const [mode, setMode] = useState<'level' | 'custom'>(ladder ? 'level' : 'custom');
-  const [level, setLevel] = useState<Level | null>(null);
+  const [level, setLevel] = useState<string | null>(null);
   const [timeText, setTimeText] = useState(initial && !ladder ? fmtTotal(initial.targetMs) : '');
   const [date, setDate] = useState<number | null>(initial?.targetDate ?? null);
   const [showPicker, setShowPicker] = useState(false);
@@ -182,7 +183,7 @@ function TargetSheet({ onClose, swimmer, target, bestMs, eventKey, initial, onSa
     let label = t.tCustom;
     if (mode === 'level' && ladder && level) {
       targetMs = ladder.find((s) => s.level === level)?.timeMs ?? null;
-      label = level;
+      label = levelLabel(level);
     } else {
       targetMs = parseTime(timeText);
       label = t.tCustom;
@@ -199,14 +200,9 @@ function TargetSheet({ onClose, swimmer, target, bestMs, eventKey, initial, onSa
           <Pressable style={styles.sheet} onPress={() => {}}>
             <Text style={styles.sheetTitle}>{t.target}</Text>
 
-            {/* 성별·연령그룹 (표준 조회용) */}
+            {/* 연령그룹 (표준 조회용) — 성별은 선수 프로필 값을 그대로 쓴다 */}
+            <Text style={styles.agLabel}>{t.ageGroupLbl}</Text>
             <View style={styles.rowSeg}>
-              {(['F', 'M'] as const).map((g) => (
-                <Pressable key={g} style={[styles.miniBtn, gender === g && styles.miniOn]} onPress={() => setGender(g)}>
-                  <Text style={[styles.miniText, gender === g && styles.miniTextOn]}>{g === 'F' ? t.female : t.male}</Text>
-                </Pressable>
-              ))}
-              <View style={styles.miniGap} />
               {AGE_GROUPS.map((g) => (
                 <Pressable key={g} style={[styles.miniBtn, ag === g && styles.miniOn]} onPress={() => setAg(g)}>
                   <Text style={[styles.miniText, ag === g && styles.miniTextOn]}>{g}</Text>
@@ -226,14 +222,17 @@ function TargetSheet({ onClose, swimmer, target, bestMs, eventKey, initial, onSa
 
             {mode === 'level' ? (
               ladder ? (
-                <ScrollView style={{ maxHeight: 200 }}>
-                  {[...ladder].sort((a, b) => a.timeMs - b.timeMs).map((s) => {
+                <ScrollView style={{ maxHeight: 260 }}>
+                  {[...ladder].sort((a, b) => b.timeMs - a.timeMs).map((s) => {
                     const on = level === s.level;
                     const passed = bestMs <= s.timeMs;
                     return (
-                      <Pressable key={s.level} style={[styles.levelRow, on && styles.levelRowOn]} onPress={() => setLevel(s.level as Level)}>
-                        <Text style={[styles.levelName, passed && { color: color.ok }]}>{s.level}</Text>
-                        <Text style={styles.levelTime}>{fmtTotal(s.timeMs)}</Text>
+                      <Pressable key={s.level} style={[styles.levelRow, on && styles.levelRowOn]} onPress={() => setLevel(s.level)}>
+                        {/* 레벨명 + 컷타임을 한 덩어리로 중앙 정렬 */}
+                        <View style={styles.levelCenter}>
+                          <Text style={[styles.levelName, passed && { color: color.ok }]}>{levelLabel(s.level)}</Text>
+                          <Text style={styles.levelTime}>{fmtTotal(s.timeMs)}</Text>
+                        </View>
                         {passed && <Text style={styles.levelPassed}>✓</Text>}
                       </Pressable>
                     );
@@ -331,7 +330,7 @@ const styles = StyleSheet.create({
   accelChip: { marginLeft: 'auto', backgroundColor: color.surface2, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
   accelText: { color: color.text, fontSize: 11, fontWeight: '700' },
   ladder: { flexDirection: 'row', gap: 4, marginTop: 2 },
-  rung: { flex: 1, alignItems: 'center', backgroundColor: color.surface2, borderRadius: 8, paddingVertical: 6, borderWidth: 1, borderColor: 'transparent' },
+  rung: { minWidth: 56, paddingHorizontal: 6, alignItems: 'center', backgroundColor: color.surface2, borderRadius: 8, paddingVertical: 6, borderWidth: 1, borderColor: 'transparent' },
   rungOn: { backgroundColor: 'rgba(91,229,132,0.18)' },
   rungNext: { borderColor: color.accent },
   rungLevel: { color: color.textMuted, fontSize: 11, fontWeight: '800' },
@@ -340,8 +339,8 @@ const styles = StyleSheet.create({
   sheetBack: { flex: 1, backgroundColor: 'rgba(2,10,18,0.6)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: color.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: 1, borderColor: color.line, padding: 16, paddingBottom: 28, gap: 10 },
   sheetTitle: { color: color.text, fontSize: 17, fontWeight: '800' },
+  agLabel: { color: color.textMuted, fontSize: 12 },
   rowSeg: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
-  miniGap: { width: 6 },
   miniBtn: { paddingHorizontal: 10, height: 32, borderRadius: 8, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface2, alignItems: 'center', justifyContent: 'center' },
   miniOn: { backgroundColor: color.accent, borderColor: color.accent },
   miniText: { color: color.text, fontSize: 12, fontWeight: '600' },
@@ -351,11 +350,12 @@ const styles = StyleSheet.create({
   segOn: { backgroundColor: color.accent, borderColor: color.accent },
   segText: { color: color.text, fontSize: 14, fontWeight: '600' },
   segTextOn: { color: color.accentInk, fontWeight: '800' },
-  levelRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 46, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface2, marginBottom: 6 },
+  levelRow: { flexDirection: 'row', alignItems: 'center', height: 46, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface2, marginBottom: 6 },
   levelRowOn: { borderColor: color.accent },
-  levelName: { color: color.text, fontSize: 15, fontWeight: '800', width: 48 },
+  levelCenter: { flex: 1, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 10 },
+  levelName: { color: color.text, fontSize: 15, fontWeight: '800' },
   levelTime: { color: color.text, fontSize: 15, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
-  levelPassed: { color: color.ok, fontWeight: '900', marginLeft: 'auto' },
+  levelPassed: { color: color.ok, fontWeight: '900', position: 'absolute', right: 14 },
   input: { height: 50, borderRadius: 12, paddingHorizontal: 14, backgroundColor: color.surface2, color: color.text, fontSize: 18, fontFamily: font.mono, borderWidth: 1, borderColor: color.line },
   unavail: { color: color.textMuted, fontSize: 13 },
   whenLabel: { color: color.textMuted, fontSize: 12, marginTop: 2 },

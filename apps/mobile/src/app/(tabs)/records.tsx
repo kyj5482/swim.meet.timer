@@ -1,30 +1,28 @@
-import { File, Paths } from 'expo-file-system';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import * as Sharing from 'expo-sharing';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View,
+  Alert, FlatList, Modal, Pressable, StyleSheet, Text, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import ActionMenu, { type MenuAction } from '@/components/ActionMenu';
 import Avatar from '@/components/Avatar';
-import { ChevronDown, MoreVertical } from '@/components/Icons';
+import { ChevronDown } from '@/components/Icons';
 import Select from '@/components/Select';
+import SwimmerPicker from '@/components/SwimmerPicker';
 import {
   ageOf, clearTarget, deleteRecord, getTarget, listRecords, listSwimmers, setTarget,
   type Swimmer, type Target, type TrainingRecord,
 } from '@/db';
 import CompareChart from '@/features/records/CompareChart';
 import TrendChart from '@/features/records/TrendChart';
-import { eventKeyOf, eventLabel, fmtDate, fmtTime, recordsToCsv } from '@/features/records/csv';
+import { eventKeyOf, eventName, fmtDateTime } from '@/features/records/csv';
 import TargetCard from '@/features/targets/TargetCard';
 import { standardLadder, stdCourse } from '@/features/targets/standards';
 import { useT } from '@/store/settings';
 import { color, font, radius, touch } from '@/theme';
 import { fmtTotal } from '@splitlane/timer-core';
 
-/** 세부 종목 탭: 아바타 헤더 + Switch, 이벤트 드롭다운, 표준 레벨 축 추세 차트, 세션. */
+/** 세부 종목 탭: 아바타 헤더 + Switch, 이벤트 드롭다운, 추세 차트(확대 지원), 세션. */
 export default function RecordsScreen() {
   const params = useLocalSearchParams<{ event?: string; swimmer?: string }>();
   const [swimmers, setSwimmers] = useState<Swimmer[]>([]);
@@ -37,8 +35,6 @@ export default function RecordsScreen() {
   const [comparing, setComparing] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [savedTarget, setSavedTarget] = useState<Target | null>(null);
-  const [headerMenu, setHeaderMenu] = useState(false);
-  const [rowMenu, setRowMenu] = useState<TrainingRecord | null>(null);
   const insets = useSafeAreaInsets();
   const t = useT();
 
@@ -66,7 +62,7 @@ export default function RecordsScreen() {
   const swimmerIdx = Math.max(0, swimmers.findIndex((s) => s.id === swimmerId));
   const swimmer = swimmers.find((s) => s.id === swimmerId);
 
-  // 종목 목록(최근순) + 각 종목 PB
+  // 종목 목록(거리 오름차순) + 각 종목 PB
   const events = useMemo(() => {
     const map = new Map<string, { target: TrainingRecord['target']; bestMs: number }>();
     for (const r of records) {
@@ -76,7 +72,6 @@ export default function RecordsScreen() {
       if (!cur) map.set(k, { target: r.target, bestMs: best });
       else cur.bestMs = Math.min(cur.bestMs, best);
     }
-    // 거리 오름차순, 그 다음 종목
     return [...map.entries()].sort((a, b) => a[1].target.distance - b[1].target.distance);
   }, [records]);
 
@@ -94,7 +89,7 @@ export default function RecordsScreen() {
   const selected = filtered.filter((r) => cmpIds.has(r.id)).sort((a, b) => a.date - b.date);
   const unit = activeTarget?.course === '25y' ? 'y' : 'm';
 
-  // 표준 사다리(있으면 차트 Y축을 레벨 컷 기준으로) — 성별·나이 미입력 시 null
+  // 표준 사다리(확대 차트 Y축 밴드용) — 성별·나이 미입력 시 null
   const chartLadder = useMemo(() => {
     if (!swimmer?.gender || !activeTarget) return null;
     return standardLadder(
@@ -123,19 +118,12 @@ export default function RecordsScreen() {
     ]);
   }, [reload, t]);
 
-  const onExport = useCallback(() => {
-    if (!swimmer) return;
-    void (async () => {
-      try {
-        const file = new File(Paths.cache, `splitlane-${swimmer.name}.csv`);
-        if (file.exists) file.delete();
-        file.write(recordsToCsv(swimmer.name, records));
-        await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', dialogTitle: 'Export records' });
-      } catch (err) {
-        Alert.alert(t.exportFail, String(err));
-      }
-    })();
-  }, [swimmer, records, t]);
+  // 비교 모달을 닫으면 비교 모드도 자동 해제(선택 초기화)
+  const closeCompare = useCallback(() => {
+    setComparing(false);
+    setCmpMode(false);
+    setCmpIds(new Set());
+  }, []);
 
   function metaLine(s: Swimmer): string {
     const age = ageOf(s);
@@ -148,33 +136,27 @@ export default function RecordsScreen() {
         <Text style={styles.emptyIcon}>🏊</Text>
         <Text style={styles.emptyText}>{t.noSwimmers}</Text>
         <Text style={styles.emptySub}>{t.noSwimmersSub}</Text>
+        <Pressable style={styles.manageBtn} onPress={() => router.push('/athletes')}>
+          <Text style={styles.manageBtnText}>{t.manageAthletes}</Text>
+        </Pressable>
       </View>
     );
   }
 
-  const headerActions: MenuAction[] = [
-    { label: t.exportCsv, onPress: onExport },
-  ];
-
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 4 }]}>
-      {/* 아바타 헤더 + Switch + ⋮ (PWA .rec-header) */}
-      <View style={styles.recHeader}>
-        <Pressable style={styles.recHeaderMain} onPress={() => setSwitching(true)}>
-          <Avatar name={swimmer?.name ?? '?'} index={swimmerIdx} size={52} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.recName}>{swimmer?.name}</Text>
-            <Text style={styles.recMeta}>{swimmer ? metaLine(swimmer) : ''}</Text>
-          </View>
-          <View style={styles.switchWrap}>
-            <Text style={styles.switchText}>{t.switchLbl}</Text>
-            <ChevronDown color={color.accent} size={16} />
-          </View>
-        </Pressable>
-        <Pressable style={styles.kebab} onPress={() => setHeaderMenu(true)} hitSlop={8}>
-          <MoreVertical color={color.textMuted} />
-        </Pressable>
-      </View>
+      {/* 아바타 헤더 + Switch (PWA .rec-header) */}
+      <Pressable style={styles.recHeader} onPress={() => setSwitching(true)}>
+        <Avatar name={swimmer?.name ?? '?'} index={swimmerIdx} size={52} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.recName}>{swimmer?.name}</Text>
+          <Text style={styles.recMeta}>{swimmer ? metaLine(swimmer) : ''}</Text>
+        </View>
+        <View style={styles.switchWrap}>
+          <Text style={styles.switchText}>{t.switchLbl}</Text>
+          <ChevronDown color={color.accent} size={16} />
+        </View>
+      </Pressable>
 
       {/* 이벤트 드롭다운 (PB 인라인) */}
       {events.length > 0 && activeEvent && (
@@ -184,7 +166,7 @@ export default function RecordsScreen() {
             value={activeEvent}
             options={events.map(([k, v]) => ({
               value: k,
-              label: `${eventLabel(v.target)}${Number.isFinite(v.bestMs) ? `  ·  ${fmtTotal(v.bestMs)}` : ''}`,
+              label: `${eventName(v.target)}${Number.isFinite(v.bestMs) ? `  ·  ${fmtTotal(v.bestMs)}` : ''}`,
             }))}
             onChange={setEventKey}
             title={t.event}
@@ -212,8 +194,7 @@ export default function RecordsScreen() {
             {finished.length >= 2 && activeTarget && (
               <TrendChart
                 records={finished}
-                title={`${eventLabel(activeTarget)} ${t.trend}`}
-                sub={t.trendSub(finished.length)}
+                title={`${eventName(activeTarget)} ${t.trend}`}
                 ladder={chartLadder}
               />
             )}
@@ -254,13 +235,9 @@ export default function RecordsScreen() {
                     {picked && <Text style={styles.checkMark}>✓</Text>}
                   </View>
                 )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowDate} numberOfLines={1}>{fmtDate(item.date)}</Text>
-                  <Text style={styles.rowMeta} numberOfLines={1}>
-                    {`${fmtTime(item.date)} · ${eventLabel(item.target)}`}
-                    {isPB ? ` · ${t.bestWord}` : ''}
-                  </Text>
-                </View>
+                {/* 기록 날짜·시각 — 한 줄 표기 */}
+                <Text style={styles.rowDate} numberOfLines={1}>{fmtDateTime(item.date)}</Text>
+                <View style={{ flex: 1 }} />
                 {deltaMs != null && deltaMs !== 0 && (
                   <Text style={deltaMs < 0 ? styles.deltaDown : styles.deltaUp}>
                     {`${deltaMs < 0 ? '▼' : '▲'}${(Math.abs(deltaMs) / 1000).toFixed(2)}`}
@@ -269,11 +246,6 @@ export default function RecordsScreen() {
                 {isPB && <View style={styles.pbBadge}><Text style={styles.pbBadgeText}>{t.pbShort}</Text></View>}
                 {item.status === 'dnf' && <Text style={styles.dnf}>DNF</Text>}
                 <Text style={styles.rowTotal}>{fmtTotal(item.totalMs)}</Text>
-                {!cmpMode && (
-                  <Pressable style={styles.rowKebab} onPress={() => setRowMenu(item)} hitSlop={6}>
-                    <MoreVertical color={color.textMuted} size={18} />
-                  </Pressable>
-                )}
               </Pressable>
 
               {expanded && !cmpMode && (
@@ -289,6 +261,10 @@ export default function RecordsScreen() {
                       </View>
                     ))}
                   </View>
+                  {/* 삭제는 드물다 — 펼친 상세 안에서만, 확인 후 진행 */}
+                  <Pressable style={styles.delMini} onPress={() => onDelete(item)}>
+                    <Text style={styles.delMiniText}>{`🗑 ${t.delRec}`}</Text>
+                  </Pressable>
                 </View>
               )}
             </View>
@@ -296,7 +272,7 @@ export default function RecordsScreen() {
         }}
       />
 
-      {/* 비교 모드에서만 하단 액션(Compare). Export는 헤더 ⋮ 메뉴로 이동. */}
+      {/* 비교 모드에서만 하단 액션(Compare) */}
       {cmpMode && (
         <View style={styles.actions}>
           <Pressable
@@ -310,42 +286,18 @@ export default function RecordsScreen() {
         </View>
       )}
 
-      {/* 헤더 ⋮ 메뉴 (Export 등) */}
-      <ActionMenu visible={headerMenu} onClose={() => setHeaderMenu(false)} actions={headerActions} />
-      {/* 세션 행 ⋮ 메뉴 (Delete) */}
-      <ActionMenu
-        visible={rowMenu != null}
-        onClose={() => setRowMenu(null)}
-        actions={rowMenu ? [{ label: t.delYes, destructive: true, onPress: () => onDelete(rowMenu) }] : []}
+      {/* 선수 전환 모달 (Switch) — 전체 종목 탭과 동일 화면 */}
+      <SwimmerPicker
+        visible={switching}
+        swimmers={swimmers}
+        currentId={swimmerId}
+        onPick={switchTo}
+        onClose={() => setSwitching(false)}
       />
 
-      {/* 선수 전환 모달 (Switch) */}
-      <Modal visible={switching} transparent animationType="fade" onRequestClose={() => setSwitching(false)}>
-        <Pressable style={styles.modalBack} onPress={() => setSwitching(false)}>
-          <View style={styles.pickerCard}>
-            <Text style={styles.modalTitle}>{t.pickTitle}</Text>
-            <ScrollView style={{ maxHeight: 400 }}>
-              {swimmers.map((s, i) => {
-                const on = s.id === swimmerId;
-                return (
-                  <Pressable key={s.id} style={[styles.pickRow, on && styles.pickRowOn]} onPress={() => switchTo(s.id)}>
-                    <Avatar name={s.name} index={i} size={38} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.pickName}>{s.name}</Text>
-                      <Text style={styles.pickMeta}>{metaLine(s)}</Text>
-                    </View>
-                    {on && <Text style={styles.pickChk}>✓</Text>}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Modal>
-
-      {/* 구간 비교 모달 (차트 + 표) */}
-      <Modal visible={comparing} transparent animationType="fade" onRequestClose={() => setComparing(false)}>
-        <Pressable style={styles.modalBack} onPress={() => setComparing(false)}>
+      {/* 구간 비교 모달 (차트 + 표) — 닫으면 비교 모드 자동 해제 */}
+      <Modal visible={comparing} transparent animationType="fade" onRequestClose={closeCompare}>
+        <Pressable style={styles.modalBack} onPress={closeCompare}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>{t.splitCmp}</Text>
             {activeTarget && (
@@ -399,10 +351,12 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 40, opacity: 0.7 },
   emptyText: { color: color.text, fontSize: 18, fontWeight: '700' },
   emptySub: { color: color.textMuted, fontSize: 13, textAlign: 'center' },
-  recHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
-  recHeaderMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  kebab: { padding: 6 },
-  rowKebab: { padding: 2, marginLeft: 2 },
+  manageBtn: {
+    marginTop: 10, height: 44, paddingHorizontal: 20, borderRadius: 12,
+    borderWidth: 1, borderColor: color.accent, alignItems: 'center', justifyContent: 'center',
+  },
+  manageBtnText: { color: color.accent, fontSize: 14, fontWeight: '700' },
+  recHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
   recName: { color: color.text, fontSize: 20, fontWeight: '700' },
   recMeta: { color: color.textMuted, fontSize: 12, marginTop: 2 },
   switchWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -426,15 +380,14 @@ const styles = StyleSheet.create({
   },
   checkOn: { borderColor: color.accent, backgroundColor: color.accent },
   checkMark: { color: color.accentInk, fontSize: 12, fontWeight: '900', lineHeight: 14 },
-  rowDate: { color: color.text, fontSize: 16, fontWeight: '700' },
-  rowMeta: { color: color.textMuted, fontSize: 12, marginTop: 2 },
+  rowDate: { color: color.text, fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
   dnf: { color: color.warn, fontSize: 12, fontWeight: '800' },
   deltaDown: { color: color.ok, fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   deltaUp: { color: color.stop, fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   pbBadge: { backgroundColor: color.ok, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   pbBadgeText: { color: color.okInk, fontWeight: '800', fontSize: 11 },
   rowTotal: {
-    color: color.text, fontSize: 22, fontWeight: '700',
+    color: color.text, fontSize: 20, fontWeight: '700',
     fontFamily: font.mono, fontVariant: ['tabular-nums'],
   },
   detail: {
@@ -450,42 +403,21 @@ const styles = StyleSheet.create({
   },
   segChipLabel: { color: color.textMuted, fontSize: 9 },
   segChipVal: { color: color.text, fontSize: 13, marginTop: 2, fontFamily: font.mono, fontVariant: ['tabular-nums'] },
-  delMini: {
-    alignSelf: 'flex-start', borderWidth: 1, borderColor: color.stop,
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
-  },
-  delMiniText: { color: color.stop, fontSize: 12, fontWeight: '700' },
+  delMini: { alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 2 },
+  delMiniText: { color: color.textMuted, fontSize: 12, fontWeight: '600' },
   actions: { flexDirection: 'row', gap: 10 },
   compareBtn: {
     flex: 1, height: 48, borderRadius: 14, backgroundColor: color.accent,
     alignItems: 'center', justifyContent: 'center',
   },
   compareText: { color: color.accentInk, fontSize: 15, fontWeight: '800' },
-  exportBtn: {
-    flex: 1, height: 48, borderRadius: 14, backgroundColor: color.surface2,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  exportText: { color: color.text, fontSize: 15, fontWeight: '700' },
   btnDisabled: { opacity: 0.4 },
-  modalBack: { flex: 1, backgroundColor: 'rgba(2,10,18,0.72)', justifyContent: 'center', padding: 20 },
+  modalBack: { flex: 1, backgroundColor: 'rgba(4,12,20,0.72)', justifyContent: 'center', padding: 20 },
   modalCard: {
     backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
     borderRadius: radius.card, padding: 16, gap: 8, maxHeight: '88%',
   },
-  pickerCard: {
-    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-    borderRadius: radius.card, padding: 16, gap: 8, maxHeight: '80%',
-  },
   modalTitle: { color: color.text, fontSize: 17, fontWeight: '800', marginBottom: 4 },
-  pickRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: color.surface2, borderWidth: 1, borderColor: color.line,
-    borderRadius: 12, padding: 10, marginBottom: 8,
-  },
-  pickRowOn: { borderColor: color.accent },
-  pickName: { color: color.text, fontSize: 16, fontWeight: '700' },
-  pickMeta: { color: color.textMuted, fontSize: 12, marginTop: 2 },
-  pickChk: { color: color.accent, fontWeight: '900', fontSize: 16 },
   cmpRow: { flexDirection: 'row', gap: 6, borderBottomWidth: 1, borderBottomColor: color.line, paddingVertical: 6 },
   cmpCell: {
     flex: 1, color: color.text, fontSize: 12, textAlign: 'right',

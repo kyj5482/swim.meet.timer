@@ -38,6 +38,7 @@
 | T-115 | USA Swimming 표준 전체 임포터(tools/standards-import) + 코스(SCY/SCM/LCM) 차원 | done(실데이터 생성은 Mac에서 임포터 1회 실행) |
 | T-116 | UI 재구성: 탭 = 타이머·전체 종목·세부 종목, 표준 레벨 축 차트(myswimio 방식) | done |
 | T-117 | 전체 종목: 쇼트/롱 코스 섹션 + PB·최근 수영 날짜 + 설정 목표 진행률 | done |
+| T-118 | UX 피드백 라운드: 색상 재설계·영어 단일화·볼륨LAP 제거·저장 Undo/OK·차트 확대·챔피언십 사다리·USA ID | done |
 
 ## Phase 3 — AI 코치 구독 (`tickets/phase-3.md`)
 | ID | 제목 | 상태 |

@@ -1,67 +1,32 @@
 import { useFocusEffect } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { useCallback, useState } from 'react';
-import {
-  Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View,
-} from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import Avatar from '@/components/Avatar';
 import { ChevronRight } from '@/components/Icons';
+import SwimmerFormModal from '@/components/SwimmerFormModal';
 import { addSwimmer, ageOf, archiveSwimmer, listSwimmers, updateSwimmer, type Swimmer } from '@/db';
+import { officialTimesUrl } from '@/features/records/officialTimes';
 import { useT } from '@/store/settings';
 import { color, radius } from '@/theme';
-
-const BASE_YEAR = 2026;
 
 type Editing = { swimmer: Swimmer | null }; // null swimmer = 신규 추가
 
 /**
  * 선수 관리 화면(스택 라우트 — 전체 종목 탭의 '선수 관리'에서 진입).
- * 아바타 카드 목록 + 추가/편집 모달. 삭제는 아카이브(기록 보존).
- * 자주 바뀌지 않는 정보라 탭에서 내렸다(탭은 Timer·전체 종목·세부 종목).
+ * 아바타 카드 목록 + 추가/편집 모달(SwimmerFormModal — 배정 화면과 공유).
+ * 삭제는 아카이브(기록 보존). USA Swimming ID가 있으면 공인 기록 링크 표시.
  */
 export default function AthletesScreen() {
   const [swimmers, setSwimmers] = useState<Swimmer[]>([]);
   const [editing, setEditing] = useState<Editing | null>(null);
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [group, setGroup] = useState('');
-  const [gender, setGender] = useState<'F' | 'M' | null>(null);
   const t = useT();
 
   const reload = useCallback(() => {
     void listSwimmers().then(setSwimmers);
   }, []);
   useFocusEffect(reload);
-
-  function openAdd() {
-    setName(''); setAge(''); setGroup(''); setGender(null);
-    setEditing({ swimmer: null });
-  }
-  function openEdit(s: Swimmer) {
-    setName(s.name);
-    const a = ageOf(s);
-    setAge(a != null ? String(a) : '');
-    setGroup(s.group ?? '');
-    setGender(s.gender ?? null);
-    setEditing({ swimmer: s });
-  }
-
-  const save = useCallback(() => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const ageN = parseInt(age, 10);
-    const birthYear = Number.isFinite(ageN) && ageN > 0 ? BASE_YEAR - ageN : undefined;
-    const grp = group.trim() || undefined;
-    void (async () => {
-      if (editing?.swimmer) {
-        await updateSwimmer(editing.swimmer.id, { name: trimmed, group: grp ?? null, birthYear: birthYear ?? null, gender: gender ?? null });
-      } else {
-        await addSwimmer(trimmed, grp, birthYear, gender ?? undefined);
-      }
-      setEditing(null);
-      reload();
-    })();
-  }, [name, age, group, gender, editing, reload]);
 
   const onArchive = useCallback((s: Swimmer) => {
     Alert.alert(t.delSwTitle(s.name), t.delSwMsg, [
@@ -78,7 +43,7 @@ export default function AthletesScreen() {
   return (
     <View style={styles.screen}>
       <View style={[styles.body, { paddingTop: 12 }]}>
-        <Pressable style={styles.addBtn} onPress={openAdd}>
+        <Pressable style={styles.addBtn} onPress={() => setEditing({ swimmer: null })}>
           <Text style={styles.addBtnText}>{`＋ ${t.addSw}`}</Text>
         </Pressable>
         <FlatList
@@ -87,11 +52,16 @@ export default function AthletesScreen() {
           contentContainerStyle={{ gap: 8, paddingBottom: 16 }}
           ListEmptyComponent={<Text style={styles.empty}>{t.athEmpty}</Text>}
           renderItem={({ item, index }) => (
-            <Pressable style={styles.card} onPress={() => openEdit(item)}>
+            <Pressable style={styles.card} onPress={() => setEditing({ swimmer: item })}>
               <Avatar name={item.name} index={index} size={48} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.meta}>{metaLine(item)}</Text>
+                {item.usaId && (
+                  <Pressable hitSlop={6} onPress={() => void Linking.openURL(officialTimesUrl(item.usaId!))}>
+                    <Text style={styles.official}>{`${t.officialTimes} ↗`}</Text>
+                  </Pressable>
+                )}
               </View>
               <ChevronRight color={color.textMuted} />
             </Pressable>
@@ -99,53 +69,26 @@ export default function AthletesScreen() {
         />
       </View>
 
-      <Modal visible={editing != null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
-        <Pressable style={styles.modalBack} onPress={() => setEditing(null)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>{editing?.swimmer ? t.editSw : t.addSw}</Text>
-            <Text style={styles.fieldLabel}>{t.lName}</Text>
-            <TextInput
-              style={styles.input} value={name} onChangeText={setName}
-              placeholder={t.namePH} placeholderTextColor={color.textMuted} autoFocus={!editing?.swimmer}
-            />
-            <View style={styles.rowFields}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.fieldLabel}>{t.lAge}</Text>
-                <TextInput
-                  style={styles.input} value={age} onChangeText={setAge}
-                  placeholder="12" placeholderTextColor={color.textMuted} keyboardType="number-pad" maxLength={2}
-                />
-              </View>
-              <View style={{ flex: 2 }}>
-                <Text style={styles.fieldLabel}>{t.lGroup}</Text>
-                <TextInput
-                  style={styles.input} value={group} onChangeText={setGroup}
-                  placeholder={t.groupPH} placeholderTextColor={color.textMuted}
-                />
-              </View>
-            </View>
-            <Text style={styles.fieldLabel}>{t.lGender}</Text>
-            <View style={styles.genderRow}>
-              {([['F', t.female], ['M', t.male]] as const).map(([g, lbl]) => (
-                <Pressable
-                  key={g}
-                  style={[styles.genderBtn, gender === g && styles.genderOn]}
-                  onPress={() => setGender(gender === g ? null : g)}>
-                  <Text style={[styles.genderText, gender === g && styles.genderTextOn]}>{lbl}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Pressable style={[styles.saveBtn, !name.trim() && styles.btnDisabled]} disabled={!name.trim()} onPress={save}>
-              <Text style={styles.saveText}>{t.save}</Text>
-            </Pressable>
-            {editing?.swimmer && (
-              <Pressable style={styles.delBtn} onPress={() => onArchive(editing.swimmer!)}>
-                <Text style={styles.delText}>{t.deleteSw}</Text>
-              </Pressable>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <SwimmerFormModal
+        visible={editing != null}
+        swimmer={editing?.swimmer ?? null}
+        onClose={() => setEditing(null)}
+        onSave={(fields) => {
+          void (async () => {
+            if (editing?.swimmer) {
+              await updateSwimmer(editing.swimmer.id, {
+                name: fields.name, group: fields.group ?? null, birthYear: fields.birthYear ?? null,
+                gender: fields.gender ?? null, usaId: fields.usaId ?? null,
+              });
+            } else {
+              await addSwimmer(fields);
+            }
+            setEditing(null);
+            reload();
+          })();
+        }}
+        onDelete={onArchive}
+      />
     </View>
   );
 }
@@ -165,31 +108,6 @@ const styles = StyleSheet.create({
   },
   name: { color: color.text, fontSize: 18, fontWeight: '700' },
   meta: { color: color.textMuted, fontSize: 13, marginTop: 3 },
+  official: { color: color.accent, fontSize: 12, fontWeight: '600', marginTop: 4 },
   empty: { color: color.textMuted, fontSize: 14, textAlign: 'center', marginTop: 32 },
-  modalBack: { flex: 1, backgroundColor: 'rgba(2,10,18,0.72)', justifyContent: 'center', padding: 24 },
-  modalCard: {
-    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-    borderRadius: radius.card, padding: 18, gap: 8,
-  },
-  modalTitle: { color: color.text, fontSize: 18, fontWeight: '800', marginBottom: 4 },
-  fieldLabel: { color: color.textMuted, fontSize: 13, marginTop: 4 },
-  input: {
-    height: 48, borderRadius: 12, paddingHorizontal: 14,
-    backgroundColor: color.surface2, color: color.text, fontSize: 16,
-    borderWidth: 1, borderColor: color.line,
-  },
-  rowFields: { flexDirection: 'row', gap: 10 },
-  genderRow: { flexDirection: 'row', gap: 8 },
-  genderBtn: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface2, alignItems: 'center', justifyContent: 'center' },
-  genderOn: { backgroundColor: color.accent, borderColor: color.accent },
-  genderText: { color: color.text, fontSize: 15, fontWeight: '600' },
-  genderTextOn: { color: color.accentInk, fontWeight: '800' },
-  saveBtn: { height: 50, borderRadius: 14, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-  saveText: { color: color.accentInk, fontSize: 16, fontWeight: '800' },
-  btnDisabled: { opacity: 0.4 },
-  delBtn: {
-    height: 46, borderRadius: 12, borderWidth: 1, borderColor: color.stop,
-    alignItems: 'center', justifyContent: 'center', marginTop: 4,
-  },
-  delText: { color: color.stop, fontSize: 15, fontWeight: '700' },
 });

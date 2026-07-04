@@ -7,6 +7,8 @@ export interface Swimmer {
   group?: string;
   birthYear?: number;
   gender?: 'F' | 'M';
+  /** USA Swimming 회원 ID(SWIMS) — 공인 기록 열람 링크용(myswimio). */
+  usaId?: string;
   createdAt: number;
   archived: boolean;
 }
@@ -30,7 +32,7 @@ export interface TrainingRecord {
 
 export interface SwimmerRow {
   id: string; name: string; grp: string | null; birthYear: number | null;
-  gender: string | null; createdAt: number; updatedAt: number; archived: number;
+  gender: string | null; usaId: string | null; createdAt: number; updatedAt: number; archived: number;
 }
 
 export interface RecordRow {
@@ -45,6 +47,7 @@ export function rowToSwimmer(r: SwimmerRow): Swimmer {
     id: r.id, name: r.name, group: r.grp ?? undefined,
     birthYear: r.birthYear ?? undefined,
     gender: (r.gender === 'F' || r.gender === 'M') ? r.gender : undefined,
+    usaId: r.usaId ?? undefined,
     createdAt: r.createdAt, archived: r.archived === 1,
   };
 }

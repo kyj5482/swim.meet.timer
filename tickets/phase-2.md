@@ -228,3 +228,38 @@
 - 전 워크스페이스 테스트 126개 통과(standards-import 25개로 증가).
 - **교훈**: 표준기록처럼 정확성이 중요한 데이터는 웹 요약을 "검증값"이라고
   자칭하지 말 것 — 원문 대조 전까지는 unverified로 표시해야 했다.
+
+### T-118 사용자 UX 피드백 라운드 (Event Detail · All Events · Timer · 공통)
+
+사용자 실기기 리뷰 피드백 전체 반영. 결과 요약:
+
+- **공통**: 형광 민트 → 차분한 풀 레인 블루 팔레트(MeetMobile 지향,
+  theme.ts만 수정). 한국어/언어 설정 제거(영어 단일). 볼륨키 LAP
+  기능·네이티브 모듈·플러그인 삭제(iOS 미지원으로 제품 결정). 랩 햅틱
+  Light→Heavy(짧은 탭에도 체감), 완주 시 Success 패턴. 선수에 USA
+  Swimming ID(usaId, 스키마 v4) 추가 — myswimio 공인 기록 링크.
+- **Event Detail**: 타겟 시트에서 성별 선택 제거(선수 프로필 사용, 연령그룹만
+  선택), 레벨·컷타임 중앙 정렬. 세션 행 날짜+시각 한 줄, ⋮ 메뉴/Export CSV
+  삭제(삭제는 펼친 상세 안으로). 비교 모달 닫으면 비교 모드 자동 해제.
+  Switch는 전체 종목과 동일한 SwimmerPicker 공유(선수 관리 버튼 포함),
+  선수 0명일 때도 선수 관리 버튼.
+- **Trend 차트**: 기본 뷰는 Y축 없이 여백·좌우 밸런스 개선 + 향상 가속도
+  (Accelerating/Steady/Slowing · ▼x.xx/wk) 헤더 표시, "N sessions·lower is
+  better" 제거. ⤢ 확대 → 가로 전체 화면(회전 변환), Y축에 표준 레벨
+  컷 라인+밴드로 현재 위치 표시.
+- **All Events**: 종목명 "50 Yard/Meter Free" 표기, 보조 메타 줄 삭제,
+  PB 경과일 표시 유지, "reached ✓"류 문구 제거(레벨 배지 + −x% to LEVEL만).
+  Switch 모달 선수 관리 버튼(아이콘 제거, 버튼 스타일).
+- **Timer**: 배정 화면 Add Swimmer가 선수 관리와 동일 폼(SwimmerFormModal,
+  키보드 회피 포함). Save Records → 화면 유지 + Undo/OK 오버레이, OK는 2초
+  채움 애니메이션 후 자동 확정, 결정 후에만 초기 화면 복귀. 측정 레인
+  목록 스크롤 제거(8레인까지 행 높이 분배) — 스크롤로 인한 미입력 원천 차단.
+  배정 요약(향상/PB total) 삭제.
+- **표준 사다리 확장**: championships.data.ts 신설 — Western Zones, Far
+  Western, CA/NV Sect, NCSA Senior, Futures, TYR Pro Series, Winter Juniors,
+  Junior Natl, Toyota Nationals, NCAA D1 A (SCY 남녀 12종목). ⚠️ 이 값들은
+  이 환경에서 원문 PDF 검증을 못 한 **시드값(unverified)** — 파일 상단
+  주석에 명시, 실사용 전 각 대회 공식 스탠더드와 대조 필요(T-115 교훈 준수).
+  200 IM처럼 모티베이셔널 데이터가 빈 종목도 챔피언십 컷으로 레벨이 뜬다
+  (모티베이셔널 전체 데이터는 여전히 Mac에서 임포터 실행 필요).
+- 전 워크스페이스 테스트 통과(신규: standards.test.ts 5개, csv.test.ts 개편).

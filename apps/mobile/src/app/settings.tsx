@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
+  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
 
 import { checkHealth } from '@/api/client';
@@ -13,7 +13,7 @@ import { color, radius } from '@/theme';
 const COURSES = ['25y', '25m', '50m'] as const;
 type ConnState = 'idle' | 'checking' | 'ok' | 'fail';
 
-/** 설정 모달: 언어 · 코스 · 햅틱 · 볼륨 키 LAP(Android) · 백엔드 동기화 · 데모 데이터. */
+/** 설정 모달: 코스 · 햅틱 · 백엔드 동기화 · 데모 데이터. */
 export default function SettingsScreen() {
   const s = useSettings();
   const t = useT();
@@ -67,21 +67,6 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {/* 언어 */}
-      <Text style={styles.label}>{t.lang}</Text>
-      <View style={styles.segRow}>
-        {(['en', 'ko'] as const).map((l) => (
-          <Pressable
-            key={l}
-            style={[styles.segBtn, s.lang === l && styles.segOn]}
-            onPress={() => setSettings({ lang: l })}>
-            <Text style={[styles.segText, s.lang === l && styles.segTextOn]}>
-              {l === 'en' ? 'English' : '한국어'}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
       {/* 코스 단위 (다니는 풀) */}
       <Text style={styles.label}>{t.courseUnit}</Text>
       <View style={styles.segRow}>
@@ -107,24 +92,6 @@ export default function SettingsScreen() {
           trackColor={{ true: color.accent, false: color.line }}
           thumbColor="#fff"
         />
-      </View>
-
-      {/* 볼륨 키 LAP */}
-      <View style={styles.rowCard}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.rowTitle}>{t.volumeLap}</Text>
-          <Text style={styles.rowSub}>
-            {Platform.OS === 'ios' ? t.volumeLapIos : t.volumeLapSub}
-          </Text>
-        </View>
-        {Platform.OS !== 'ios' && (
-          <Switch
-            value={s.volumeLap}
-            onValueChange={(v) => setSettings({ volumeLap: v })}
-            trackColor={{ true: color.accent, false: color.line }}
-            thumbColor="#fff"
-          />
-        )}
       </View>
 
       {/* 백엔드 동기화 */}

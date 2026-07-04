@@ -1,15 +1,22 @@
 import type { LadderStep } from '@splitlane/timer-core';
 
+import { CHAMP_LABEL, CHAMP_LEVELS, CHAMPS, type ChampLevel } from './championships.data';
 import { MOTIVATIONAL } from './standards.data';
 
 /**
  * 표준기록 조회. 데이터는 standards.data.ts(임포터 생성물,
- * tools/standards-import) — 코스×성별×연령그룹×종목 → 레벨별 컷타임(ms).
+ * tools/standards-import) + championships.data.ts(챔피언십 미트 컷) —
+ * 코스×성별×(연령그룹)×종목 → 레벨별 컷타임(ms).
  * 값이 없는 조합은 null을 돌려주고 UI는 해당 선택지를 숨긴다.
  */
 export type Gender = 'F' | 'M';
-export type Level = 'B' | 'BB' | 'A' | 'AA' | 'AAA' | 'AAAA';
+export type Level = 'B' | 'BB' | 'A' | 'AA' | 'AAA' | 'AAAA' | ChampLevel;
 export const LEVELS: Level[] = ['B', 'BB', 'A', 'AA', 'AAA', 'AAAA'];
+
+/** 레벨 표시 이름 — 모티베이셔널은 코드 그대로, 챔피언십은 대회명. */
+export function levelLabel(level: string): string {
+  return (CHAMP_LABEL as Record<string, string>)[level] ?? level;
+}
 
 /** 표준기록 코스 표기. 앱 설정 코스('25y'|'25m'|'50m') → SCY/SCM/LCM. */
 export type StdCourse = 'SCY' | 'SCM' | 'LCM';
@@ -42,17 +49,39 @@ function times(course: StdCourse, gender: Gender, ag: AgeGroup, stroke: string, 
   return MOTIVATIONAL[course]?.[gender]?.[ag]?.[eventCode(stroke, distance)] ?? null;
 }
 
-/** 연령그룹 문자열로 직접 조회(타겟 시트에서 사용자가 그룹을 고를 때). */
+/** 챔피언십 미트 컷(연령 무관 사다리 상단) — 없으면 빈 배열. */
+export function championshipSteps(
+  course: StdCourse, gender: Gender, stroke: string, distance: number,
+): LadderStep[] {
+  const t = CHAMPS[course]?.[gender]?.[eventCode(stroke, distance)];
+  if (!t) return [];
+  const steps: LadderStep[] = [];
+  for (const level of CHAMP_LEVELS) {
+    const ms = t[level];
+    if (ms != null) steps.push({ level, timeMs: ms });
+  }
+  return steps;
+}
+
+/**
+ * 연령그룹 문자열로 직접 조회(타겟 시트에서 사용자가 그룹을 고를 때).
+ * 모티베이셔널(B~AAAA) 위에 챔피언십 컷(Western Zones…NCAA D1 A)을 이어 붙여
+ * 선수가 다음 단계 목표를 끊김 없이 볼 수 있게 한다.
+ */
 export function standardLadderForGroup(
   course: StdCourse, gender: Gender, ag: AgeGroup, stroke: string, distance: number,
 ): LadderStep[] | null {
   const t = times(course, gender, ag, stroke, distance);
-  if (!t) return null;
   const steps: LadderStep[] = [];
-  for (const level of LEVELS) {
-    const ms = t[level];
-    if (ms != null) steps.push({ level, timeMs: ms });
+  if (t) {
+    for (const level of LEVELS) {
+      const ms = t[level];
+      if (ms != null) steps.push({ level, timeMs: ms });
+    }
   }
+  // 챔피언십 컷을 함께 반환 — 시간 정렬은 소비자(ladderPosition/차트)가 하므로
+  // 연령그룹에 따라 모티베이셔널 레벨 사이에 자연스럽게 끼어든다.
+  steps.push(...championshipSteps(course, gender, stroke, distance));
   return steps.length > 0 ? steps : null;
 }
 

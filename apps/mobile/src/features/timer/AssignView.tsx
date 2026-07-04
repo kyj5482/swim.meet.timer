@@ -1,8 +1,10 @@
 import { useMemo, useReducer, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import Select from '@/components/Select';
+import SwimmerFormModal from '@/components/SwimmerFormModal';
 import type { Swimmer } from '@/db';
+import type { SwimmerFields } from '@/db/swimmers';
 import { useT } from '@/store/settings';
 import { color, font, laneColor as laneCol, radius } from '@/theme';
 import {
@@ -18,15 +20,14 @@ interface Props {
   unit: string;
   onSave: () => void;
   onAgain: () => void;
-  /** 배정 중 새 선수 추가 → id 반환(추가한 선수를 현재 슬롯에 배정) */
-  onAddSwimmer: (name: string) => Promise<string>;
+  /** 배정 중 새 선수 추가(선수 관리와 동일 폼) → id 반환(현재 슬롯에 배정) */
+  onAddSwimmer: (fields: SwimmerFields) => Promise<string>;
 }
 
 /** 측정 후 배정 화면 (§3.6): 추천 → 저신뢰 맞바꾸기 → 향상/PB → 저장. PWA 레이아웃. */
 export default function AssignView({ slots, swimmers, stats, splitInterval, unit, onSave, onAgain, onAddSwimmer }: Props) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const [addOpen, setAddOpen] = useState(false);
-  const [newName, setNewName] = useState('');
   const t = useT();
 
   const statsOf = (swimmerId: string | null) =>
@@ -36,25 +37,9 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
     recommend(slots, stats);
   }, [slots, stats]);
 
-  const summary = useMemo(() => {
-    let improved = 0, pb = 0;
-    for (const s of slots) {
-      const st = statsOf(s.swimmerId);
-      if (!st) continue;
-      const imp = improvement(s.lastCumMs, st);
-      if (imp.kind === 'improved') improved++;
-      if (imp.isPB) pb++;
-    }
-    return { improved, pb, total: slots.length };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slots, stats]);
-
-  async function submitAdd() {
-    const name = newName.trim();
-    if (!name) return;
-    setNewName('');
+  async function submitAdd(fields: SwimmerFields) {
     setAddOpen(false);
-    const id = await onAddSwimmer(name);
+    const id = await onAddSwimmer(fields);
     // 방금 추가한 선수를 아직 배정 안 된 첫 슬롯에 배정
     const target = slots.find((s) => !s.swimmerId) ?? slots[0];
     if (target) target.swimmerId = id;
@@ -65,13 +50,6 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
     <View style={styles.screen}>
       <Text style={styles.title}>{t.aTitle}</Text>
       <Text style={styles.lead}>{t.aLead}</Text>
-
-      {/* 요약 헤드라인 (PWA .summary) */}
-      <View style={styles.summary}>
-        <Text style={styles.sumItem}>🎉 <Text style={styles.sumNum}>{summary.improved}</Text> {t.improvedWord}</Text>
-        <Text style={styles.sumItem}>🏅 <Text style={styles.sumNum}>{summary.pb}</Text> {t.pbShort}</Text>
-        <Text style={styles.sumItem}><Text style={styles.sumNum}>{summary.total}</Text> {t.totalWord}</Text>
-      </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingBottom: 8 }}>
         {slots.map((s) => {
@@ -174,26 +152,13 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
         <Text style={styles.againText}>{t.again}</Text>
       </Pressable>
 
-      <Modal visible={addOpen} transparent animationType="fade" onRequestClose={() => setAddOpen(false)}>
-        <Pressable style={styles.modalBack} onPress={() => setAddOpen(false)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>{t.addSw}</Text>
-            <TextInput
-              style={styles.input}
-              value={newName}
-              onChangeText={setNewName}
-              placeholder={t.namePH}
-              placeholderTextColor={color.textMuted}
-              autoFocus
-              onSubmitEditing={submitAdd}
-              returnKeyType="done"
-            />
-            <Pressable style={styles.modalAdd} onPress={submitAdd}>
-              <Text style={styles.modalAddText}>{t.add}</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* 선수 추가 — 선수 관리와 동일한 폼 화면 */}
+      <SwimmerFormModal
+        visible={addOpen}
+        swimmer={null}
+        onClose={() => setAddOpen(false)}
+        onSave={(fields) => void submitAdd(fields)}
+      />
     </View>
   );
 }
@@ -201,14 +166,7 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg, paddingHorizontal: 16, paddingBottom: 14, gap: 8 },
   title: { color: color.text, fontSize: 20, fontWeight: '800' },
-  lead: { color: color.textMuted, fontSize: 12 },
-  summary: {
-    flexDirection: 'row', gap: 16, alignItems: 'center',
-    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-    borderRadius: radius.card, paddingHorizontal: 16, paddingVertical: 12, marginTop: 4,
-  },
-  sumItem: { color: color.text, fontSize: 14 },
-  sumNum: { color: color.accent, fontSize: 18, fontWeight: '800' },
+  lead: { color: color.textMuted, fontSize: 12, marginBottom: 4 },
   card: {
     flexDirection: 'row', backgroundColor: color.surface,
     borderWidth: 1, borderColor: color.line, borderRadius: radius.card, overflow: 'hidden',
@@ -272,17 +230,4 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   againText: { color: color.text, fontSize: 15, fontWeight: '700' },
-  modalBack: { flex: 1, backgroundColor: 'rgba(2,10,18,0.72)', justifyContent: 'center', padding: 28 },
-  modalCard: {
-    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
-    borderRadius: radius.card, padding: 16, gap: 10,
-  },
-  modalTitle: { color: color.text, fontSize: 17, fontWeight: '700' },
-  input: {
-    height: 48, borderRadius: 12, paddingHorizontal: 14,
-    backgroundColor: color.surface2, color: color.text, fontSize: 16,
-    borderWidth: 1, borderColor: color.line,
-  },
-  modalAdd: { height: 48, borderRadius: 12, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center' },
-  modalAddText: { color: color.accentInk, fontSize: 16, fontWeight: '800' },
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TrainingRecord } from '../../db/mapping';
-import { eventKeyOf, eventLabel, recordsToCsv } from './csv';
+import { eventKeyOf, eventLabel, eventName } from './csv';
 
 function rec(over: Partial<TrainingRecord>): TrainingRecord {
   return {
@@ -14,25 +14,15 @@ function rec(over: Partial<TrainingRecord>): TrainingRecord {
   };
 }
 
-describe('CSV 내보내기', () => {
-  it('헤더 + 스플릿 평면화 + 1/100초·ms 병기', () => {
-    const csv = recordsToCsv('Minjun', [rec({})]);
-    const [header, row] = csv.split('\n');
-    expect(header).toBe('swimmer,date,stroke,distance,course,status,total,totalMs,split1,split2');
-    expect(row).toBe('Minjun,2026-07-01,free,100,25y,finished,01:02.34,62340,30.00,32.34');
-  });
-  it('쉼표·따옴표 이스케이프, 날짜순 정렬', () => {
-    const a = rec({ id: 'a', date: Date.UTC(2026, 6, 2), splits: [] , totalMs: 60_000 });
-    const b = rec({ id: 'b', date: Date.UTC(2026, 6, 1) });
-    const csv = recordsToCsv('Kim, "MJ"', [a, b]);
-    const rows = csv.split('\n');
-    expect(rows[1]).toContain('2026-07-01');
-    expect(rows[2]).toContain('2026-07-02');
-    expect(rows[1]!.startsWith('"Kim, ""MJ"""')).toBe(true);
-  });
+describe('종목 라벨', () => {
   it('종목 라벨/키', () => {
     const t = rec({}).target;
     expect(eventLabel(t)).toBe('100 Free · 25 Yard');
     expect(eventKeyOf(t)).toBe('100|free|25y');
+  });
+  it('미트 표기 종목 이름 — 코스 단위 포함', () => {
+    expect(eventName(rec({}).target)).toBe('100 Yard Free');
+    expect(eventName({ stroke: 'free', distance: 50, course: '25m', splitInterval: 25 })).toBe('50 Meter Free');
+    expect(eventName({ stroke: 'im', distance: 200, course: '50m', splitInterval: 50 })).toBe('200 Meter IM');
   });
 });
