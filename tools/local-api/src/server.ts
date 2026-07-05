@@ -91,6 +91,9 @@ app.get('/v1/standards', (req, res) => void invoke(standardsHandler, req, res));
 app.get('/v1/standards/clubs/:clubId/groups', (req, res) => void invoke(standardsHandler, req, res));
 app.put('/v1/records/batch', (req, res) => void invoke(recordsHandler, req, res));
 app.get('/v1/records', (req, res) => void invoke(recordsHandler, req, res));
+// 이스터 에그 게임 리더보드 (api-spec §game) — records 핸들러가 rawPath로 라우팅
+app.put('/v1/game/scores', (req, res) => void invoke(recordsHandler, req, res));
+app.get('/v1/game/leaderboard', (req, res) => void invoke(recordsHandler, req, res));
 
 // ── 인증(로컬 대체) — 앱 Sign in이 호출. 성공/실패가 위 로깅 미들웨어에 남는다 ──
 app.post('/v1/auth/login', (req, res) => {

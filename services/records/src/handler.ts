@@ -4,6 +4,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyHandlerV2 } from 'aws-lambd
 import {
   claimsOf, correlationIdOf, docClient, fail, HttpError, makeLogger, ok, withCorrelation,
 } from '@splitlane/svc-shared';
+import { getGameLeaderboard, putGameScore } from './game.js';
 import { batchSchema, recPk, recSk } from './model.js';
 
 const logger = makeLogger('records');
@@ -12,6 +13,7 @@ const TABLE = process.env.RECORDS_TABLE ?? '';
 /**
  * PUT  /records/batch   기록 멱등 업서트(클라 UUID PK). last-write-wins.
  * GET  /records?swimmerId=&since=   델타 동기화(tombstone 포함).
+ * PUT  /game/scores · GET /game/leaderboard   이스터 에그 리더보드(api-spec §game).
  */
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const e = event as APIGatewayProxyEventV2;
@@ -20,6 +22,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   try {
     claimsOf(e); // 인증 확인(소유권은 Relation 검사 — 후속 T-206)
     const method = e.requestContext.http.method;
+    const path = e.rawPath ?? '';
+    if (path.includes('/game/scores') && method === 'PUT') return await putGameScore(e, cid);
+    if (path.includes('/game/leaderboard') && method === 'GET') return await getGameLeaderboard(e, cid);
     if (method === 'PUT') return await upsert(e, cid, log);
     if (method === 'GET') return await list(e, cid, log);
     return fail('VALIDATION', `unsupported method ${method}`, cid);

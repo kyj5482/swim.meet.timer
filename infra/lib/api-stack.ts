@@ -79,5 +79,14 @@ export class ApiStack extends Stack {
       path: '/v1/records', methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration('RecGet', recordsFn),
     });
+    // 이스터 에그 게임 리더보드(api-spec §game) — records 핸들러가 서빙, 인증 필요
+    api.addRoutes({
+      path: '/v1/game/scores', methods: [HttpMethod.PUT],
+      integration: new HttpLambdaIntegration('GameScorePut', recordsFn),
+    });
+    api.addRoutes({
+      path: '/v1/game/leaderboard', methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration('GameBoardGet', recordsFn),
+    });
   }
 }
