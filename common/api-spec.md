@@ -43,6 +43,17 @@
 - `POST /coach/session-review` body `{ sessionId }` → 1줄 리뷰 + 다음 포커스
 - `GET /coach/report/weekly/{swimmerId}`
 
+## game (`/game`) — 이스터 에그 리더보드 (records 서비스가 서빙)
+- `PUT /game/scores` body `{ scoreId(UUID), stroke, distance, courseUnit:'y'|'m',
+  timeMs, character }` → `{ ok: true, bestMs }` — 멱등. 사용자당
+  `(stroke,distance,courseUnit)` 이벤트별 **베스트만 유지**(더 느리면 no-op).
+- `GET /game/leaderboard?stroke=&distance=&courseUnit=` →
+  `{ items: [{ rank, displayName, character, timeMs, badge }] (top 10),
+     me?: { rank, total, percentile, badge, timeMs } }`
+- 배지: 상위 백분위 사다리 — AAAA≤1%, AAA≤5%, AA≤15%, A≤30%, BB≤50%, 그 외 B.
+  (동률은 같은 rank, percentile = rank/total*100.)
+- 인증 필요(비로그인 게임은 로컬 결과만 표시). 기획: `docs/09-sharks-game.md`.
+
 ## market (`/market`) — Phase 4
 - `GET /market/coaches`, `POST /market/packages`(정체 데이터+영상 전달),
   `POST /market/orders`(Stripe Connect)
