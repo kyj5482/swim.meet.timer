@@ -3,6 +3,15 @@
 기획 원본: `docs/09-sharks-game.md`. 모든 티켓은 그 문서의 규칙을 따른다.
 상태는 `tickets/README.md` 보드와 함께 갱신.
 
+## 결과 요약 (2026-07-05, 전 티켓 done)
+- 게임: `apps/mobile/src/features/game/game.html`(소스) → `npm run build:game`으로
+  `gameHtml.ts` 재생성. playwright 봇으로 free25/breast50/fly100+보스/back100+보스/
+  im200 **완주 검증**(상어 대피·보스·스프린트·결과·리더보드 주입 포함), 콘솔 에러 0.
+- 공정성 수정: 상어 경보 중 생물 산개+스폰 정지, 경보 중 전진 정지(짧은 거리도
+  이벤트 완결), 보스/스프린트 전환은 상어 이벤트 종료 후.
+- 검증: mobile 71 · records 18 · local-api 23 · timer-core 41 테스트 그린,
+  전 워크스페이스 tsc 클린. 잔여: 실기기(Expo Go) 터치 QA, AWS 배포 후 실서버 e2e.
+
 ## T-122 — 기획 문서 + 티켓 + API 계약
 - 범위: `docs/09-sharks-game.md`(씬·조작·장애물·상어·보스·배지·테마·캐릭터),
   이 파일, README 보드, `common/api-spec.md` §game 추가.

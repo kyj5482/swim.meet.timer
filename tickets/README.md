@@ -56,12 +56,12 @@
 ## Phase G — 이스터 에그 웹 게임 (`tickets/phase-game.md`)
 | ID | 제목 | 상태 |
 | --- | --- | --- |
-| T-122 | Sharks 게임 기획 문서 + 티켓 + API 계약 | in-progress |
-| T-123 | 게임 본체(단일 HTML5 캔버스, 씬·장애물·상어·보스·스프린트) | todo |
-| T-124 | 이스터 에그(1/100 더블숫자) + 웹뷰 연동 | todo |
-| T-125 | 게임 리더보드 API(records) + 백분위 배지 | todo |
-| T-126 | 게임 결과 제출 + 배지 UI 연동 | todo |
-| T-127 | 퀄리티 라운드(Pet Runner 바) + 검증 | todo |
+| T-122 | Sharks 게임 기획 문서 + 티켓 + API 계약 | done |
+| T-123 | 게임 본체(단일 HTML5 캔버스, 씬·장애물·상어·보스·스프린트) | done |
+| T-124 | 이스터 에그(1/100 더블숫자) + 웹뷰 연동 | done |
+| T-125 | 게임 리더보드 API(records) + 백분위 배지 | done |
+| T-126 | 게임 결과 제출 + 배지 UI 연동 | done |
+| T-127 | 퀄리티 라운드(Pet Runner 바) + 검증 | done(실기기 QA 잔여) |
 
 ## Phase 4 — 마켓플레이스·운영 (`tickets/phase-4.md`)
 | ID | 제목 | 상태 |
