@@ -42,7 +42,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:game": "node scripts/build-game.js"
   },
   "private": true
 }
