@@ -184,6 +184,8 @@ export default function TimerScreen() {
         stats={assignData.stats}
         splitInterval={config.splitInterval}
         unit={courseUnit(config.course)}
+        stroke={config.stroke}
+        distance={config.distance}
         onAgain={() => setView('setup')}
         onSave={onSave}
         onAddSwimmer={async (fields) => {

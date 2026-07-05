@@ -56,6 +56,7 @@ export const strings = {
   savedToast: (n: number) => `${n} ${n === 1 ? 'record' : 'records'} saved`,
   undoBtn: 'Undo', okBtn: 'OK',
   undone: 'Save undone',
+  sharksBtn: '🦈 Sharks in the Water!',
 
   // records
   sessions: 'Sessions', compareSplits: 'Compare Splits',

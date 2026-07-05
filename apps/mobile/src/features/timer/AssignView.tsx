@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useMemo, useReducer, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -5,6 +6,7 @@ import Select from '@/components/Select';
 import SwimmerFormModal from '@/components/SwimmerFormModal';
 import type { Swimmer } from '@/db';
 import type { SwimmerFields } from '@/db/swimmers';
+import { sharksEggActive } from '@/features/game/sharksEgg';
 import { useT } from '@/store/settings';
 import { color, font, laneColor as laneCol, radius } from '@/theme';
 import {
@@ -18,6 +20,9 @@ interface Props {
   stats: CandidateStats[];
   splitInterval: number;
   unit: string;
+  /** 이스터 에그 게임에 그대로 전달되는 이벤트 설정 (docs/09 §1) */
+  stroke: string;
+  distance: number;
   onSave: () => void;
   onAgain: () => void;
   /** 배정 중 새 선수 추가(선수 관리와 동일 폼) → id 반환(현재 슬롯에 배정) */
@@ -25,10 +30,14 @@ interface Props {
 }
 
 /** 측정 후 배정 화면 (§3.6): 추천 → 저신뢰 맞바꾸기 → 향상/PB → 저장. PWA 레이아웃. */
-export default function AssignView({ slots, swimmers, stats, splitInterval, unit, onSave, onAgain, onAddSwimmer }: Props) {
+export default function AssignView({ slots, swimmers, stats, splitInterval, unit, stroke, distance, onSave, onAgain, onAddSwimmer }: Props) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const [addOpen, setAddOpen] = useState(false);
   const t = useT();
+  const router = useRouter();
+
+  // 이스터 에그: 어떤 기록이든 1/100초 두 자리가 더블 숫자(.00/.11/…)면 활성화
+  const sharksEgg = useMemo(() => sharksEggActive(slots.map((s) => s.lastCumMs)), [slots]);
 
   const statsOf = (swimmerId: string | null) =>
     swimmerId ? stats.find((c) => c.swimmerId === swimmerId) ?? null : null;
@@ -143,6 +152,17 @@ export default function AssignView({ slots, swimmers, stats, splitInterval, unit
         <Pressable style={styles.addBtn} onPress={() => setAddOpen(true)}>
           <Text style={styles.addBtnText}>{`＋ ${t.addSw}`}</Text>
         </Pressable>
+
+        {/* 이스터 에그 (docs/09-sharks-game.md) — Add Swimmer 바로 아래 */}
+        {sharksEgg && (
+          <Pressable
+            style={({ pressed }) => [styles.sharksBtn, pressed && styles.sharksPressed]}
+            onPress={() =>
+              router.push({ pathname: '/game', params: { stroke, distance: String(distance), courseUnit: unit } })
+            }>
+            <Text style={styles.sharksText}>{t.sharksBtn}</Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       {/* Save / Time Again 세로 스택 (PWA) */}
@@ -221,6 +241,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   addBtnText: { color: color.accent, fontSize: 15, fontWeight: '700' },
+  sharksBtn: {
+    height: 50, borderRadius: 12, backgroundColor: '#0b3a55',
+    borderWidth: 1, borderColor: '#2e9fd8',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sharksPressed: { transform: [{ scale: 0.98 }] },
+  sharksText: { color: '#7fdcff', fontSize: 15, fontWeight: '800' },
   saveBtn: {
     height: 56, borderRadius: radius.btn, backgroundColor: color.accent,
     alignItems: 'center', justifyContent: 'center',
